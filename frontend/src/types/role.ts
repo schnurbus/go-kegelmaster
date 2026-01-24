@@ -1,4 +1,4 @@
-export type EntityType = "roles" | "players";
+export type EntityType = "game_days" | "penalty_types" | "players" | "roles";
 export type PermissionType = "list" | "view" | "create" | "update" | "delete";
 
 export type Permission = {
@@ -32,8 +32,10 @@ export type UpdateRoleRequest = {
 // Helper function to get German label for entity type
 export function getEntityTypeLabel(entityType: EntityType): string {
   const labels: Record<EntityType, string> = {
-    roles: "Rollen",
+    game_days: "Spieltage",
+    penalty_types: "Strafarten",
     players: "Spieler",
+    roles: "Rollen",
   };
   return labels[entityType];
 }

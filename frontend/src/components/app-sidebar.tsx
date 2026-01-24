@@ -2,6 +2,7 @@ import * as React from "react"
 import {
   ArrowUpCircleIcon,
   BarChartIcon,
+  CalendarIcon,
   CameraIcon,
   ClipboardListIcon,
   DatabaseIcon,
@@ -11,7 +12,6 @@ import {
   FolderIcon,
   HelpCircleIcon,
   LayoutDashboardIcon,
-  ListIcon,
   SearchIcon,
   SettingsIcon,
   ShieldIcon,
@@ -52,9 +52,9 @@ function useDashboardData() {
         icon: LayoutDashboardIcon,
       },
       {
-        title: "Spielabende",
-        url: "#",
-        icon: ListIcon,
+        title: "Spieltage",
+        url: "/app/gamedays",
+        icon: CalendarIcon,
       },
       {
         title: "Statistiken",

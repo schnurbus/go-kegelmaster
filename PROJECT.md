@@ -41,10 +41,10 @@ Die Rollen und Berechtigungen müssen dynamisch pro Klub konfigurierbar sein. Zu
 ### 3.1 Muss-Funktionen
 - ✅ Feature 1: Multi-Tenancy (Grundlage: User-Authentifizierung)
 - ✅ Feature 2: Auswahl des Klubs (Club Switcher in Sidebar, localStorage-Persistierung)
-- ⏳ Feature 3: Anlegen von Strafen mit Gebührenwert
-- ⏳ Feature 4: Anlegen von Spielern mit Start-Saldo
-- ⏳ Feature 5: Anlegen von Spielabenden mit Datum und anwesenden Spielern
-- ⏳ Feature 6: Eintragen von Anzahl der Strafen pro Spieler und Spielabend
+- ✅ Feature 3: Anlegen von Strafen mit Gebührenwert (Penalty Types mit Display Order, Soft Delete, Replace-Mechanismus)
+- ✅ Feature 4: Anlegen von Spielern mit Start-Saldo (Player Management mit Rollen-Zuordnung)
+- ✅ Feature 5: Anlegen von Spieltagen mit Datum und Notizen (GameDay Entity mit Participants)
+- ⏳ Feature 6: Eintragen von Anzahl der Strafen pro Spieler und Spieltag (API komplett, UI-Erweiterung offen)
 - ⏳ Feature 7: Verknüpfung von Spielern und Usern
 - Feature 8: 
 
@@ -331,4 +331,40 @@ Weitere Entitäten kommen mit der Zeit dazu
 ## 12. Offene Fragen / Risiken
 -
 -
+
+
+---
+
+## Letzte Implementierung: Game Day Feature (24. Januar 2026)
+
+### Implementierte Komponenten
+
+**Backend:**
+- ✅ Datenbank-Migration 0007: `game_days`, `game_day_participants`, `game_day_fees` Tabellen
+- ✅ SQLc-Queries für alle CRUD-Operationen
+- ✅ GameDay-Package mit Entities (GameDay, GameDayParticipant, GameDayFee)
+- ✅ Repository mit vollständigen CRUD-Methoden
+- ✅ HTTP-Handlers mit Permission-Checks
+- ✅ 8 neue API-Endpoints unter `/api/clubs/:clubId/gamedays`
+- ✅ Penalty Type Snapshot-Mechanismus (speichert historische Preise/Namen)
+- ✅ Integration in Permission-System (EntityTypeGameDays)
+
+**Frontend:**
+- ✅ Routes: `/app/gamedays` und `/app/gamedays/:id`
+- ✅ Navigation: "Spieltage" Link in Sidebar
+- ✅ GameDaysPage: Liste aller Spieltage
+- ✅ GameDayDetailPage: Erstellen/Bearbeiten von Spieltagen
+
+**Technische Details:**
+- Snapshot-System bewahrt Penalty-Type-Informationen (Name, Beschreibung, Preis) zum Zeitpunkt der Eintragung
+- Hard Delete für GameDays (CASCADE zu Participants und Fees)
+- sql.NullString für optionale Felder (Notes, Description)
+- Mehrere GameDays pro Datum erlaubt
+
+**Offene Punkte:**
+- UI für Teilnehmer-Verwaltung (Add/Remove Players)
+- UI für Strafen-Eingabe (Grid: Players × Penalty Types)
+- Snapshot-Indikator im UI (zeigt historische vs. aktuelle Preise)
+- Transaktions-System für Balance-Updates
+- Repository-Tests
 

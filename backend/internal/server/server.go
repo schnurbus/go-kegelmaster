@@ -12,6 +12,7 @@ import (
 	"github.com/schnurbus/go-kegelmaster/backend/internal/auth"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/config"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/gameday"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/handlers"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/penaltytype"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/permission"
@@ -27,6 +28,7 @@ type Dependencies struct {
 	RoleRepo        *role.Repository
 	PlayerRepo      *player.Repository
 	PenaltyTypeRepo *penaltytype.Repository
+	GameDayRepo     *gameday.Repository
 	AuthService     *auth.Service
 	PermissionCheck *permission.Checker
 }
@@ -58,6 +60,9 @@ func New(cfg config.Config, deps Dependencies) *Server {
 	if deps.PermissionCheck == nil {
 		panic("permission checker dependency is required")
 	}
+	if deps.GameDayRepo == nil {
+		panic("game day repository dependency is required")
+	}
 
 	app := fiber.New()
 	app.Use(cors.New(cors.Config{
@@ -72,6 +77,7 @@ func New(cfg config.Config, deps Dependencies) *Server {
 		RoleRepo:        deps.RoleRepo,
 		PlayerRepo:      deps.PlayerRepo,
 		PenaltyTypeRepo: deps.PenaltyTypeRepo,
+		GameDayRepo:     deps.GameDayRepo,
 		AuthService:     deps.AuthService,
 		PermissionCheck: deps.PermissionCheck,
 	})
@@ -138,6 +144,20 @@ func (s *Server) registerRoutes() {
 	clubsGroup.Put("/:clubId/penalty-types/:id", s.handlers.HandleUpdatePenaltyType)
 	clubsGroup.Put("/:clubId/penalty-types/:id/display-order", s.handlers.HandleUpdatePenaltyTypeDisplayOrder)
 	clubsGroup.Delete("/:clubId/penalty-types/:id", s.handlers.HandleDeletePenaltyType)
+
+	// Game Day endpoints
+	clubsGroup.Get("/:clubId/gamedays", s.handlers.HandleGetGameDays)
+	clubsGroup.Get("/:clubId/gamedays/:id", s.handlers.HandleGetGameDay)
+	clubsGroup.Post("/:clubId/gamedays", s.handlers.HandleCreateGameDay)
+	clubsGroup.Put("/:clubId/gamedays/:id", s.handlers.HandleUpdateGameDay)
+	clubsGroup.Delete("/:clubId/gamedays/:id", s.handlers.HandleDeleteGameDay)
+
+	// Participant endpoints
+	clubsGroup.Post("/:clubId/gamedays/:id/participants", s.handlers.HandleAddParticipant)
+	clubsGroup.Delete("/:clubId/gamedays/:id/participants/:playerId", s.handlers.HandleRemoveParticipant)
+
+	// Fee endpoints
+	clubsGroup.Put("/:clubId/gamedays/:id/participants/:playerId/fees", s.handlers.HandleUpdateFees)
 }
 
 // Listen starts the HTTP server and blocks until it exits.
