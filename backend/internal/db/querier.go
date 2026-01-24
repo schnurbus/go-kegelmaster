@@ -10,19 +10,38 @@ import (
 
 type Querier interface {
 	AddRolePermission(ctx context.Context, arg AddRolePermissionParams) (RolePermission, error)
+	CheckGameDayExistsByClubAndDate(ctx context.Context, arg CheckGameDayExistsByClubAndDateParams) (bool, error)
 	CreateClub(ctx context.Context, arg CreateClubParams) (Club, error)
+	// ==================== GAME DAYS ====================
+	CreateGameDay(ctx context.Context, arg CreateGameDayParams) (GameDay, error)
+	// ==================== FEES ====================
+	CreateGameDayFee(ctx context.Context, arg CreateGameDayFeeParams) (GameDayFee, error)
+	// ==================== PARTICIPANTS ====================
+	CreateGameDayParticipant(ctx context.Context, arg CreateGameDayParticipantParams) (GameDayParticipant, error)
 	CreatePenaltyType(ctx context.Context, arg CreatePenaltyTypeParams) (PenaltyType, error)
 	CreatePlayer(ctx context.Context, arg CreatePlayerParams) (Player, error)
 	CreateRole(ctx context.Context, arg CreateRoleParams) (Role, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	DeleteAllFeesByParticipant(ctx context.Context, gameDayParticipantID string) error
+	DeleteAllParticipantsByGameDay(ctx context.Context, gameDayID string) error
 	DeleteClub(ctx context.Context, id string) error
+	DeleteGameDay(ctx context.Context, id string) error
+	DeleteGameDayFee(ctx context.Context, id string) error
+	DeleteGameDayFeeByParticipantAndType(ctx context.Context, arg DeleteGameDayFeeByParticipantAndTypeParams) error
+	DeleteGameDayParticipant(ctx context.Context, arg DeleteGameDayParticipantParams) error
 	DeletePenaltyType(ctx context.Context, arg DeletePenaltyTypeParams) error
 	DeletePlayer(ctx context.Context, id string) error
 	DeleteRole(ctx context.Context, id string) error
 	GetAllClubs(ctx context.Context) ([]Club, error)
 	GetClubByID(ctx context.Context, id string) (Club, error)
 	GetClubsByUserID(ctx context.Context, userID string) ([]Club, error)
+	GetGameDayByID(ctx context.Context, id string) (GameDay, error)
+	GetGameDayFeesByGameDay(ctx context.Context, gameDayID string) ([]GetGameDayFeesByGameDayRow, error)
+	GetGameDayFeesByParticipant(ctx context.Context, gameDayParticipantID string) ([]GameDayFee, error)
+	GetGameDayParticipants(ctx context.Context, gameDayID string) ([]GetGameDayParticipantsRow, error)
+	GetGameDaysByClubID(ctx context.Context, clubID string) ([]GameDay, error)
 	GetMaxDisplayOrderByClubID(ctx context.Context, clubID string) (interface{}, error)
+	GetParticipantByGameDayAndPlayer(ctx context.Context, arg GetParticipantByGameDayAndPlayerParams) (GameDayParticipant, error)
 	GetPenaltyTypeByID(ctx context.Context, id string) (PenaltyType, error)
 	GetPenaltyTypesByClubID(ctx context.Context, clubID string) ([]PenaltyType, error)
 	GetPlayerByID(ctx context.Context, id string) (Player, error)
@@ -36,9 +55,12 @@ type Querier interface {
 	MarkPenaltyTypeAsReplaced(ctx context.Context, arg MarkPenaltyTypeAsReplacedParams) error
 	RemoveRolePermission(ctx context.Context, arg RemoveRolePermissionParams) error
 	UpdateClub(ctx context.Context, arg UpdateClubParams) (Club, error)
+	UpdateGameDay(ctx context.Context, arg UpdateGameDayParams) (GameDay, error)
+	UpdateGameDayFee(ctx context.Context, arg UpdateGameDayFeeParams) (GameDayFee, error)
 	UpdatePenaltyTypeDisplayOrder(ctx context.Context, arg UpdatePenaltyTypeDisplayOrderParams) error
 	UpdatePlayer(ctx context.Context, arg UpdatePlayerParams) (Player, error)
 	UpdateRole(ctx context.Context, arg UpdateRoleParams) (Role, error)
+	UpsertGameDayFee(ctx context.Context, arg UpsertGameDayFeeParams) (GameDayFee, error)
 }
 
 var _ Querier = (*Queries)(nil)

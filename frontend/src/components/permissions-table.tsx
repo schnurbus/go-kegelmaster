@@ -24,7 +24,7 @@ type PermissionsTableProps = {
   onUpdate: () => void;
 };
 
-const ENTITY_TYPES: EntityType[] = ["roles", "players"];
+const ENTITY_TYPES: EntityType[] = ["roles", "players", "game_days", "penalty_types"];
 const PERMISSION_TYPES: PermissionType[] = [
   "list",
   "view",

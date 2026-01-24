@@ -8,10 +8,11 @@ import (
 type EntityType string
 
 const (
-	EntityTypeRoles       EntityType = "roles"
-	EntityTypePlayers     EntityType = "players"
-	EntityTypeGameNights  EntityType = "game_nights"
-	EntityTypePenalties   EntityType = "penalties"
+	EntityTypeRoles        EntityType = "roles"
+	EntityTypePlayers      EntityType = "players"
+	EntityTypeGameNights   EntityType = "game_nights"
+	EntityTypeGameDays     EntityType = "game_days"
+	EntityTypePenalties    EntityType = "penalties"
 	EntityTypePenaltyTypes EntityType = "penalty_types"
 )
 
@@ -21,6 +22,7 @@ func ValidEntityTypes() []EntityType {
 		EntityTypeRoles,
 		EntityTypePlayers,
 		EntityTypeGameNights,
+		EntityTypeGameDays,
 		EntityTypePenalties,
 		EntityTypePenaltyTypes,
 	}
@@ -92,4 +94,3 @@ type RoleWithPermissions struct {
 	Role        Role
 	Permissions []RolePermission
 }
-

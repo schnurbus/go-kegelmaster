@@ -12,6 +12,7 @@ import (
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/config"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/database"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/gameday"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/penaltytype"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/permission"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/player"
@@ -37,6 +38,7 @@ func main() {
 	roleRepo := role.NewRepository(db)
 	playerRepo := player.NewRepository(db)
 	penaltyTypeRepo := penaltytype.NewRepository(db)
+	gameDayRepo := gameday.NewRepository(db)
 	authSvc := auth.NewService(cfg.JWTSecret, cfg.TokenTTLMin)
 	permissionCheck := permission.NewChecker(clubRepo, roleRepo)
 
@@ -46,6 +48,7 @@ func main() {
 		RoleRepo:        roleRepo,
 		PlayerRepo:      playerRepo,
 		PenaltyTypeRepo: penaltyTypeRepo,
+		GameDayRepo:     gameDayRepo,
 		AuthService:     authSvc,
 		PermissionCheck: permissionCheck,
 	})

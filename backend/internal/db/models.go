@@ -19,6 +19,34 @@ type Club struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+type GameDay struct {
+	ID        string         `json:"id"`
+	ClubID    string         `json:"club_id"`
+	Date      time.Time      `json:"date"`
+	Notes     sql.NullString `json:"notes"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+}
+
+type GameDayFee struct {
+	ID                     string         `json:"id"`
+	GameDayParticipantID   string         `json:"game_day_participant_id"`
+	PenaltyTypeID          string         `json:"penalty_type_id"`
+	PenaltyTypeName        string         `json:"penalty_type_name"`
+	PenaltyTypeDescription sql.NullString `json:"penalty_type_description"`
+	PenaltyTypePrice       int32          `json:"penalty_type_price"`
+	Count                  int32          `json:"count"`
+	CreatedAt              time.Time      `json:"created_at"`
+	UpdatedAt              time.Time      `json:"updated_at"`
+}
+
+type GameDayParticipant struct {
+	ID        string    `json:"id"`
+	GameDayID string    `json:"game_day_id"`
+	PlayerID  string    `json:"player_id"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 type PenaltyType struct {
 	ID           string         `json:"id"`
 	ClubID       string         `json:"club_id"`
