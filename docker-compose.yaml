@@ -1,0 +1,56 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: kegelmaster-postgres
+    environment:
+      POSTGRES_USER: kegelmaster
+      POSTGRES_PASSWORD: kegelmaster
+      POSTGRES_DB: kegelmaster
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: kegelmaster-redis
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: kegelmaster-backend
+    environment:
+      APP_ENV: docker
+      BACKEND_PORT: "8080"
+      DATABASE_URL: postgres://kegelmaster:kegelmaster@postgres:5432/kegelmaster?sslmode=disable
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: super-secret-change-me
+      JWT_TTL_MINUTES: "1440"
+      CORS_ALLOW_ORIGINS: http://localhost:5173
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: kegelmaster-frontend
+    environment:
+      VITE_BACKEND_URL: http://localhost:8080
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+
+volumes:
+  pg-data:
+  redis-data:
+

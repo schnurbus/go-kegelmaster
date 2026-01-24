@@ -1,0 +1,37 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDEs and Editors
+.vscode/
+!.vscode/extensions.json
+.cursor/
+.idea/
+*.swp
+*.swo
+
+# Project wide
+tmp/
+dist/
+node_modules/
+.env
+.env.*
+!.env.example
+
+# Backend (Go)
+/backend/api
+/backend/tmp/
+/backend/coverage.out
+/backend/vendor/
+
+# Frontend (Node/Vite)
+/frontend/node_modules/
+/frontend/dist/
+/frontend/dist-ssr/
+/frontend/.eslintcache
+/frontend/npm-debug.log*
+/frontend/yarn-debug.log*
+/frontend/pnpm-debug.log*
+
+# Logs
+*.log

@@ -1,0 +1,415 @@
+import * as React from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  type ColumnDef,
+  type ColumnFiltersState,
+  type SortingState,
+  type VisibilityState,
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ChevronsLeftIcon,
+  ChevronsRightIcon,
+  EditIcon,
+  EyeIcon,
+  MoreVerticalIcon,
+  PlusIcon,
+  TrashIcon,
+} from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+
+import type { Player, Role } from "@/types/player";
+import { formatCentsToEuro } from "@/types/player";
+
+type PlayersDataTableProps = {
+  players: Player[];
+  roles: Role[];
+  onEdit: (player: Player) => void;
+  onDelete: (player: Player) => void;
+  onCreate: () => void;
+  isLoading?: boolean;
+};
+
+export function PlayersDataTable({
+  players,
+  roles,
+  onEdit,
+  onDelete,
+  onCreate,
+  isLoading = false,
+}: PlayersDataTableProps) {
+  const navigate = useNavigate();
+  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
+    []
+  );
+  const [columnVisibility, setColumnVisibility] =
+    React.useState<VisibilityState>({});
+  const [pagination, setPagination] = React.useState({
+    pageIndex: 0,
+    pageSize: 10,
+  });
+  const [roleFilter, setRoleFilter] = React.useState<string>("all");
+  const [balanceFilter, setBalanceFilter] = React.useState<string>("all");
+
+  // Helper function to get role name
+  const getRoleName = (roleId: string | null) => {
+    if (!roleId) return "Keine Rolle zugewiesen";
+    const role = roles.find((r) => r.id === roleId);
+    return role?.name || "Rolle nicht gefunden";
+  };
+
+  const columns: ColumnDef<Player>[] = [
+    {
+      accessorKey: "name",
+      header: "Name",
+      cell: ({ row }) => (
+        <div className="font-medium">{row.getValue("name")}</div>
+      ),
+    },
+    {
+      accessorKey: "role_id",
+      header: "Rolle",
+      cell: ({ row }) => {
+        const roleId = row.original.role_id;
+        const roleName = getRoleName(roleId);
+        return (
+          <Badge variant={roleId ? "outline" : "secondary"}>{roleName}</Badge>
+        );
+      },
+      filterFn: (row, _id, value) => {
+        if (value === "all") return true;
+        if (value === "none") return row.original.role_id === null;
+        return row.original.role_id === value;
+      },
+    },
+    {
+      accessorKey: "balance",
+      header: () => <div className="text-right">Balance</div>,
+      cell: ({ row }) => {
+        const balance = row.getValue("balance") as number;
+        const formatted = formatCentsToEuro(balance);
+        return (
+          <div
+            className={`text-right font-medium ${
+              balance < 0 ? "text-red-500" : balance > 0 ? "text-green-500" : ""
+            }`}
+          >
+            {formatted}
+          </div>
+        );
+      },
+      filterFn: (row, _id, value) => {
+        if (value === "all") return true;
+        const balance = row.getValue("balance") as number;
+        if (value === "positive") return balance > 0;
+        if (value === "negative") return balance < 0;
+        if (value === "zero") return balance === 0;
+        return true;
+      },
+    },
+    {
+      id: "actions",
+      cell: ({ row }) => {
+        const player = row.original;
+
+        return (
+          <div className="flex justify-end">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="flex size-8 p-0 data-[state=open]:bg-muted"
+                >
+                  <MoreVerticalIcon className="size-4" />
+                  <span className="sr-only">Menü öffnen</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => navigate(`/app/players/${player.id}`)}
+                >
+                  <EyeIcon className="mr-2 size-4" />
+                  Details
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onEdit(player)}>
+                  <EditIcon className="mr-2 size-4" />
+                  Bearbeiten
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-red-600"
+                  onClick={() => onDelete(player)}
+                >
+                  <TrashIcon className="mr-2 size-4" />
+                  Löschen
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        );
+      },
+    },
+  ];
+
+  // Apply filters
+  const filteredData = React.useMemo(() => {
+    let filtered = [...players];
+
+    // Role filter
+    if (roleFilter !== "all") {
+      if (roleFilter === "none") {
+        filtered = filtered.filter((p) => p.role_id === null);
+      } else {
+        filtered = filtered.filter((p) => p.role_id === roleFilter);
+      }
+    }
+
+    // Balance filter
+    if (balanceFilter !== "all") {
+      if (balanceFilter === "positive") {
+        filtered = filtered.filter((p) => p.balance > 0);
+      } else if (balanceFilter === "negative") {
+        filtered = filtered.filter((p) => p.balance < 0);
+      } else if (balanceFilter === "zero") {
+        filtered = filtered.filter((p) => p.balance === 0);
+      }
+    }
+
+    return filtered;
+  }, [players, roleFilter, balanceFilter]);
+
+  const table = useReactTable({
+    data: filteredData,
+    columns,
+    state: {
+      sorting,
+      columnFilters,
+      columnVisibility,
+      pagination,
+    },
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    onColumnVisibilityChange: setColumnVisibility,
+    onPaginationChange: setPagination,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Filters and Actions */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-1 flex-col gap-4 md:flex-row md:items-center">
+          <Input
+            placeholder="Nach Name suchen..."
+            value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
+            onChange={(event) =>
+              table.getColumn("name")?.setFilterValue(event.target.value)
+            }
+            className="max-w-sm"
+          />
+          <div className="flex gap-2">
+            <Select value={roleFilter} onValueChange={setRoleFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Rolle filtern" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Alle Rollen</SelectItem>
+                {roles.map((role) => (
+                  <SelectItem key={role.id} value={role.id}>
+                    {role.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={balanceFilter} onValueChange={setBalanceFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Balance filtern" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Alle Balances</SelectItem>
+                <SelectItem value="positive">Positiv</SelectItem>
+                <SelectItem value="negative">Negativ</SelectItem>
+                <SelectItem value="zero">Null</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <Button onClick={onCreate}>
+          <PlusIcon className="mr-2 size-4" />
+          Player hinzufügen
+        </Button>
+      </div>
+
+      {/* Table */}
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <TableHead key={header.id}>
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                  </TableHead>
+                ))}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={columns.length} className="h-24 text-center">
+                  Laden...
+                </TableCell>
+              </TableRow>
+            ) : table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map((row) => (
+                <TableRow
+                  key={row.id}
+                  data-state={row.getIsSelected() && "selected"}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
+                  Keine Player gefunden.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Pagination */}
+      <div className="flex items-center justify-between px-2">
+        <div className="flex-1 text-sm text-muted-foreground">
+          {filteredData.length} Player
+          {filteredData.length !== players.length &&
+            ` (${players.length} gesamt)`}
+        </div>
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2">
+            <Label htmlFor="rows-per-page" className="text-sm">
+              Zeilen pro Seite
+            </Label>
+            <Select
+              value={`${table.getState().pagination.pageSize}`}
+              onValueChange={(value) => {
+                table.setPageSize(Number(value));
+              }}
+            >
+              <SelectTrigger className="w-[70px]" id="rows-per-page">
+                <SelectValue placeholder={table.getState().pagination.pageSize} />
+              </SelectTrigger>
+              <SelectContent side="top">
+                {[10, 20, 30, 50].map((pageSize) => (
+                  <SelectItem key={pageSize} value={`${pageSize}`}>
+                    {pageSize}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="text-sm">
+              Seite {table.getState().pagination.pageIndex + 1} von{" "}
+              {table.getPageCount()}
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="icon"
+                className="size-8"
+                onClick={() => table.setPageIndex(0)}
+                disabled={!table.getCanPreviousPage()}
+              >
+                <ChevronsLeftIcon className="size-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="size-8"
+                onClick={() => table.previousPage()}
+                disabled={!table.getCanPreviousPage()}
+              >
+                <ChevronLeftIcon className="size-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="size-8"
+                onClick={() => table.nextPage()}
+                disabled={!table.getCanNextPage()}
+              >
+                <ChevronRightIcon className="size-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="size-8"
+                onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                disabled={!table.getCanNextPage()}
+              >
+                <ChevronsRightIcon className="size-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+

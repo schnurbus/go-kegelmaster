@@ -1,0 +1,12 @@
+CREATE TABLE IF NOT EXISTS clubs (
+    id UUID PRIMARY KEY,
+    name TEXT NOT NULL,
+    balance INTEGER NOT NULL DEFAULT 0,
+    base_fee INTEGER NOT NULL DEFAULT 0,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_clubs_user_id ON clubs(user_id);
+
