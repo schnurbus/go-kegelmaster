@@ -54,3 +54,15 @@ type ParticipantWithFees struct {
 	Participant GameDayParticipant
 	Fees        []GameDayFee
 }
+
+// GameDaySummary represents a game day with aggregated statistics
+type GameDaySummary struct {
+	ID               string
+	ClubID           string
+	Date             time.Time
+	Notes            string
+	ParticipantCount int
+	PenaltyFeeTotal  int // in cents
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
