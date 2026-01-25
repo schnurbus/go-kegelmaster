@@ -16,6 +16,7 @@ INSERT INTO clubs (
     name,
     balance,
     base_fee,
+    auto_tip_enabled,
     user_id,
     created_at,
     updated_at
@@ -26,19 +27,21 @@ INSERT INTO clubs (
     $4,
     $5,
     $6,
-    $7
+    $7,
+    $8
 )
-RETURNING id, name, balance, base_fee, user_id, created_at, updated_at
+RETURNING id, name, balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at
 `
 
 type CreateClubParams struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	Balance   int32     `json:"balance"`
-	BaseFee   int32     `json:"base_fee"`
-	UserID    string    `json:"user_id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID             string    `json:"id"`
+	Name           string    `json:"name"`
+	Balance        int32     `json:"balance"`
+	BaseFee        int32     `json:"base_fee"`
+	AutoTipEnabled bool      `json:"auto_tip_enabled"`
+	UserID         string    `json:"user_id"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 func (q *Queries) CreateClub(ctx context.Context, arg CreateClubParams) (Club, error) {
@@ -47,6 +50,7 @@ func (q *Queries) CreateClub(ctx context.Context, arg CreateClubParams) (Club, e
 		arg.Name,
 		arg.Balance,
 		arg.BaseFee,
+		arg.AutoTipEnabled,
 		arg.UserID,
 		arg.CreatedAt,
 		arg.UpdatedAt,
@@ -57,6 +61,7 @@ func (q *Queries) CreateClub(ctx context.Context, arg CreateClubParams) (Club, e
 		&i.Name,
 		&i.Balance,
 		&i.BaseFee,
+		&i.AutoTipEnabled,
 		&i.UserID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -75,7 +80,7 @@ func (q *Queries) DeleteClub(ctx context.Context, id string) error {
 }
 
 const getAllClubs = `-- name: GetAllClubs :many
-SELECT id, name, balance, base_fee, user_id, created_at, updated_at FROM clubs
+SELECT id, name, balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at FROM clubs
 ORDER BY created_at DESC
 `
 
@@ -93,6 +98,7 @@ func (q *Queries) GetAllClubs(ctx context.Context) ([]Club, error) {
 			&i.Name,
 			&i.Balance,
 			&i.BaseFee,
+			&i.AutoTipEnabled,
 			&i.UserID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -111,7 +117,7 @@ func (q *Queries) GetAllClubs(ctx context.Context) ([]Club, error) {
 }
 
 const getClubByID = `-- name: GetClubByID :one
-SELECT id, name, balance, base_fee, user_id, created_at, updated_at FROM clubs
+SELECT id, name, balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at FROM clubs
 WHERE id = $1
 `
 
@@ -123,6 +129,7 @@ func (q *Queries) GetClubByID(ctx context.Context, id string) (Club, error) {
 		&i.Name,
 		&i.Balance,
 		&i.BaseFee,
+		&i.AutoTipEnabled,
 		&i.UserID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -131,7 +138,7 @@ func (q *Queries) GetClubByID(ctx context.Context, id string) (Club, error) {
 }
 
 const getClubsByUserID = `-- name: GetClubsByUserID :many
-SELECT id, name, balance, base_fee, user_id, created_at, updated_at FROM clubs
+SELECT id, name, balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at FROM clubs
 WHERE user_id = $1
 ORDER BY created_at DESC
 `
@@ -150,6 +157,7 @@ func (q *Queries) GetClubsByUserID(ctx context.Context, userID string) ([]Club, 
 			&i.Name,
 			&i.Balance,
 			&i.BaseFee,
+			&i.AutoTipEnabled,
 			&i.UserID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -173,17 +181,19 @@ SET
     name = $1,
     balance = $2,
     base_fee = $3,
-    updated_at = $4
-WHERE id = $5
-RETURNING id, name, balance, base_fee, user_id, created_at, updated_at
+    auto_tip_enabled = $4,
+    updated_at = $5
+WHERE id = $6
+RETURNING id, name, balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at
 `
 
 type UpdateClubParams struct {
-	Name      string    `json:"name"`
-	Balance   int32     `json:"balance"`
-	BaseFee   int32     `json:"base_fee"`
-	UpdatedAt time.Time `json:"updated_at"`
-	ID        string    `json:"id"`
+	Name           string    `json:"name"`
+	Balance        int32     `json:"balance"`
+	BaseFee        int32     `json:"base_fee"`
+	AutoTipEnabled bool      `json:"auto_tip_enabled"`
+	UpdatedAt      time.Time `json:"updated_at"`
+	ID             string    `json:"id"`
 }
 
 func (q *Queries) UpdateClub(ctx context.Context, arg UpdateClubParams) (Club, error) {
@@ -191,6 +201,7 @@ func (q *Queries) UpdateClub(ctx context.Context, arg UpdateClubParams) (Club, e
 		arg.Name,
 		arg.Balance,
 		arg.BaseFee,
+		arg.AutoTipEnabled,
 		arg.UpdatedAt,
 		arg.ID,
 	)
@@ -200,6 +211,7 @@ func (q *Queries) UpdateClub(ctx context.Context, arg UpdateClubParams) (Club, e
 		&i.Name,
 		&i.Balance,
 		&i.BaseFee,
+		&i.AutoTipEnabled,
 		&i.UserID,
 		&i.CreatedAt,
 		&i.UpdatedAt,

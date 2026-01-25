@@ -51,7 +51,7 @@ func (h *Handler) HandleCreatePlayer(c fiber.Ctx) error {
 	}
 
 	// Check permission: owner OR has create permission for players
-	hasPermission, err := h.PermissionCheck.HasPermission(ctx, u.ID, clubID, role.EntityTypePlayers, role.PermissionTypeCreate)
+	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypePlayers, role.PermissionTypeCreate)
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
@@ -103,7 +103,7 @@ func (h *Handler) HandleGetPlayers(c fiber.Ctx) error {
 	}
 
 	// Check permission: owner OR has list permission for players
-	hasPermission, err := h.PermissionCheck.HasPermission(ctx, u.ID, clubID, role.EntityTypePlayers, role.PermissionTypeList)
+	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypePlayers, role.PermissionTypeList)
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
@@ -140,7 +140,7 @@ func (h *Handler) HandleGetPlayer(c fiber.Ctx) error {
 	}
 
 	// Check permission: owner OR has view permission for players
-	hasPermission, err := h.PermissionCheck.HasPermission(ctx, u.ID, clubID, role.EntityTypePlayers, role.PermissionTypeView)
+	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypePlayers, role.PermissionTypeView)
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
@@ -208,7 +208,7 @@ func (h *Handler) HandleUpdatePlayer(c fiber.Ctx) error {
 	}
 
 	// Check permission: owner OR has update permission for players
-	hasPermission, err := h.PermissionCheck.HasPermission(ctx, u.ID, clubID, role.EntityTypePlayers, role.PermissionTypeUpdate)
+	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypePlayers, role.PermissionTypeUpdate)
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
@@ -282,7 +282,7 @@ func (h *Handler) HandleDeletePlayer(c fiber.Ctx) error {
 	}
 
 	// Check permission: owner OR has delete permission for players
-	hasPermission, err := h.PermissionCheck.HasPermission(ctx, u.ID, clubID, role.EntityTypePlayers, role.PermissionTypeDelete)
+	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypePlayers, role.PermissionTypeDelete)
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")

@@ -28,7 +28,7 @@ func (h *Handler) HandleGetPenaltyTypes(c fiber.Ctx) error {
 	}
 
 	// Check permission: owner OR has list permission for penalty_types
-	hasPermission, err := h.PermissionCheck.HasPermission(ctx, u.ID, clubID, role.EntityTypePenaltyTypes, role.PermissionTypeList)
+	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypePenaltyTypes, role.PermissionTypeList)
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
@@ -65,7 +65,7 @@ func (h *Handler) HandleGetPenaltyType(c fiber.Ctx) error {
 	}
 
 	// Check permission: owner OR has view permission for penalty_types
-	hasPermission, err := h.PermissionCheck.HasPermission(ctx, u.ID, clubID, role.EntityTypePenaltyTypes, role.PermissionTypeView)
+	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypePenaltyTypes, role.PermissionTypeView)
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
@@ -131,7 +131,7 @@ func (h *Handler) HandleCreatePenaltyType(c fiber.Ctx) error {
 	}
 
 	// Check permission: owner OR has create permission for penalty_types
-	hasPermission, err := h.PermissionCheck.HasPermission(ctx, u.ID, clubID, role.EntityTypePenaltyTypes, role.PermissionTypeCreate)
+	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypePenaltyTypes, role.PermissionTypeCreate)
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
@@ -204,7 +204,7 @@ func (h *Handler) HandleUpdatePenaltyType(c fiber.Ctx) error {
 	}
 
 	// Check permission: owner OR has update permission for penalty_types
-	hasPermission, err := h.PermissionCheck.HasPermission(ctx, u.ID, clubID, role.EntityTypePenaltyTypes, role.PermissionTypeUpdate)
+	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypePenaltyTypes, role.PermissionTypeUpdate)
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
@@ -277,7 +277,7 @@ func (h *Handler) HandleDeletePenaltyType(c fiber.Ctx) error {
 	}
 
 	// Check permission: owner OR has delete permission for penalty_types
-	hasPermission, err := h.PermissionCheck.HasPermission(ctx, u.ID, clubID, role.EntityTypePenaltyTypes, role.PermissionTypeDelete)
+	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypePenaltyTypes, role.PermissionTypeDelete)
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
@@ -338,7 +338,7 @@ func (h *Handler) HandleUpdatePenaltyTypeDisplayOrder(c fiber.Ctx) error {
 	}
 
 	// Check permission: owner OR has update permission for penalty_types
-	hasPermission, err := h.PermissionCheck.HasPermission(ctx, u.ID, clubID, role.EntityTypePenaltyTypes, role.PermissionTypeUpdate)
+	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypePenaltyTypes, role.PermissionTypeUpdate)
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")

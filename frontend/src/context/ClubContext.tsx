@@ -13,6 +13,7 @@ type Club = {
   name: string;
   balance: number;
   base_fee: number;
+  auto_tip_enabled: boolean;
   user_id: string;
   created_at: string;
   updated_at: string;

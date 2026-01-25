@@ -18,6 +18,7 @@ import (
 	"github.com/schnurbus/go-kegelmaster/backend/internal/permission"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/player"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/role"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/transaction"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/user"
 )
 
@@ -29,6 +30,7 @@ type Dependencies struct {
 	PlayerRepo      *player.Repository
 	PenaltyTypeRepo *penaltytype.Repository
 	GameDayRepo     *gameday.Repository
+	TransactionRepo *transaction.Repository
 	AuthService     *auth.Service
 	PermissionCheck *permission.Checker
 }
@@ -78,6 +80,7 @@ func New(cfg config.Config, deps Dependencies) *Server {
 		PlayerRepo:      deps.PlayerRepo,
 		PenaltyTypeRepo: deps.PenaltyTypeRepo,
 		GameDayRepo:     deps.GameDayRepo,
+		TransactionRepo: deps.TransactionRepo,
 		AuthService:     deps.AuthService,
 		PermissionCheck: deps.PermissionCheck,
 	})
@@ -158,6 +161,15 @@ func (s *Server) registerRoutes() {
 
 	// Fee endpoints
 	clubsGroup.Put("/:clubId/gamedays/:id/participants/:playerId/fees", s.handlers.HandleUpdateFees)
+
+	// Transaction endpoints
+	clubsGroup.Get("/:clubId/transactions", s.handlers.HandleListTransactions)
+	clubsGroup.Get("/:clubId/transactions/:id", s.handlers.HandleGetTransaction)
+	clubsGroup.Post("/:clubId/transactions", s.handlers.HandleCreateTransaction)
+	clubsGroup.Delete("/:clubId/transactions/:id", s.handlers.HandleDeleteTransaction)
+	clubsGroup.Get("/:clubId/players/:playerId/transactions", s.handlers.HandleListPlayerTransactions)
+	clubsGroup.Get("/:clubId/gamedays/:gamedayId/transactions", s.handlers.HandleListGameDayTransactions)
+	clubsGroup.Get("/:clubId/gamedays/:gamedayId/transaction-summary", s.handlers.HandleGetGameDayTransactionSummary)
 }
 
 // Listen starts the HTTP server and blocks until it exits.

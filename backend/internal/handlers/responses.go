@@ -8,6 +8,7 @@ import (
 	"github.com/schnurbus/go-kegelmaster/backend/internal/penaltytype"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/player"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/role"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/transaction"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/user"
 )
 
@@ -28,24 +29,26 @@ func UserResponseFromEntity(u user.User) UserResponse {
 }
 
 type ClubResponse struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	Balance   int       `json:"balance"`
-	BaseFee   int       `json:"base_fee"`
-	UserID    string    `json:"user_id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID             string    `json:"id"`
+	Name           string    `json:"name"`
+	Balance        int       `json:"balance"`
+	BaseFee        int       `json:"base_fee"`
+	AutoTipEnabled bool      `json:"auto_tip_enabled"`
+	UserID         string    `json:"user_id"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 func ClubResponseFromEntity(c club.Club) ClubResponse {
 	return ClubResponse{
-		ID:        c.ID,
-		Name:      c.Name,
-		Balance:   c.Balance,
-		BaseFee:   c.BaseFee,
-		UserID:    c.UserID,
-		CreatedAt: c.CreatedAt,
-		UpdatedAt: c.UpdatedAt,
+		ID:             c.ID,
+		Name:           c.Name,
+		Balance:        c.Balance,
+		BaseFee:        c.BaseFee,
+		AutoTipEnabled: c.AutoTipEnabled,
+		UserID:         c.UserID,
+		CreatedAt:      c.CreatedAt,
+		UpdatedAt:      c.UpdatedAt,
 	}
 }
 
@@ -273,5 +276,88 @@ func GameDayDetailResponseFromEntity(detail gameday.GameDayDetail) GameDayDetail
 	return GameDayDetailResponse{
 		GameDay:      GameDayResponseFromEntity(detail.GameDay),
 		Participants: participants,
+	}
+}
+
+// Transaction responses
+type TransactionResponse struct {
+	ID                  string  `json:"id"`
+	ClubID              string  `json:"club_id"`
+	PlayerID            *string `json:"player_id"`
+	PlayerName          string  `json:"player_name,omitempty"`
+	TransactionType     string  `json:"transaction_type"`
+	Amount              int     `json:"amount"`
+	Description         string  `json:"description"`
+	GameDayFeeID        *string `json:"game_day_fee_id,omitempty"`
+	GameDayID           *string `json:"game_day_id,omitempty"`
+	PlayerBalanceBefore *int    `json:"player_balance_before,omitempty"`
+	PlayerBalanceAfter  *int    `json:"player_balance_after,omitempty"`
+	ClubBalanceBefore   int     `json:"club_balance_before"`
+	ClubBalanceAfter    int     `json:"club_balance_after"`
+	CreatedAt           string  `json:"created_at"`
+	UpdatedAt           string  `json:"updated_at"`
+}
+
+func TransactionResponseFromEntity(t transaction.Transaction) TransactionResponse {
+	return TransactionResponse{
+		ID:                  t.ID,
+		ClubID:              t.ClubID,
+		PlayerID:            t.PlayerID,
+		PlayerName:          t.PlayerName,
+		TransactionType:     string(t.TransactionType),
+		Amount:              t.Amount,
+		Description:         t.Description,
+		GameDayFeeID:        t.GameDayFeeID,
+		GameDayID:           t.GameDayID,
+		PlayerBalanceBefore: t.PlayerBalanceBefore,
+		PlayerBalanceAfter:  t.PlayerBalanceAfter,
+		ClubBalanceBefore:   t.ClubBalanceBefore,
+		ClubBalanceAfter:    t.ClubBalanceAfter,
+		CreatedAt:           t.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:           t.UpdatedAt.Format(time.RFC3339),
+	}
+}
+
+func TransactionsResponseFromEntities(transactions []transaction.Transaction) []TransactionResponse {
+	responses := make([]TransactionResponse, len(transactions))
+	for i, t := range transactions {
+		responses[i] = TransactionResponseFromEntity(t)
+	}
+	return responses
+}
+
+type PaginatedTransactionsResponse struct {
+	Data       []TransactionResponse `json:"data"`
+	Page       int                   `json:"page"`
+	Limit      int                   `json:"limit"`
+	Total      int64                 `json:"total"`
+	TotalPages int                   `json:"total_pages"`
+}
+
+func PaginatedTransactionsResponseFromEntity(p *transaction.PaginatedTransactions) PaginatedTransactionsResponse {
+	return PaginatedTransactionsResponse{
+		Data:       TransactionsResponseFromEntities(p.Data),
+		Page:       p.Page,
+		Limit:      p.Limit,
+		Total:      p.Total,
+		TotalPages: p.TotalPages,
+	}
+}
+
+type GameDayTransactionSummaryResponse struct {
+	BaseFeeTotal    int   `json:"base_fee_total"`
+	PenaltyFeeTotal int   `json:"penalty_fee_total"`
+	BaseFeeCount    int64 `json:"base_fee_count"`
+	PenaltyFeeCount int64 `json:"penalty_fee_count"`
+	Total           int   `json:"total"`
+}
+
+func GameDayTransactionSummaryResponseFromEntity(s *transaction.GameDayTransactionSummary) GameDayTransactionSummaryResponse {
+	return GameDayTransactionSummaryResponse{
+		BaseFeeTotal:    s.BaseFeeTotal,
+		PenaltyFeeTotal: s.FeeTotal,
+		BaseFeeCount:    s.BaseFeeCount,
+		PenaltyFeeCount: s.FeeCount,
+		Total:           s.BaseFeeTotal + s.FeeTotal,
 	}
 }

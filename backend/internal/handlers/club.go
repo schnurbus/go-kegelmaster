@@ -12,9 +12,10 @@ import (
 )
 
 type createClubRequest struct {
-	Name    string `json:"name"`
-	Balance int    `json:"balance"`
-	BaseFee int    `json:"base_fee"`
+	Name           string `json:"name"`
+	Balance        int    `json:"balance"`
+	BaseFee        int    `json:"base_fee"`
+	AutoTipEnabled *bool  `json:"auto_tip_enabled,omitempty"` // Optional, defaults to true
 }
 
 func (r createClubRequest) validate() error {
@@ -53,11 +54,18 @@ func (h *Handler) HandleCreateClub(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 
+	// Default auto_tip_enabled to true if not provided
+	autoTipEnabled := true
+	if req.AutoTipEnabled != nil {
+		autoTipEnabled = *req.AutoTipEnabled
+	}
+
 	clubEntity, err := h.ClubRepo.Create(ctx, club.CreateClubParams{
-		Name:    strings.TrimSpace(req.Name),
-		Balance: req.Balance,
-		BaseFee: req.BaseFee,
-		UserID:  u.ID,
+		Name:           strings.TrimSpace(req.Name),
+		Balance:        req.Balance,
+		BaseFee:        req.BaseFee,
+		AutoTipEnabled: autoTipEnabled,
+		UserID:         u.ID,
 	})
 	if err != nil {
 		slog.Error("create club", "error", err)
@@ -111,9 +119,10 @@ func (h *Handler) HandleGetClub(c fiber.Ctx) error {
 }
 
 type updateClubRequest struct {
-	Name    string `json:"name"`
-	Balance int    `json:"balance"`
-	BaseFee int    `json:"base_fee"`
+	Name           string `json:"name"`
+	Balance        int    `json:"balance"`
+	BaseFee        int    `json:"base_fee"`
+	AutoTipEnabled bool   `json:"auto_tip_enabled"`
 }
 
 func (r updateClubRequest) validate() error {
@@ -173,10 +182,11 @@ func (h *Handler) HandleUpdateClub(c fiber.Ctx) error {
 	}
 
 	updatedClub, err := h.ClubRepo.Update(ctx, club.UpdateClubParams{
-		ID:      clubID,
-		Name:    strings.TrimSpace(req.Name),
-		Balance: req.Balance,
-		BaseFee: req.BaseFee,
+		ID:             clubID,
+		Name:           strings.TrimSpace(req.Name),
+		Balance:        req.Balance,
+		BaseFee:        req.BaseFee,
+		AutoTipEnabled: req.AutoTipEnabled,
 	})
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
@@ -232,4 +242,3 @@ func (h *Handler) HandleDeleteClub(c fiber.Ctx) error {
 
 	return c.SendStatus(fiber.StatusNoContent)
 }
-

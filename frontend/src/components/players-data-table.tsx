@@ -13,6 +13,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import {
+  AlertTriangleIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   ChevronsLeftIcon,
@@ -124,11 +125,16 @@ export function PlayersDataTable({
         const formatted = formatCentsToEuro(balance);
         return (
           <div
-            className={`text-right font-medium ${
+            className={`text-right font-medium flex items-center justify-end gap-1 ${
               balance < 0 ? "text-red-500" : balance > 0 ? "text-green-500" : ""
             }`}
           >
             {formatted}
+            {balance > 0 && (
+              <span title="Positives Guthaben - sollte mit Auto-Tip nicht vorkommen">
+                <AlertTriangleIcon className="size-4 text-yellow-500" />
+              </span>
+            )}
           </div>
         );
       },

@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS clubs (
     name TEXT NOT NULL,
     balance INTEGER NOT NULL DEFAULT 0,
     base_fee INTEGER NOT NULL DEFAULT 0,
+    auto_tip_enabled BOOLEAN NOT NULL DEFAULT true,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()

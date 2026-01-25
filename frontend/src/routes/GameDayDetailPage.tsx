@@ -118,6 +118,16 @@ function GameDayDetailPage() {
   const [comboboxOpen, setComboboxOpen] = React.useState(false);
   const [selectedPlayerToAdd, setSelectedPlayerToAdd] = React.useState<string>("");
 
+  // Transaction summary state
+  const [transactionSummary, setTransactionSummary] = React.useState<{
+    base_fee_total: number;
+    base_fee_count: number;
+    penalty_fee_total: number;
+    penalty_fee_count: number;
+    total: number;
+  } | null>(null);
+  const [isLoadingTransactions, setIsLoadingTransactions] = React.useState(false);
+
   const fetchCSRFToken = React.useCallback(async () => {
     const response = await fetch("/api/auth/csrf-token", {
       credentials: "include",
@@ -199,6 +209,31 @@ function GameDayDetailPage() {
     }
   }, [activeClub]);
 
+  const fetchTransactionSummary = React.useCallback(async () => {
+    if (!activeClub || isNew || !id) return;
+
+    setIsLoadingTransactions(true);
+    try {
+      const response = await fetch(
+        `/api/clubs/${activeClub.id}/gamedays/${id}/transaction-summary`,
+        {
+          credentials: "include",
+        }
+      );
+
+      if (!response.ok) throw new Error("Failed to fetch transaction summary");
+
+      const data = await response.json();
+      setTransactionSummary(data);
+    } catch (error) {
+      console.error("Error fetching transaction summary:", error);
+      // Don't show error toast - this is optional data
+      setTransactionSummary(null);
+    } finally {
+      setIsLoadingTransactions(false);
+    }
+  }, [activeClub, id, isNew]);
+
   React.useEffect(() => {
     fetchGameDay();
   }, [fetchGameDay]);
@@ -208,6 +243,7 @@ function GameDayDetailPage() {
     if (!isNew && activeClub) {
       fetchPlayers();
       fetchPenaltyTypes();
+      fetchTransactionSummary();
     }
   }, [isNew, activeClub, fetchPlayers, fetchPenaltyTypes]);
 
@@ -450,8 +486,9 @@ function GameDayDetailPage() {
 
       toast.success("Strafen gespeichert");
 
-      // Refresh detail to get updated data with snapshots
+      // Refresh detail and transaction summary to get updated data
       await fetchGameDay();
+      await fetchTransactionSummary();
     } catch (error: any) {
       console.error("Error saving fees:", error);
       toast.error(error.message || "Fehler beim Speichern der Strafen");
@@ -743,6 +780,53 @@ function GameDayDetailPage() {
                 <p>Noch keine Teilnehmer hinzugefügt</p>
                 <p className="text-sm mt-1">Wählen Sie oben Spieler aus, um sie hinzuzufügen</p>
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {!isNew && transactionSummary && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Transaktionsübersicht</CardTitle>
+              <CardDescription>
+                Zusammenfassung aller Einnahmen für diesen Spieltag
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingTransactions ? (
+                <p className="text-muted-foreground">Laden...</p>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between py-2 border-b">
+                    <div>
+                      <p className="font-medium">Grundgebühren</p>
+                      <p className="text-sm text-muted-foreground">
+                        {transactionSummary.base_fee_count} Transaktionen
+                      </p>
+                    </div>
+                    <p className="text-lg font-semibold">
+                      {(transactionSummary.base_fee_total / 100).toFixed(2)} €
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-between py-2 border-b">
+                    <div>
+                      <p className="font-medium">Strafgebühren</p>
+                      <p className="text-sm text-muted-foreground">
+                        {transactionSummary.penalty_fee_count} Transaktionen
+                      </p>
+                    </div>
+                    <p className="text-lg font-semibold">
+                      {(transactionSummary.penalty_fee_total / 100).toFixed(2)} €
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-between py-2 pt-4">
+                    <p className="text-lg font-bold">Gesamteinnahmen</p>
+                    <p className="text-2xl font-bold text-green-600">
+                      {(transactionSummary.total / 100).toFixed(2)} €
+                    </p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

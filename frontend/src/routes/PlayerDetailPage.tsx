@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  AlertTriangleIcon,
   ArrowLeftIcon,
   EditIcon,
   TrashIcon,
@@ -238,17 +239,29 @@ function PlayerDetailPage() {
                   <p className="text-sm text-muted-foreground">
                     Aktuelle Balance
                   </p>
-                  <p
-                    className={`text-2xl font-bold ${
-                      player.balance < 0
-                        ? "text-red-500"
-                        : player.balance > 0
-                          ? "text-green-500"
-                          : ""
-                    }`}
-                  >
-                    {formatCentsToEuro(player.balance)}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p
+                      className={`text-2xl font-bold ${
+                        player.balance < 0
+                          ? "text-red-500"
+                          : player.balance > 0
+                            ? "text-green-500"
+                            : ""
+                      }`}
+                    >
+                      {formatCentsToEuro(player.balance)}
+                    </p>
+                    {player.balance > 0 && (
+                      <span title="Positives Guthaben - sollte mit Auto-Tip nicht vorkommen">
+                        <AlertTriangleIcon className="size-5 text-yellow-500" />
+                      </span>
+                    )}
+                  </div>
+                  {player.balance > 0 && (
+                    <p className="text-sm text-yellow-600 dark:text-yellow-500 mt-1">
+                      ⚠️ Achtung: Spieler hat positives Guthaben
+                    </p>
+                  )}
                 </div>
                 <Separator />
                 <div>
