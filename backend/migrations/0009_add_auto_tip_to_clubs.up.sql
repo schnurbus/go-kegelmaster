@@ -1,0 +1,1 @@
+ALTER TABLE clubs ADD COLUMN auto_tip_enabled BOOLEAN NOT NULL DEFAULT true;

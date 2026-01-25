@@ -10,13 +10,14 @@ import (
 )
 
 type Club struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	Balance   int32     `json:"balance"`
-	BaseFee   int32     `json:"base_fee"`
-	UserID    string    `json:"user_id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID             string    `json:"id"`
+	Name           string    `json:"name"`
+	Balance        int32     `json:"balance"`
+	BaseFee        int32     `json:"base_fee"`
+	AutoTipEnabled bool      `json:"auto_tip_enabled"`
+	UserID         string    `json:"user_id"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 type GameDay struct {
@@ -87,6 +88,23 @@ type RolePermission struct {
 	EntityType     string    `json:"entity_type"`
 	PermissionType string    `json:"permission_type"`
 	CreatedAt      time.Time `json:"created_at"`
+}
+
+type Transaction struct {
+	ID                  string         `json:"id"`
+	ClubID              string         `json:"club_id"`
+	PlayerID            *string        `json:"player_id"`
+	TransactionType     string         `json:"transaction_type"`
+	Amount              int32          `json:"amount"`
+	Description         sql.NullString `json:"description"`
+	GameDayFeeID        *string        `json:"game_day_fee_id"`
+	GameDayID           *string        `json:"game_day_id"`
+	PlayerBalanceBefore sql.NullInt32  `json:"player_balance_before"`
+	PlayerBalanceAfter  sql.NullInt32  `json:"player_balance_after"`
+	ClubBalanceBefore   int32          `json:"club_balance_before"`
+	ClubBalanceAfter    int32          `json:"club_balance_after"`
+	CreatedAt           time.Time      `json:"created_at"`
+	UpdatedAt           time.Time      `json:"updated_at"`
 }
 
 type User struct {

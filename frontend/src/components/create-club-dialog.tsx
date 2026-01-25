@@ -14,12 +14,14 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
 
 type Club = {
   id: string
   name: string
   balance: number
   base_fee: number
+  auto_tip_enabled: boolean
   user_id: string
   created_at: string
   updated_at: string
@@ -41,6 +43,7 @@ export function CreateClubDialog({
   const [name, setName] = React.useState("")
   const [balance, setBalance] = React.useState("")
   const [baseFee, setBaseFee] = React.useState("")
+  const [autoTipEnabled, setAutoTipEnabled] = React.useState(true)
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
@@ -83,6 +86,7 @@ export function CreateClubDialog({
           name: name.trim(),
           balance: balanceCents,
           base_fee: baseFeeCents,
+          auto_tip_enabled: autoTipEnabled,
         }),
       })
 
@@ -102,6 +106,7 @@ export function CreateClubDialog({
       setName("")
       setBalance("")
       setBaseFee("")
+      setAutoTipEnabled(true)
       onOpenChange(false)
     } catch (err) {
       setError((err as Error).message)
@@ -158,6 +163,24 @@ export function CreateClubDialog({
                 disabled={isSubmitting}
               />
             </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="autoTipEnabled"
+                checked={autoTipEnabled}
+                onCheckedChange={(checked) => setAutoTipEnabled(checked === true)}
+                disabled={isSubmitting}
+              />
+              <Label
+                htmlFor="autoTipEnabled"
+                className="text-sm font-normal cursor-pointer"
+              >
+                Auto-Tip aktivieren
+              </Label>
+            </div>
+            <p className="text-sm text-muted-foreground -mt-2 ml-6">
+              Überschüssige Einzahlungen werden automatisch als Trinkgeld verbucht.
+              Spieler können kein positives Guthaben haben.
+            </p>
             {error && (
               <div className="text-sm text-destructive">{error}</div>
             )}

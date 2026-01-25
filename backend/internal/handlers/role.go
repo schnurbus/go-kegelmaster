@@ -28,7 +28,7 @@ func (h *Handler) HandleGetRoles(c fiber.Ctx) error {
 	}
 
 	// Check if user is club owner
-	isOwner, err := h.PermissionCheck.IsClubOwner(ctx, u.ID, clubID)
+	isOwner, err := h.PermissionChecker.IsClubOwner(ctx, u.ID, clubID)
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
@@ -76,7 +76,7 @@ func (h *Handler) HandleGetRole(c fiber.Ctx) error {
 	}
 
 	// Check if user is club owner
-	isOwner, err := h.PermissionCheck.IsClubOwner(ctx, u.ID, clubID)
+	isOwner, err := h.PermissionChecker.IsClubOwner(ctx, u.ID, clubID)
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
@@ -149,7 +149,7 @@ func (h *Handler) HandleCreateRole(c fiber.Ctx) error {
 	}
 
 	// Check if user is club owner
-	isOwner, err := h.PermissionCheck.IsClubOwner(ctx, u.ID, clubID)
+	isOwner, err := h.PermissionChecker.IsClubOwner(ctx, u.ID, clubID)
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
@@ -244,7 +244,7 @@ func (h *Handler) HandleUpdateRole(c fiber.Ctx) error {
 	}
 
 	// Check if user is club owner
-	isOwner, err := h.PermissionCheck.IsClubOwner(ctx, u.ID, clubID)
+	isOwner, err := h.PermissionChecker.IsClubOwner(ctx, u.ID, clubID)
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
@@ -321,7 +321,7 @@ func (h *Handler) HandleDeleteRole(c fiber.Ctx) error {
 	}
 
 	// Check if user is club owner
-	isOwner, err := h.PermissionCheck.IsClubOwner(ctx, u.ID, clubID)
+	isOwner, err := h.PermissionChecker.IsClubOwner(ctx, u.ID, clubID)
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
@@ -383,7 +383,7 @@ func (h *Handler) HandleAddPermission(c fiber.Ctx) error {
 	}
 
 	// Check if user is club owner
-	isOwner, err := h.PermissionCheck.IsClubOwner(ctx, u.ID, clubID)
+	isOwner, err := h.PermissionChecker.IsClubOwner(ctx, u.ID, clubID)
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
@@ -465,7 +465,7 @@ func (h *Handler) HandleRemovePermission(c fiber.Ctx) error {
 	}
 
 	// Check if user is club owner
-	isOwner, err := h.PermissionCheck.IsClubOwner(ctx, u.ID, clubID)
+	isOwner, err := h.PermissionChecker.IsClubOwner(ctx, u.ID, clubID)
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")

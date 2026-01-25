@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strings"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/schnurbus/go-kegelmaster/backend/internal/gameday"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/penaltytype"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/role"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/transaction"
 )
 
 // ==================== REQUEST/RESPONSE TYPES ====================
@@ -78,7 +80,7 @@ func (h *Handler) HandleCreateGameDay(c fiber.Ctx) error {
 	}
 
 	// Check permission
-	hasPermission, err := h.PermissionCheck.HasPermission(ctx, u.ID, clubID, role.EntityTypeGameDays, role.PermissionTypeCreate)
+	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypeGameDays, role.PermissionTypeCreate)
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
@@ -111,6 +113,56 @@ func (h *Handler) HandleCreateGameDay(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
+	// Create base fee transactions for ALL players with roles that pay base fee
+	// Get club to access base fee amount
+	clubEntity, err := h.ClubRepo.GetByID(ctx, clubID)
+	if err != nil {
+		slog.Error("get club for base fee", "error", err)
+		// Don't fail the request, game day was created successfully
+	} else if clubEntity.BaseFee > 0 {
+		// Get all players for this club
+		players, err := h.PlayerRepo.GetByClubID(ctx, clubID)
+		if err != nil {
+			slog.Error("get players for base fee", "error", err)
+		} else {
+			// Process each player
+			for _, player := range players {
+				// Check if player has a role
+				if player.RoleID == nil {
+					continue
+				}
+
+				// Get the role
+				playerRole, err := h.RoleRepo.GetByID(ctx, *player.RoleID)
+				if err != nil {
+					slog.Error("get player role for base fee", "player", player.ID, "error", err)
+					continue
+				}
+
+				// Check if role pays base fee
+				if !playerRole.PaysBaseFee {
+					continue
+				}
+
+				// Create base fee transaction (negative = debt)
+				playerID := player.ID
+				gameDayID := gameDayEntity.ID
+				_, err = h.TransactionRepo.Create(ctx, transaction.CreateTransactionParams{
+					ClubID:          clubID,
+					PlayerID:        &playerID,
+					TransactionType: transaction.TransactionTypeBaseFee,
+					Amount:          -clubEntity.BaseFee, // Negative for debt
+					Description:     fmt.Sprintf("Grundgebühr für %s", date.Format("02.01.2006")),
+					GameDayID:       &gameDayID,
+				})
+				if err != nil {
+					slog.Error("create base fee transaction", "player", player.ID, "error", err)
+					// Continue with other players
+				}
+			}
+		}
+	}
+
 	return c.Status(fiber.StatusCreated).JSON(GameDayResponseFromEntity(gameDayEntity))
 }
 
@@ -129,7 +181,7 @@ func (h *Handler) HandleGetGameDays(c fiber.Ctx) error {
 	}
 
 	// Check permission
-	hasPermission, err := h.PermissionCheck.HasPermission(ctx, u.ID, clubID, role.EntityTypeGameDays, role.PermissionTypeList)
+	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypeGameDays, role.PermissionTypeList)
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
@@ -166,7 +218,7 @@ func (h *Handler) HandleGetGameDay(c fiber.Ctx) error {
 	}
 
 	// Check permission
-	hasPermission, err := h.PermissionCheck.HasPermission(ctx, u.ID, clubID, role.EntityTypeGameDays, role.PermissionTypeView)
+	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypeGameDays, role.PermissionTypeView)
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
@@ -216,7 +268,7 @@ func (h *Handler) HandleUpdateGameDay(c fiber.Ctx) error {
 	}
 
 	// Check permission
-	hasPermission, err := h.PermissionCheck.HasPermission(ctx, u.ID, clubID, role.EntityTypeGameDays, role.PermissionTypeUpdate)
+	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypeGameDays, role.PermissionTypeUpdate)
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
@@ -285,7 +337,7 @@ func (h *Handler) HandleDeleteGameDay(c fiber.Ctx) error {
 	}
 
 	// Check permission
-	hasPermission, err := h.PermissionCheck.HasPermission(ctx, u.ID, clubID, role.EntityTypeGameDays, role.PermissionTypeDelete)
+	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypeGameDays, role.PermissionTypeDelete)
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
@@ -339,7 +391,7 @@ func (h *Handler) HandleAddParticipant(c fiber.Ctx) error {
 	}
 
 	// Check permission
-	hasPermission, err := h.PermissionCheck.HasPermission(ctx, u.ID, clubID, role.EntityTypeGameDays, role.PermissionTypeUpdate)
+	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypeGameDays, role.PermissionTypeUpdate)
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
@@ -403,7 +455,7 @@ func (h *Handler) HandleRemoveParticipant(c fiber.Ctx) error {
 	}
 
 	// Check permission
-	hasPermission, err := h.PermissionCheck.HasPermission(ctx, u.ID, clubID, role.EntityTypeGameDays, role.PermissionTypeUpdate)
+	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypeGameDays, role.PermissionTypeUpdate)
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
@@ -461,7 +513,7 @@ func (h *Handler) HandleUpdateFees(c fiber.Ctx) error {
 	}
 
 	// Check permission
-	hasPermission, err := h.PermissionCheck.HasPermission(ctx, u.ID, clubID, role.EntityTypeGameDays, role.PermissionTypeUpdate)
+	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypeGameDays, role.PermissionTypeUpdate)
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
@@ -501,11 +553,37 @@ func (h *Handler) HandleUpdateFees(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
+	// Get existing fees to check what needs updating
+	existingFees, err := h.GameDayRepo.GetFeesByParticipant(ctx, participant.ID)
+	if err != nil {
+		slog.Error("get existing fees", "error", err)
+		existingFees = []gameday.GameDayFee{} // Continue with empty list
+	}
+
+	// Create a map of existing fees by penalty type ID
+	existingFeeMap := make(map[string]gameday.GameDayFee)
+	for _, ef := range existingFees {
+		existingFeeMap[ef.PenaltyTypeID] = ef
+	}
+
 	// Process each fee
 	for _, fee := range req.Fees {
 		if fee.Count <= 0 {
-			// Delete fee if count is 0 or negative
-			err := h.GameDayRepo.DeleteFee(ctx, participant.ID, fee.PenaltyTypeID)
+			// Check if there's an existing fee and transaction to delete
+			if existingFee, exists := existingFeeMap[fee.PenaltyTypeID]; exists {
+				// Try to get and delete the associated transaction
+				existingTx, err := h.TransactionRepo.GetByGameDayFee(ctx, existingFee.ID)
+				if err == nil && existingTx != nil {
+					// Delete transaction (this will revert the balance via CASCADE or manual revert)
+					// Since transactions CASCADE delete, we need to handle balance revert
+					if err := h.TransactionRepo.Delete(ctx, existingTx.ID); err != nil {
+						slog.Error("delete fee transaction", "error", err)
+					}
+				}
+			}
+
+			// Delete fee
+			err = h.GameDayRepo.DeleteFee(ctx, participant.ID, fee.PenaltyTypeID)
 			if err != nil {
 				slog.Error("delete fee", "error", err)
 				// Continue processing other fees
@@ -533,8 +611,11 @@ func (h *Handler) HandleUpdateFees(c fiber.Ctx) error {
 			return fiber.NewError(fiber.StatusBadRequest, "Strafentyp "+pt.Name+" ist inaktiv")
 		}
 
+		// Check if this is an update
+		existingFee, isUpdate := existingFeeMap[fee.PenaltyTypeID]
+
 		// Upsert fee with snapshot
-		_, err = h.GameDayRepo.UpsertFee(ctx, gameday.UpsertFeeParams{
+		createdFee, err := h.GameDayRepo.UpsertFee(ctx, gameday.UpsertFeeParams{
 			ParticipantID:          participant.ID,
 			PenaltyTypeID:          pt.ID,
 			PenaltyTypeName:        pt.Name,
@@ -545,6 +626,34 @@ func (h *Handler) HandleUpdateFees(c fiber.Ctx) error {
 		if err != nil {
 			slog.Error("upsert fee", "error", err)
 			return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+		}
+
+		// Calculate transaction amount (negative = debt)
+		amount := -(pt.Price * fee.Count)
+
+		if isUpdate {
+			// Delete old transaction and create new one with updated amount
+			existingTx, err := h.TransactionRepo.GetByGameDayFee(ctx, existingFee.ID)
+			if err == nil && existingTx != nil {
+				if err := h.TransactionRepo.Delete(ctx, existingTx.ID); err != nil {
+					slog.Error("delete old fee transaction", "error", err)
+				}
+			}
+		}
+
+		// Create new transaction
+		_, err = h.TransactionRepo.Create(ctx, transaction.CreateTransactionParams{
+			ClubID:          clubID,
+			PlayerID:        &playerID,
+			TransactionType: transaction.TransactionTypeFee,
+			Amount:          amount,
+			Description:     fmt.Sprintf("%s ×%d", pt.Name, fee.Count),
+			GameDayFeeID:    &createdFee.ID,
+			GameDayID:       &gameDayID,
+		})
+		if err != nil {
+			slog.Error("create fee transaction", "error", err)
+			// Don't fail the request, just log the error
 		}
 	}
 

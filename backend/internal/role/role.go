@@ -14,6 +14,7 @@ const (
 	EntityTypeGameDays     EntityType = "game_days"
 	EntityTypePenalties    EntityType = "penalties"
 	EntityTypePenaltyTypes EntityType = "penalty_types"
+	EntityTypeTransactions EntityType = "transactions"
 )
 
 // ValidEntityTypes returns a list of all valid entity types.
@@ -25,6 +26,7 @@ func ValidEntityTypes() []EntityType {
 		EntityTypeGameDays,
 		EntityTypePenalties,
 		EntityTypePenaltyTypes,
+		EntityTypeTransactions,
 	}
 }
 

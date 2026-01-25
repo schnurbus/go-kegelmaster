@@ -12,6 +12,7 @@ import {
   FolderIcon,
   HelpCircleIcon,
   LayoutDashboardIcon,
+  ReceiptIcon,
   SearchIcon,
   SettingsIcon,
   ShieldIcon,
@@ -80,6 +81,11 @@ function useDashboardData() {
         title: "Strafentypen",
         url: "/app/penalty-types",
         icon: AlertCircleIcon,
+      },
+      {
+        title: "Transaktionen",
+        url: "/app/transactions",
+        icon: ReceiptIcon,
       },
     ],
     navClouds: [

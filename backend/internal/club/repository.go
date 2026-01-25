@@ -25,10 +25,11 @@ func NewRepository(dbConn *sql.DB) *Repository {
 }
 
 type CreateClubParams struct {
-	Name    string
-	Balance int
-	BaseFee int
-	UserID  string
+	Name           string
+	Balance        int
+	BaseFee        int
+	AutoTipEnabled bool
+	UserID         string
 }
 
 func (r *Repository) Create(ctx context.Context, params CreateClubParams) (Club, error) {
@@ -36,13 +37,14 @@ func (r *Repository) Create(ctx context.Context, params CreateClubParams) (Club,
 	id := uuid.NewString()
 
 	dbClub, err := r.queries.CreateClub(ctx, db.CreateClubParams{
-		ID:        id,
-		Name:      params.Name,
-		Balance:   int32(params.Balance),
-		BaseFee:   int32(params.BaseFee),
-		UserID:    params.UserID,
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:             id,
+		Name:           params.Name,
+		Balance:        int32(params.Balance),
+		BaseFee:        int32(params.BaseFee),
+		AutoTipEnabled: params.AutoTipEnabled,
+		UserID:         params.UserID,
+		CreatedAt:      now,
+		UpdatedAt:      now,
 	})
 	if err != nil {
 		return Club{}, err
@@ -92,21 +94,23 @@ func (r *Repository) GetByUserID(ctx context.Context, userID string) ([]Club, er
 }
 
 type UpdateClubParams struct {
-	ID      string
-	Name    string
-	Balance int
-	BaseFee int
+	ID             string
+	Name           string
+	Balance        int
+	BaseFee        int
+	AutoTipEnabled bool
 }
 
 func (r *Repository) Update(ctx context.Context, params UpdateClubParams) (Club, error) {
 	now := time.Now().UTC()
 
 	dbClub, err := r.queries.UpdateClub(ctx, db.UpdateClubParams{
-		ID:        params.ID,
-		Name:      params.Name,
-		Balance:   int32(params.Balance),
-		BaseFee:   int32(params.BaseFee),
-		UpdatedAt: now,
+		ID:             params.ID,
+		Name:           params.Name,
+		Balance:        int32(params.Balance),
+		BaseFee:        int32(params.BaseFee),
+		AutoTipEnabled: params.AutoTipEnabled,
+		UpdatedAt:      now,
 	})
 	if errors.Is(err, sql.ErrNoRows) {
 		return Club{}, ErrNotFound
@@ -140,12 +144,13 @@ func (r *Repository) Delete(ctx context.Context, id string) error {
 // dbClubToClub converts a db.Club to a club.Club
 func dbClubToClub(dbClub db.Club) Club {
 	return Club{
-		ID:        dbClub.ID,
-		Name:      dbClub.Name,
-		Balance:   int(dbClub.Balance),
-		BaseFee:   int(dbClub.BaseFee),
-		UserID:    dbClub.UserID,
-		CreatedAt: dbClub.CreatedAt,
-		UpdatedAt: dbClub.UpdatedAt,
+		ID:             dbClub.ID,
+		Name:           dbClub.Name,
+		Balance:        int(dbClub.Balance),
+		BaseFee:        int(dbClub.BaseFee),
+		AutoTipEnabled: dbClub.AutoTipEnabled,
+		UserID:         dbClub.UserID,
+		CreatedAt:      dbClub.CreatedAt,
+		UpdatedAt:      dbClub.UpdatedAt,
 	}
 }

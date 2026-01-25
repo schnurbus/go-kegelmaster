@@ -13,6 +13,7 @@ import RoleDetailPage from "./routes/RoleDetailPage.tsx";
 import PenaltyTypesPage from "./routes/PenaltyTypesPage.tsx";
 import GameDaysPage from "./routes/GameDaysPage.tsx";
 import GameDayDetailPage from "./routes/GameDayDetailPage.tsx";
+import TransactionsPage from "./routes/TransactionsPage.tsx";
 import RequireAuth from "./components/RequireAuth.tsx";
 import { AuthProvider } from "./context/AuthContext.tsx";
 import { ClubProvider } from "./context/ClubContext.tsx";
@@ -37,6 +38,7 @@ const router = createBrowserRouter([
           { path: "/app/penalty-types", element: <PenaltyTypesPage /> },
           { path: "/app/gamedays", element: <GameDaysPage /> },
           { path: "/app/gamedays/:id", element: <GameDayDetailPage /> },
+          { path: "/app/transactions", element: <TransactionsPage /> },
         ],
       },
     ],
