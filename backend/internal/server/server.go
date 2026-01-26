@@ -12,8 +12,10 @@ import (
 	"github.com/schnurbus/go-kegelmaster/backend/internal/auth"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/config"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/email"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/gameday"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/handlers"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/invitation"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/penaltytype"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/permission"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/player"
@@ -33,6 +35,8 @@ type Dependencies struct {
 	TransactionRepo *transaction.Repository
 	AuthService     *auth.Service
 	PermissionCheck *permission.Checker
+	InvitationRepo  *invitation.Repository
+	EmailService    *email.Service
 }
 
 // Server wraps the Fiber application and its dependencies.
@@ -83,6 +87,8 @@ func New(cfg config.Config, deps Dependencies) *Server {
 		TransactionRepo: deps.TransactionRepo,
 		AuthService:     deps.AuthService,
 		PermissionCheck: deps.PermissionCheck,
+		InvitationRepo:  deps.InvitationRepo,
+		EmailService:    deps.EmailService,
 	})
 
 	server := &Server{
@@ -139,6 +145,11 @@ func (s *Server) registerRoutes() {
 	clubsGroup.Post("/:clubId/players", s.handlers.HandleCreatePlayer)
 	clubsGroup.Put("/:clubId/players/:id", s.handlers.HandleUpdatePlayer)
 	clubsGroup.Delete("/:clubId/players/:id", s.handlers.HandleDeletePlayer)
+	clubsGroup.Post("/:clubId/players/:id/invite", s.handlers.HandleInvitePlayer)
+
+	// Invitation endpoints
+	api.Get("/invitations/:token", s.handlers.HandleGetInvitation)
+	api.Post("/invitations/:token/accept", s.handlers.HandleAcceptInvitation)
 
 	// Penalty type endpoints
 	clubsGroup.Get("/:clubId/penalty-types", s.handlers.HandleGetPenaltyTypes)

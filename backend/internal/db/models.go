@@ -73,6 +73,16 @@ type Player struct {
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 
+type PlayerInvitation struct {
+	ID         string       `json:"id"`
+	PlayerID   string       `json:"player_id"`
+	Email      string       `json:"email"`
+	Token      string       `json:"token"`
+	ExpiresAt  time.Time    `json:"expires_at"`
+	AcceptedAt sql.NullTime `json:"accepted_at"`
+	CreatedAt  time.Time    `json:"created_at"`
+}
+
 type Role struct {
 	ID          string    `json:"id"`
 	ClubID      string    `json:"club_id"`

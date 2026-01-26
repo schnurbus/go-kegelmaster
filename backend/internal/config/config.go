@@ -8,28 +8,32 @@ import (
 
 // Config aggregates runtime configuration for the backend HTTP server.
 type Config struct {
-	AppEnv      string
-	HTTPPort    string
-	BaseURL     string
-	DatabaseURL string
-	RedisURL    string
-	JWTSecret   string
-	TokenTTLMin int
-	CORSOrigins string
+	AppEnv        string
+	HTTPPort      string
+	BaseURL       string
+	DatabaseURL   string
+	RedisURL      string
+	JWTSecret     string
+	TokenTTLMin   int
+	CORSOrigins   string
+	ResendAPIKey  string
+	ResendFromEmail string
 }
 
 // Load builds a Config from process environment variables, applying defaults
 // that make local development convenient.
 func Load() Config {
 	cfg := Config{
-		AppEnv:      getEnv("APP_ENV", "development"),
-		HTTPPort:    getEnv("BACKEND_PORT", "8080"),
-		BaseURL:     getEnv("PUBLIC_BASE_URL", "http://localhost:8080"),
-		DatabaseURL: os.Getenv("DATABASE_URL"),
-		RedisURL:    os.Getenv("REDIS_URL"),
-		JWTSecret:   getEnv("JWT_SECRET", "dev-secret-change-me"),
-		TokenTTLMin: getEnvInt("JWT_TTL_MINUTES", 60*24),
-		CORSOrigins: getEnv("CORS_ALLOW_ORIGINS", "http://localhost:5173"),
+		AppEnv:         getEnv("APP_ENV", "development"),
+		HTTPPort:       getEnv("BACKEND_PORT", "8080"),
+		BaseURL:        getEnv("PUBLIC_BASE_URL", "http://localhost:8080"),
+		DatabaseURL:    os.Getenv("DATABASE_URL"),
+		RedisURL:       os.Getenv("REDIS_URL"),
+		JWTSecret:      getEnv("JWT_SECRET", "dev-secret-change-me"),
+		TokenTTLMin:    getEnvInt("JWT_TTL_MINUTES", 60*24),
+		CORSOrigins:    getEnv("CORS_ALLOW_ORIGINS", "http://localhost:5173"),
+		ResendAPIKey:   os.Getenv("RESEND_API_KEY"),
+		ResendFromEmail: getEnv("RESEND_FROM_EMAIL", "noreply@example.com"),
 	}
 
 	if cfg.DatabaseURL == "" {
