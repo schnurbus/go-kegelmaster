@@ -45,7 +45,10 @@ export function PlayerDialog({
   const [balance, setBalance] = React.useState("0");
   const [startBalance, setStartBalance] = React.useState("0");
   const [roleId, setRoleId] = React.useState<string | null>(null);
+  const [inviteEmail, setInviteEmail] = React.useState("");
+  const [isSendingInvite, setIsSendingInvite] = React.useState(false);
   const isEdit = !!player;
+  const canInvite = isEdit && player && !player.user_id;
 
   React.useEffect(() => {
     if (open && player) {
@@ -53,10 +56,12 @@ export function PlayerDialog({
       setBalance((player.balance / 100).toString());
       setStartBalance((player.start_balance / 100).toString());
       setRoleId(player.role_id);
+      setInviteEmail("");
     } else if (open && !player) {
       setName("");
       setBalance("0");
       setStartBalance("0");
+      setInviteEmail("");
       // Pre-select first role when creating new player
       setRoleId(roles.length > 0 ? roles[0].id : null);
     }
@@ -124,6 +129,98 @@ export function PlayerDialog({
       );
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleInvite = async (e: React.FormEvent | React.KeyboardEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!inviteEmail.trim()) {
+      toast.error("E-Mail-Adresse ist erforderlich");
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(inviteEmail.trim())) {
+      toast.error("Ungültige E-Mail-Adresse");
+      return;
+    }
+
+    if (!player) {
+      toast.error("Player-Informationen fehlen");
+      return;
+    }
+
+    setIsSendingInvite(true);
+    const emailToInvite = inviteEmail.trim().toLowerCase();
+
+    try {
+      toast.loading("Einladung wird vorbereitet...", { id: "invite-loading" });
+
+      const csrfToken = document.cookie
+        .split("; ")
+        .find((row) => row.startsWith("csrf_token="))
+        ?.split("=")[1] || "";
+
+      if (!csrfToken) {
+        throw new Error("CSRF-Token fehlt. Bitte Seite neu laden.");
+      }
+
+      const response = await fetch(`/api/clubs/${clubId}/players/${player.id}/invite`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": csrfToken,
+        },
+        credentials: "include",
+        body: JSON.stringify({ email: emailToInvite }),
+      });
+
+      const responseData = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const errorMessage = responseData.message || responseData.warning || "Fehler beim Senden der Einladung";
+        
+        // Check if invitation was created but email failed
+        if (responseData.warning || responseData.invitation_id) {
+          const warningMsg = responseData.warning || "E-Mail konnte nicht versendet werden";
+          toast.warning(
+            `Einladung wurde erstellt (ID: ${responseData.invitation_id || "unbekannt"}), aber: ${warningMsg}. ` +
+            `Bitte überprüfen Sie die E-Mail-Konfiguration im Backend.`,
+            { id: "invite-loading", duration: 10000 }
+          );
+          console.warn("Invitation created but email failed:", responseData);
+          setInviteEmail("");
+          onSuccess(); // Refresh player data
+          return;
+        }
+        
+        throw new Error(errorMessage);
+      }
+
+      // Check if response includes a warning (even with 200 status)
+      if (responseData.warning) {
+        toast.warning(
+          `Einladung erstellt, aber: ${responseData.warning}`,
+          { id: "invite-loading", duration: 8000 }
+        );
+        console.warn("Invitation created with warning:", responseData);
+      } else {
+        toast.success(
+          `Einladung wurde erfolgreich an ${emailToInvite} versendet`,
+          { id: "invite-loading", duration: 5000 }
+        );
+      }
+      setInviteEmail("");
+      onSuccess(); // Refresh player data
+    } catch (error) {
+      console.error("Error sending invitation:", error);
+      const errorMessage = error instanceof Error ? error.message : "Fehler beim Senden der Einladung";
+      toast.error(errorMessage, { id: "invite-loading", duration: 6000 });
+    } finally {
+      setIsSendingInvite(false);
     }
   };
 
@@ -201,6 +298,40 @@ export function PlayerDialog({
               Jeder Spieler muss einer Rolle zugeordnet sein
             </p>
           </div>
+          {canInvite && (
+            <div className="space-y-4 border-t pt-4">
+              <div>
+                <h3 className="text-sm font-medium mb-2">User einladen</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Dieser Player hat noch keinen zugewiesenen User. Laden Sie einen User per E-Mail ein, um ihn mit diesem Player zu verbinden.
+                </p>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Input
+                      type="email"
+                      placeholder="user@example.com"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      disabled={isSendingInvite}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && inviteEmail.trim() && !isSendingInvite) {
+                          e.preventDefault();
+                          handleInvite(e);
+                        }
+                      }}
+                    />
+                  </div>
+                  <Button 
+                    type="button"
+                    onClick={handleInvite}
+                    disabled={isSendingInvite || !inviteEmail.trim()}
+                  >
+                    {isSendingInvite ? "Wird gesendet..." : "Einladen"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
           <DialogFooter>
             <Button
               type="button"

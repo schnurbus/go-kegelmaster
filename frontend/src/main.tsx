@@ -14,6 +14,7 @@ import PenaltyTypesPage from "./routes/PenaltyTypesPage.tsx";
 import GameDaysPage from "./routes/GameDaysPage.tsx";
 import GameDayDetailPage from "./routes/GameDayDetailPage.tsx";
 import TransactionsPage from "./routes/TransactionsPage.tsx";
+import InvitationPage from "./routes/InvitationPage.tsx";
 import RequireAuth from "./components/RequireAuth.tsx";
 import { AuthProvider } from "./context/AuthContext.tsx";
 import { ClubProvider } from "./context/ClubContext.tsx";
@@ -27,6 +28,7 @@ const router = createBrowserRouter([
       { index: true, element: <LandingPage /> },
       { path: "/login", element: <LoginPage /> },
       { path: "/register", element: <RegisterPage /> },
+      { path: "/invite/:token", element: <InvitationPage /> },
       {
         element: <RequireAuth />,
         children: [

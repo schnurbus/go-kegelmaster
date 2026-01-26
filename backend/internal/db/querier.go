@@ -9,6 +9,7 @@ import (
 )
 
 type Querier interface {
+	AcceptPlayerInvitation(ctx context.Context, arg AcceptPlayerInvitationParams) error
 	AddRolePermission(ctx context.Context, arg AddRolePermissionParams) (RolePermission, error)
 	CheckGameDayExistsByClubAndDate(ctx context.Context, arg CheckGameDayExistsByClubAndDateParams) (bool, error)
 	CountTransactionsByClub(ctx context.Context, clubID string) (int64, error)
@@ -23,6 +24,7 @@ type Querier interface {
 	CreateGameDayParticipant(ctx context.Context, arg CreateGameDayParticipantParams) (GameDayParticipant, error)
 	CreatePenaltyType(ctx context.Context, arg CreatePenaltyTypeParams) (PenaltyType, error)
 	CreatePlayer(ctx context.Context, arg CreatePlayerParams) (Player, error)
+	CreatePlayerInvitation(ctx context.Context, arg CreatePlayerInvitationParams) (PlayerInvitation, error)
 	CreateRole(ctx context.Context, arg CreateRoleParams) (Role, error)
 	// ==================== TRANSACTIONS ====================
 	CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error)
@@ -55,6 +57,9 @@ type Querier interface {
 	GetPenaltyTypesByClubID(ctx context.Context, clubID string) ([]PenaltyType, error)
 	GetPlayerByID(ctx context.Context, id string) (Player, error)
 	GetPlayerByUserIDAndClubID(ctx context.Context, arg GetPlayerByUserIDAndClubIDParams) (Player, error)
+	GetPlayerInvitationByID(ctx context.Context, id string) (PlayerInvitation, error)
+	GetPlayerInvitationByToken(ctx context.Context, token string) (PlayerInvitation, error)
+	GetPlayerInvitationsByPlayerID(ctx context.Context, playerID string) ([]PlayerInvitation, error)
 	GetPlayersByClubID(ctx context.Context, clubID string) ([]Player, error)
 	GetRoleByID(ctx context.Context, id string) (Role, error)
 	GetRolePermissions(ctx context.Context, roleID string) ([]RolePermission, error)
