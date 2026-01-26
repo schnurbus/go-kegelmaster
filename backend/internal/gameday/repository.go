@@ -267,6 +267,22 @@ func (r *Repository) DeleteFee(ctx context.Context, participantID, penaltyTypeID
 	return nil
 }
 
+// ==================== SUMMARIES ====================
+
+func (r *Repository) GetSummariesByClubID(ctx context.Context, clubID string) ([]GameDaySummary, error) {
+	dbSummaries, err := r.queries.GetGameDaySummariesByClubID(ctx, clubID)
+	if err != nil {
+		return nil, err
+	}
+
+	summaries := make([]GameDaySummary, len(dbSummaries))
+	for i, dbSum := range dbSummaries {
+		summaries[i] = dbSummaryToSummary(dbSum)
+	}
+
+	return summaries, nil
+}
+
 // ==================== COMPLEX QUERIES ====================
 
 func (r *Repository) GetGameDayWithDetails(ctx context.Context, gameDayID string) (GameDayDetail, error) {
@@ -355,5 +371,23 @@ func dbFeeToFee(dbF db.GameDayFee) GameDayFee {
 		Count:                  int(dbF.Count),
 		CreatedAt:              dbF.CreatedAt,
 		UpdatedAt:              dbF.UpdatedAt,
+	}
+}
+
+func dbSummaryToSummary(dbS db.GetGameDaySummariesByClubIDRow) GameDaySummary {
+	notes := ""
+	if dbS.Notes.Valid {
+		notes = dbS.Notes.String
+	}
+
+	return GameDaySummary{
+		ID:               dbS.ID,
+		ClubID:           dbS.ClubID,
+		Date:             dbS.Date,
+		Notes:            notes,
+		ParticipantCount: int(dbS.ParticipantCount),
+		PenaltyFeeTotal:  int(dbS.PenaltyFeeTotal),
+		CreatedAt:        dbS.CreatedAt,
+		UpdatedAt:        dbS.UpdatedAt,
 	}
 }

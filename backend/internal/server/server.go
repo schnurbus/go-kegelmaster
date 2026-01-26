@@ -150,6 +150,7 @@ func (s *Server) registerRoutes() {
 
 	// Game Day endpoints
 	clubsGroup.Get("/:clubId/gamedays", s.handlers.HandleGetGameDays)
+	clubsGroup.Get("/:clubId/gamedays/summaries", s.handlers.HandleGetGameDaySummaries)
 	clubsGroup.Get("/:clubId/gamedays/:id", s.handlers.HandleGetGameDay)
 	clubsGroup.Post("/:clubId/gamedays", s.handlers.HandleCreateGameDay)
 	clubsGroup.Put("/:clubId/gamedays/:id", s.handlers.HandleUpdateGameDay)

@@ -1,25 +1,19 @@
 import * as React from "react";
-import { useNavigate } from "react-router-dom";
 import {
   type ColumnDef,
-  type ColumnFiltersState,
   type SortingState,
-  type VisibilityState,
   flexRender,
   getCoreRowModel,
-  getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
 import {
-  AlertTriangleIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   ChevronsLeftIcon,
   ChevronsRightIcon,
   EditIcon,
-  EyeIcon,
   MoreVerticalIcon,
   PlusIcon,
   TrashIcon,
@@ -33,7 +27,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -50,137 +43,98 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 
-import type { Player, Role } from "@/types/player";
-import { formatCentsToEuro } from "@/types/player";
+import type { GameDaySummary } from "@/types/gameday";
+import { formatCentsToEuro } from "@/types/gameday";
 
-type PlayersDataTableProps = {
-  players: Player[];
-  roles: Role[];
-  onView: (player: Player) => void;
-  onEdit: (player: Player) => void;
-  onDelete: (player: Player) => void;
+type GameDaysDataTableProps = {
+  gameDays: GameDaySummary[];
+  onView: (gameDay: GameDaySummary) => void;
+  onDelete: (gameDay: GameDaySummary) => void;
   onCreate: () => void;
   isLoading?: boolean;
 };
 
-export function PlayersDataTable({
-  players,
-  roles,
+export function GameDaysDataTable({
+  gameDays,
   onView,
-  onEdit,
   onDelete,
   onCreate,
   isLoading = false,
-}: PlayersDataTableProps) {
-  const navigate = useNavigate();
-  const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-    []
-  );
-  const [columnVisibility, setColumnVisibility] =
-    React.useState<VisibilityState>({});
+}: GameDaysDataTableProps) {
+  const [sorting, setSorting] = React.useState<SortingState>([
+    { id: "date", desc: true }, // Default: newest first
+  ]);
   const [pagination, setPagination] = React.useState({
     pageIndex: 0,
     pageSize: 10,
   });
-  const [roleFilter, setRoleFilter] = React.useState<string>("all");
-  const [balanceFilter, setBalanceFilter] = React.useState<string>("all");
 
-  // Helper function to get role name
-  const getRoleName = (roleId: string | null) => {
-    if (!roleId) return "Keine Rolle zugewiesen";
-    const role = roles.find((r) => r.id === roleId);
-    return role?.name || "Rolle nicht gefunden";
-  };
-
-  const columns: ColumnDef<Player>[] = [
+  const columns: ColumnDef<GameDaySummary>[] = [
     {
-      accessorKey: "name",
-      header: "Name",
-      cell: ({ row }) => (
-        <div className="font-medium">{row.getValue("name")}</div>
-      ),
-    },
-    {
-      accessorKey: "role_id",
-      header: "Rolle",
+      accessorKey: "date",
+      header: "Datum",
       cell: ({ row }) => {
-        const roleId = row.original.role_id;
-        const roleName = getRoleName(roleId);
+        const date = new Date(row.getValue("date"));
         return (
-          <Badge variant={roleId ? "outline" : "secondary"}>{roleName}</Badge>
-        );
-      },
-      filterFn: (row, _id, value) => {
-        if (value === "all") return true;
-        if (value === "none") return row.original.role_id === null;
-        return row.original.role_id === value;
-      },
-    },
-    {
-      accessorKey: "balance",
-      header: () => <div className="text-right">Balance</div>,
-      cell: ({ row }) => {
-        const balance = row.getValue("balance") as number;
-        const formatted = formatCentsToEuro(balance);
-        return (
-          <div
-            className={`text-right font-medium flex items-center justify-end gap-1 ${
-              balance < 0 ? "text-red-500" : balance > 0 ? "text-green-500" : ""
-            }`}
-          >
-            {formatted}
-            {balance > 0 && (
-              <span title="Positives Guthaben - sollte mit Auto-Tip nicht vorkommen">
-                <AlertTriangleIcon className="size-4 text-yellow-500" />
-              </span>
-            )}
+          <div className="font-medium">
+            {date.toLocaleDateString("de-DE", {
+              weekday: "short",
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
           </div>
         );
       },
-      filterFn: (row, _id, value) => {
-        if (value === "all") return true;
-        const balance = row.getValue("balance") as number;
-        if (value === "positive") return balance > 0;
-        if (value === "negative") return balance < 0;
-        if (value === "zero") return balance === 0;
-        return true;
+    },
+    {
+      accessorKey: "participant_count",
+      header: () => <div className="text-right">Teilnehmer</div>,
+      cell: ({ row }) => {
+        const count = row.getValue("participant_count") as number;
+        return <div className="text-right font-medium">{count}</div>;
+      },
+    },
+    {
+      accessorKey: "penalty_fee_total",
+      header: () => <div className="text-right">Strafgebühren</div>,
+      cell: ({ row }) => {
+        const total = row.getValue("penalty_fee_total") as number;
+        return (
+          <div className="text-right font-medium">
+            {formatCentsToEuro(total)}
+          </div>
+        );
       },
     },
     {
       id: "actions",
       cell: ({ row }) => {
-        const player = row.original;
+        const gameDay = row.original;
 
         return (
-          <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+          <div className="flex justify-end">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
                   className="flex size-8 p-0 data-[state=open]:bg-muted"
+                  onClick={(e) => e.stopPropagation()} // Prevent row click
                 >
                   <MoreVerticalIcon className="size-4" />
                   <span className="sr-only">Menü öffnen</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onClick={() => navigate(`/app/players/${player.id}`)}
-                >
-                  <EyeIcon className="mr-2 size-4" />
-                  Details
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onEdit(player)}>
+                <DropdownMenuItem onClick={() => onView(gameDay)}>
                   <EditIcon className="mr-2 size-4" />
                   Bearbeiten
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="text-red-600"
-                  onClick={() => onDelete(player)}
+                  onClick={() => onDelete(gameDay)}
                 >
                   <TrashIcon className="mr-2 size-4" />
                   Löschen
@@ -193,95 +147,27 @@ export function PlayersDataTable({
     },
   ];
 
-  // Apply filters
-  const filteredData = React.useMemo(() => {
-    let filtered = [...players];
-
-    // Role filter
-    if (roleFilter !== "all") {
-      if (roleFilter === "none") {
-        filtered = filtered.filter((p) => p.role_id === null);
-      } else {
-        filtered = filtered.filter((p) => p.role_id === roleFilter);
-      }
-    }
-
-    // Balance filter
-    if (balanceFilter !== "all") {
-      if (balanceFilter === "positive") {
-        filtered = filtered.filter((p) => p.balance > 0);
-      } else if (balanceFilter === "negative") {
-        filtered = filtered.filter((p) => p.balance < 0);
-      } else if (balanceFilter === "zero") {
-        filtered = filtered.filter((p) => p.balance === 0);
-      }
-    }
-
-    return filtered;
-  }, [players, roleFilter, balanceFilter]);
-
   const table = useReactTable({
-    data: filteredData,
+    data: gameDays,
     columns,
     state: {
       sorting,
-      columnFilters,
-      columnVisibility,
       pagination,
     },
     onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
-    onColumnVisibilityChange: setColumnVisibility,
     onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
   });
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Filters and Actions */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="flex flex-1 flex-col gap-4 md:flex-row md:items-center">
-          <Input
-            placeholder="Nach Name suchen..."
-            value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
-            onChange={(event) =>
-              table.getColumn("name")?.setFilterValue(event.target.value)
-            }
-            className="max-w-sm"
-          />
-          <div className="flex gap-2">
-            <Select value={roleFilter} onValueChange={setRoleFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Rolle filtern" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Alle Rollen</SelectItem>
-                {roles.map((role) => (
-                  <SelectItem key={role.id} value={role.id}>
-                    {role.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={balanceFilter} onValueChange={setBalanceFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Balance filtern" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Alle Balances</SelectItem>
-                <SelectItem value="positive">Positiv</SelectItem>
-                <SelectItem value="negative">Negativ</SelectItem>
-                <SelectItem value="zero">Null</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+      {/* Header with Create Button */}
+      <div className="flex justify-end">
         <Button onClick={onCreate}>
           <PlusIcon className="mr-2 size-4" />
-          Player hinzufügen
+          Neuer Spieltag
         </Button>
       </div>
 
@@ -317,7 +203,6 @@ export function PlayersDataTable({
                   key={row.id}
                   className="cursor-pointer"
                   onClick={() => onView(row.original)}
-                  data-state={row.getIsSelected() && "selected"}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
@@ -335,7 +220,7 @@ export function PlayersDataTable({
                   colSpan={columns.length}
                   className="h-24 text-center"
                 >
-                  Keine Player gefunden.
+                  Noch keine Spieltage vorhanden
                 </TableCell>
               </TableRow>
             )}
@@ -346,9 +231,7 @@ export function PlayersDataTable({
       {/* Pagination */}
       <div className="flex items-center justify-between px-2">
         <div className="flex-1 text-sm text-muted-foreground">
-          {filteredData.length} Player
-          {filteredData.length !== players.length &&
-            ` (${players.length} gesamt)`}
+          {gameDays.length} Spieltage
         </div>
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">
@@ -365,7 +248,7 @@ export function PlayersDataTable({
                 <SelectValue placeholder={table.getState().pagination.pageSize} />
               </SelectTrigger>
               <SelectContent side="top">
-                {[10, 20, 30, 50].map((pageSize) => (
+                {[10, 20, 50].map((pageSize) => (
                   <SelectItem key={pageSize} value={`${pageSize}`}>
                     {pageSize}
                   </SelectItem>
@@ -422,4 +305,3 @@ export function PlayersDataTable({
     </div>
   );
 }
-

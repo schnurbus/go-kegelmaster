@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { RolesDataTable } from "@/components/roles-data-table";
 import { RoleDialog } from "@/components/role-dialog";
@@ -8,6 +9,7 @@ import type { Role } from "@/types/role";
 import { toast } from "sonner";
 
 function RolesPage() {
+  const navigate = useNavigate();
   const { activeClub } = useClub();
   const [roles, setRoles] = React.useState<Role[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -51,6 +53,10 @@ function RolesPage() {
     setIsDialogOpen(true);
   };
 
+  const handleView = (role: Role) => {
+    navigate(`/app/roles/${role.id}`);
+  };
+
   const handleEdit = (role: Role) => {
     setSelectedRole(role);
     setIsDialogOpen(true);
@@ -83,6 +89,7 @@ function RolesPage() {
         <div className="px-4 lg:px-6">
           <RolesDataTable
             roles={roles}
+            onView={handleView}
             onEdit={handleEdit}
             onDelete={handleDelete}
             onCreate={handleCreate}

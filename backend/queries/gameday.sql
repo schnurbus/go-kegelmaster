@@ -104,3 +104,30 @@ WHERE game_day_participant_id = $1 AND penalty_type_id = $2;
 
 -- name: DeleteAllFeesByParticipant :exec
 DELETE FROM game_day_fees WHERE game_day_participant_id = $1;
+
+-- ==================== SUMMARIES ====================
+
+-- name: GetGameDaySummariesByClubID :many
+SELECT 
+    gd.id,
+    gd.club_id,
+    gd.date,
+    gd.notes,
+    gd.created_at,
+    gd.updated_at,
+    COALESCE(p.participant_count, 0)::int as participant_count,
+    COALESCE(t.penalty_fee_total, 0)::int as penalty_fee_total
+FROM game_days gd
+LEFT JOIN (
+    SELECT game_day_id, COUNT(*)::int as participant_count
+    FROM game_day_participants
+    GROUP BY game_day_id
+) p ON gd.id = p.game_day_id
+LEFT JOIN (
+    SELECT game_day_id, SUM(amount)::int as penalty_fee_total
+    FROM transactions
+    WHERE transaction_type = 'fee'
+    GROUP BY game_day_id
+) t ON gd.id = t.game_day_id
+WHERE gd.club_id = $1
+ORDER BY gd.date DESC;

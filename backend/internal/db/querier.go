@@ -45,6 +45,8 @@ type Querier interface {
 	GetGameDayFeesByGameDay(ctx context.Context, gameDayID string) ([]GetGameDayFeesByGameDayRow, error)
 	GetGameDayFeesByParticipant(ctx context.Context, gameDayParticipantID string) ([]GameDayFee, error)
 	GetGameDayParticipants(ctx context.Context, gameDayID string) ([]GetGameDayParticipantsRow, error)
+	// ==================== SUMMARIES ====================
+	GetGameDaySummariesByClubID(ctx context.Context, clubID string) ([]GetGameDaySummariesByClubIDRow, error)
 	GetGameDayTransactionSummary(ctx context.Context, gameDayID *string) (GetGameDayTransactionSummaryRow, error)
 	GetGameDaysByClubID(ctx context.Context, clubID string) ([]GameDay, error)
 	GetMaxDisplayOrderByClubID(ctx context.Context, clubID string) (interface{}, error)
@@ -52,6 +54,7 @@ type Querier interface {
 	GetPenaltyTypeByID(ctx context.Context, id string) (PenaltyType, error)
 	GetPenaltyTypesByClubID(ctx context.Context, clubID string) ([]PenaltyType, error)
 	GetPlayerByID(ctx context.Context, id string) (Player, error)
+	GetPlayerByUserIDAndClubID(ctx context.Context, arg GetPlayerByUserIDAndClubIDParams) (Player, error)
 	GetPlayersByClubID(ctx context.Context, clubID string) ([]Player, error)
 	GetRoleByID(ctx context.Context, id string) (Role, error)
 	GetRolePermissions(ctx context.Context, roleID string) ([]RolePermission, error)

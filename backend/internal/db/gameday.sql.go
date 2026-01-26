@@ -376,6 +376,77 @@ func (q *Queries) GetGameDayParticipants(ctx context.Context, gameDayID string) 
 	return items, nil
 }
 
+const getGameDaySummariesByClubID = `-- name: GetGameDaySummariesByClubID :many
+
+SELECT 
+    gd.id,
+    gd.club_id,
+    gd.date,
+    gd.notes,
+    gd.created_at,
+    gd.updated_at,
+    COALESCE(p.participant_count, 0)::int as participant_count,
+    COALESCE(t.penalty_fee_total, 0)::int as penalty_fee_total
+FROM game_days gd
+LEFT JOIN (
+    SELECT game_day_id, COUNT(*)::int as participant_count
+    FROM game_day_participants
+    GROUP BY game_day_id
+) p ON gd.id = p.game_day_id
+LEFT JOIN (
+    SELECT game_day_id, SUM(amount)::int as penalty_fee_total
+    FROM transactions
+    WHERE transaction_type = 'fee'
+    GROUP BY game_day_id
+) t ON gd.id = t.game_day_id
+WHERE gd.club_id = $1
+ORDER BY gd.date DESC
+`
+
+type GetGameDaySummariesByClubIDRow struct {
+	ID               string         `json:"id"`
+	ClubID           string         `json:"club_id"`
+	Date             time.Time      `json:"date"`
+	Notes            sql.NullString `json:"notes"`
+	CreatedAt        time.Time      `json:"created_at"`
+	UpdatedAt        time.Time      `json:"updated_at"`
+	ParticipantCount int32          `json:"participant_count"`
+	PenaltyFeeTotal  int32          `json:"penalty_fee_total"`
+}
+
+// ==================== SUMMARIES ====================
+func (q *Queries) GetGameDaySummariesByClubID(ctx context.Context, clubID string) ([]GetGameDaySummariesByClubIDRow, error) {
+	rows, err := q.db.QueryContext(ctx, getGameDaySummariesByClubID, clubID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetGameDaySummariesByClubIDRow
+	for rows.Next() {
+		var i GetGameDaySummariesByClubIDRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ClubID,
+			&i.Date,
+			&i.Notes,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ParticipantCount,
+			&i.PenaltyFeeTotal,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getGameDaysByClubID = `-- name: GetGameDaysByClubID :many
 SELECT id, club_id, date, notes, created_at, updated_at FROM game_days 
 WHERE club_id = $1 

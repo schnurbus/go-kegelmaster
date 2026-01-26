@@ -55,6 +55,7 @@ import type { Role } from "@/types/role";
 
 type RolesDataTableProps = {
   roles: Role[];
+  onView: (role: Role) => void;
   onEdit: (role: Role) => void;
   onDelete: (role: Role) => void;
   onCreate: () => void;
@@ -63,6 +64,7 @@ type RolesDataTableProps = {
 
 export function RolesDataTable({
   roles,
+  onView,
   onEdit,
   onDelete,
   onCreate,
@@ -131,7 +133,7 @@ export function RolesDataTable({
         const role = row.original;
 
         return (
-          <div className="flex justify-end">
+          <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -261,6 +263,8 @@ export function RolesDataTable({
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
+                  className="cursor-pointer"
+                  onClick={() => onView(row.original)}
                   data-state={row.getIsSelected() && "selected"}
                 >
                   {row.getVisibleCells().map((cell) => (

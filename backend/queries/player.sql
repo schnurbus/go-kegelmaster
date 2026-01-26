@@ -47,3 +47,6 @@ RETURNING *;
 DELETE FROM players
 WHERE id = $1;
 
+-- name: GetPlayerByUserIDAndClubID :one
+SELECT * FROM players
+WHERE user_id = $1 AND club_id = $2;

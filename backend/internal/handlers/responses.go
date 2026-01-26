@@ -202,6 +202,38 @@ func GameDaysResponseFromEntities(gameDays []gameday.GameDay) []GameDayResponse 
 	return responses
 }
 
+type GameDaySummaryResponse struct {
+	ID               string `json:"id"`
+	ClubID           string `json:"club_id"`
+	Date             string `json:"date"`
+	Notes            string `json:"notes"`
+	ParticipantCount int    `json:"participant_count"`
+	PenaltyFeeTotal  int    `json:"penalty_fee_total"`
+	CreatedAt        string `json:"created_at"`
+	UpdatedAt        string `json:"updated_at"`
+}
+
+func GameDaySummaryResponseFromEntity(gds gameday.GameDaySummary) GameDaySummaryResponse {
+	return GameDaySummaryResponse{
+		ID:               gds.ID,
+		ClubID:           gds.ClubID,
+		Date:             gds.Date.Format("2006-01-02"),
+		Notes:            gds.Notes,
+		ParticipantCount: gds.ParticipantCount,
+		PenaltyFeeTotal:  gds.PenaltyFeeTotal,
+		CreatedAt:        gds.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:        gds.UpdatedAt.Format(time.RFC3339),
+	}
+}
+
+func GameDaySummariesResponseFromEntities(summaries []gameday.GameDaySummary) []GameDaySummaryResponse {
+	responses := make([]GameDaySummaryResponse, len(summaries))
+	for i, s := range summaries {
+		responses[i] = GameDaySummaryResponseFromEntity(s)
+	}
+	return responses
+}
+
 type ParticipantResponse struct {
 	ID         string `json:"id"`
 	GameDayID  string `json:"game_day_id"`

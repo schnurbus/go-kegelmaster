@@ -202,6 +202,42 @@ func (h *Handler) HandleGetGameDays(c fiber.Ctx) error {
 	return c.JSON(GameDaysResponseFromEntities(gameDays))
 }
 
+func (h *Handler) HandleGetGameDaySummaries(c fiber.Ctx) error {
+	ctx, cancel := h.RequestContext()
+	defer cancel()
+
+	u, err := h.UserFromCookie(ctx, c)
+	if err != nil {
+		return fiber.NewError(fiber.StatusUnauthorized, "Nicht angemeldet")
+	}
+
+	clubID := c.Params("clubId")
+	if clubID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "Club-ID ist erforderlich")
+	}
+
+	// Check permission
+	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypeGameDays, role.PermissionTypeList)
+	if err != nil {
+		if errors.Is(err, club.ErrNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
+		}
+		slog.Error("check permission", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+	if !hasPermission {
+		return fiber.NewError(fiber.StatusForbidden, "Keine Berechtigung, Spieltage einzusehen")
+	}
+
+	summaries, err := h.GameDayRepo.GetSummariesByClubID(ctx, clubID)
+	if err != nil {
+		slog.Error("get game day summaries", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+
+	return c.JSON(GameDaySummariesResponseFromEntities(summaries))
+}
+
 func (h *Handler) HandleGetGameDay(c fiber.Ctx) error {
 	ctx, cancel := h.RequestContext()
 	defer cancel()

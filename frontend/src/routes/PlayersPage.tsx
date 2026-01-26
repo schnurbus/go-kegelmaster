@@ -92,6 +92,10 @@ function PlayersPage() {
     setIsDialogOpen(true);
   };
 
+  const handleView = (player: Player) => {
+    navigate(`/app/players/${player.id}`);
+  };
+
   const handleEdit = (player: Player) => {
     setSelectedPlayer(player);
     setIsDialogOpen(true);
@@ -153,6 +157,7 @@ function PlayersPage() {
           <PlayersDataTable
             players={players}
             roles={roles}
+            onView={handleView}
             onEdit={handleEdit}
             onDelete={handleDelete}
             onCreate={handleCreate}
