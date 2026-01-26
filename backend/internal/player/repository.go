@@ -81,6 +81,21 @@ func (r *Repository) GetByClubID(ctx context.Context, clubID string) ([]Player, 
 	return players, nil
 }
 
+func (r *Repository) GetByUserIDAndClubID(ctx context.Context, userID, clubID string) (Player, error) {
+	dbPlayer, err := r.queries.GetPlayerByUserIDAndClubID(ctx, db.GetPlayerByUserIDAndClubIDParams{
+		UserID: &userID,
+		ClubID: clubID,
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return Player{}, ErrNotFound
+	}
+	if err != nil {
+		return Player{}, err
+	}
+
+	return dbPlayerToPlayer(dbPlayer), nil
+}
+
 // dbPlayerToPlayer converts a db.Player to a player.Player
 func dbPlayerToPlayer(dbPlayer db.Player) Player {
 	return Player{

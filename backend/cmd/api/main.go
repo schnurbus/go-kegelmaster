@@ -42,7 +42,7 @@ func main() {
 	gameDayRepo := gameday.NewRepository(db)
 	transactionRepo := transaction.NewRepository(db, playerRepo, clubRepo)
 	authSvc := auth.NewService(cfg.JWTSecret, cfg.TokenTTLMin)
-	permissionCheck := permission.NewChecker(clubRepo, roleRepo)
+	permissionCheck := permission.NewChecker(clubRepo, roleRepo, playerRepo)
 
 	srv := server.New(cfg, server.Dependencies{
 		UserRepo:        userRepo,

@@ -58,6 +58,7 @@ import { formatCentsToEuro } from "@/types/player";
 type PlayersDataTableProps = {
   players: Player[];
   roles: Role[];
+  onView: (player: Player) => void;
   onEdit: (player: Player) => void;
   onDelete: (player: Player) => void;
   onCreate: () => void;
@@ -67,6 +68,7 @@ type PlayersDataTableProps = {
 export function PlayersDataTable({
   players,
   roles,
+  onView,
   onEdit,
   onDelete,
   onCreate,
@@ -153,7 +155,7 @@ export function PlayersDataTable({
         const player = row.original;
 
         return (
-          <div className="flex justify-end">
+          <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -313,6 +315,8 @@ export function PlayersDataTable({
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
+                  className="cursor-pointer"
+                  onClick={() => onView(row.original)}
                   data-state={row.getIsSelected() && "selected"}
                 >
                   {row.getVisibleCells().map((cell) => (

@@ -106,6 +106,33 @@ func (q *Queries) GetPlayerByID(ctx context.Context, id string) (Player, error) 
 	return i, err
 }
 
+const getPlayerByUserIDAndClubID = `-- name: GetPlayerByUserIDAndClubID :one
+SELECT id, club_id, user_id, role_id, name, balance, start_balance, created_at, updated_at FROM players
+WHERE user_id = $1 AND club_id = $2
+`
+
+type GetPlayerByUserIDAndClubIDParams struct {
+	UserID *string `json:"user_id"`
+	ClubID string  `json:"club_id"`
+}
+
+func (q *Queries) GetPlayerByUserIDAndClubID(ctx context.Context, arg GetPlayerByUserIDAndClubIDParams) (Player, error) {
+	row := q.db.QueryRowContext(ctx, getPlayerByUserIDAndClubID, arg.UserID, arg.ClubID)
+	var i Player
+	err := row.Scan(
+		&i.ID,
+		&i.ClubID,
+		&i.UserID,
+		&i.RoleID,
+		&i.Name,
+		&i.Balance,
+		&i.StartBalance,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getPlayersByClubID = `-- name: GetPlayersByClubID :many
 SELECT id, club_id, user_id, role_id, name, balance, start_balance, created_at, updated_at FROM players
 WHERE club_id = $1

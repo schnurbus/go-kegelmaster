@@ -48,7 +48,7 @@ func newTestServer(t *testing.T) (*Server, sqlmock.Sqlmock, *auth.Service) {
 	gameDayRepo := gameday.NewRepository(db)
 	transactionRepo := transaction.NewRepository(db, playerRepo, clubRepo)
 	authSvc := auth.NewService("test-secret", 60)
-	permissionCheck := permission.NewChecker(clubRepo, roleRepo)
+	permissionCheck := permission.NewChecker(clubRepo, roleRepo, playerRepo)
 
 	srv := New(config.Config{
 		AppEnv:      "test",
