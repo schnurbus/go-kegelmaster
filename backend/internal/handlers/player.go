@@ -169,6 +169,38 @@ func (h *Handler) HandleGetPlayer(c fiber.Ctx) error {
 	return c.JSON(PlayerResponseFromEntity(playerEntity))
 }
 
+func (h *Handler) HandleGetMyPlayer(c fiber.Ctx) error {
+	ctx, cancel := h.RequestContext()
+	defer cancel()
+
+	u, err := h.UserFromCookie(ctx, c)
+	if err != nil {
+		return fiber.NewError(fiber.StatusUnauthorized, "Nicht angemeldet")
+	}
+
+	clubID := c.Params("clubId")
+	if clubID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "Club-ID ist erforderlich")
+	}
+
+	// Get player for the current user in the specified club
+	playerEntity, err := h.PlayerRepo.GetByUserIDAndClubID(ctx, u.ID, clubID)
+	if err != nil {
+		if errors.Is(err, player.ErrNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "Kein Spieler in diesem Club")
+		}
+		slog.Error("get my player", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+
+	// Verify player belongs to club
+	if playerEntity.ClubID != clubID {
+		return fiber.NewError(fiber.StatusNotFound, "Kein Spieler in diesem Club")
+	}
+
+	return c.JSON(PlayerResponseFromEntity(playerEntity))
+}
+
 type updatePlayerRequest struct {
 	Name         string  `json:"name"`
 	Balance      int     `json:"balance"`

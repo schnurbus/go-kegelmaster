@@ -53,34 +53,24 @@ function useDashboardData() {
         icon: LayoutDashboardIcon,
       },
       {
-        title: "Spieltage",
-        url: "/app/gamedays",
-        icon: CalendarIcon,
-      },
-      {
         title: "Statistiken",
         url: "#",
         icon: BarChartIcon,
       },
       {
-        title: "Klubs",
-        url: "#",
-        icon: FolderIcon,
+        title: "Spieltage",
+        url: "/app/gamedays",
+        icon: CalendarIcon,
       },
+      // {
+      //   title: "Klubs",
+      //   url: "#",
+      //   icon: FolderIcon,
+      // },
       {
         title: "Spieler",
         url: "/app/players",
         icon: UsersIcon,
-      },
-      {
-        title: "Rollen",
-        url: "/app/roles",
-        icon: ShieldIcon,
-      },
-      {
-        title: "Strafentypen",
-        url: "/app/penalty-types",
-        icon: AlertCircleIcon,
       },
       {
         title: "Transaktionen",
@@ -153,22 +143,32 @@ function useDashboardData() {
         icon: SearchIcon,
       },
     ],
-    documents: [
+    management: [
       {
-        name: "Data Library",
-        url: "#",
-        icon: DatabaseIcon,
+        title: "Rollen",
+        url: "/app/roles",
+        icon: ShieldIcon,
       },
       {
-        name: "Reports",
-        url: "#",
-        icon: ClipboardListIcon,
+        title: "Strafentypen",
+        url: "/app/penalty-types",
+        icon: AlertCircleIcon,
       },
-      {
-        name: "Word Assistant",
-        url: "#",
-        icon: FileIcon,
-      },
+      // {
+      //   name: "Data Library",
+      //   url: "#",
+      //   icon: DatabaseIcon,
+      // },
+      // {
+      //   name: "Reports",
+      //   url: "#",
+      //   icon: ClipboardListIcon,
+      // },
+      // {
+      //   name: "Word Assistant",
+      //   url: "#",
+      //   icon: FileIcon,
+      // },
     ],
   }
 }
@@ -196,7 +196,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <NavDocuments items={data.documents} />
+        <NavSecondary items={data.management} />
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
