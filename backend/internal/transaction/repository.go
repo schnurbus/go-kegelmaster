@@ -417,6 +417,60 @@ func (r *Repository) GetByGameDayFee(ctx context.Context, gameDayFeeID string) (
 	return dbTransactionToTransaction(dbTx), nil
 }
 
+// DeleteFeeTransaction deletes a fee or base_fee transaction and reverts player balance.
+// Used when updating fee counts so that re-import remains idempotent.
+func (r *Repository) DeleteFeeTransaction(ctx context.Context, id string) error {
+	tx, err := r.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if tx.TransactionType != TransactionTypeFee && tx.TransactionType != TransactionTypeBaseFee {
+		return ErrNotManual
+	}
+
+	dbTx, err := r.database.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer dbTx.Rollback()
+
+	qtx := r.queries.WithTx(dbTx)
+
+	if tx.PlayerID != nil {
+		playerEntity, err := r.playerRepo.GetByID(ctx, *tx.PlayerID)
+		if err != nil {
+			return fmt.Errorf("failed to get player: %w", err)
+		}
+		// Revert: fee amount is negative (debt), so add it back to reduce debt
+		newBalance := playerEntity.Balance - tx.Amount
+		var gender sql.NullString
+		if playerEntity.Gender != nil && *playerEntity.Gender != "" {
+			gender = sql.NullString{String: *playerEntity.Gender, Valid: true}
+		}
+		_, err = qtx.UpdatePlayer(ctx, db.UpdatePlayerParams{
+			ID:           playerEntity.ID,
+			Name:         playerEntity.Name,
+			Balance:      int32(newBalance),
+			StartBalance: int32(playerEntity.StartBalance),
+			UserID:       playerEntity.UserID,
+			RoleID:       playerEntity.RoleID,
+			Gender:       gender,
+			UpdatedAt:    time.Now(),
+		})
+		if err != nil {
+			return fmt.Errorf("failed to revert player balance: %w", err)
+		}
+	}
+
+	if err := qtx.DeleteTransaction(ctx, id); err != nil {
+		return fmt.Errorf("failed to delete transaction: %w", err)
+	}
+	if err := dbTx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit: %w", err)
+	}
+	return nil
+}
+
 // Delete deletes a transaction and reverts balances
 func (r *Repository) Delete(ctx context.Context, id string) error {
 	// Get transaction first
