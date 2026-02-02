@@ -37,6 +37,11 @@ SET deleted_at = $1,
     replaced_by_id = $2
 WHERE id = $3 AND deleted_at IS NULL;
 
+-- name: SetPenaltyTypeReplacedBy :exec
+UPDATE penalty_types
+SET replaced_by_id = $1
+WHERE id = $2 AND deleted_at IS NOT NULL;
+
 -- name: DeletePenaltyType :exec
 UPDATE penalty_types
 SET deleted_at = $1

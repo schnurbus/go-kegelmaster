@@ -507,15 +507,14 @@ function GameDayDetailPage() {
     try {
       const csrfToken = await fetchCSRFToken();
 
-      // Save fees for each participant
+      // Save fees for each participant: send ALL penalty types with count (0 = delete fee)
       const savePromises = orderedParticipants.map(async (participant) => {
         const playerId = participant.player_id;
         const playerFees = feeInputs.get(playerId) || new Map();
 
-        // Convert Map to array format expected by API (count can be decimal when type allows)
-        const fees = Array.from(playerFees.entries()).map(([penaltyTypeId, count]) => ({
-          penalty_type_id: penaltyTypeId,
-          count: Number(count),
+        const fees = allPenaltyTypes.map((pt) => ({
+          penalty_type_id: pt.id,
+          count: playerFees.has(pt.id) ? Number(playerFees.get(pt.id)) : 0,
         }));
 
         const response = await fetch(

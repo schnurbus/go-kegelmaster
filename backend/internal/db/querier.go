@@ -87,6 +87,7 @@ type Querier interface {
 	ListTransactionsByType(ctx context.Context, arg ListTransactionsByTypeParams) ([]ListTransactionsByTypeRow, error)
 	MarkPenaltyTypeAsReplaced(ctx context.Context, arg MarkPenaltyTypeAsReplacedParams) error
 	RemoveRolePermission(ctx context.Context, arg RemoveRolePermissionParams) error
+	SetPenaltyTypeReplacedBy(ctx context.Context, arg SetPenaltyTypeReplacedByParams) error
 	SumTransactionsByClub(ctx context.Context, clubID string) (interface{}, error)
 	SumTransactionsByPlayer(ctx context.Context, playerID *string) (interface{}, error)
 	UpdateClub(ctx context.Context, arg UpdateClubParams) (Club, error)

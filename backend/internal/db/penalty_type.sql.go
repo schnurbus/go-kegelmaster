@@ -189,6 +189,22 @@ func (q *Queries) MarkPenaltyTypeAsReplaced(ctx context.Context, arg MarkPenalty
 	return err
 }
 
+const setPenaltyTypeReplacedBy = `-- name: SetPenaltyTypeReplacedBy :exec
+UPDATE penalty_types
+SET replaced_by_id = $1
+WHERE id = $2 AND deleted_at IS NOT NULL
+`
+
+type SetPenaltyTypeReplacedByParams struct {
+	ReplacedByID *string `json:"replaced_by_id"`
+	ID           string  `json:"id"`
+}
+
+func (q *Queries) SetPenaltyTypeReplacedBy(ctx context.Context, arg SetPenaltyTypeReplacedByParams) error {
+	_, err := q.db.ExecContext(ctx, setPenaltyTypeReplacedBy, arg.ReplacedByID, arg.ID)
+	return err
+}
+
 const updatePenaltyTypeDisplayOrder = `-- name: UpdatePenaltyTypeDisplayOrder :exec
 UPDATE penalty_types
 SET display_order = $1,

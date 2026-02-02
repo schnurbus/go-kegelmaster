@@ -10,24 +10,27 @@ import (
 	"github.com/google/uuid"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/db"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/gameday"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/player"
 )
 
 // Repository provides access to transaction storage
 type Repository struct {
-	queries    *db.Queries
-	database   *sql.DB
-	playerRepo *player.Repository
-	clubRepo   *club.Repository
+	queries      *db.Queries
+	database     *sql.DB
+	playerRepo   *player.Repository
+	clubRepo     *club.Repository
+	gameDayRepo  *gameday.Repository
 }
 
 // NewRepository creates a new transaction repository
-func NewRepository(database *sql.DB, playerRepo *player.Repository, clubRepo *club.Repository) *Repository {
+func NewRepository(database *sql.DB, playerRepo *player.Repository, clubRepo *club.Repository, gameDayRepo *gameday.Repository) *Repository {
 	return &Repository{
-		queries:    db.New(database),
-		database:   database,
-		playerRepo: playerRepo,
-		clubRepo:   clubRepo,
+		queries:     db.New(database),
+		database:    database,
+		playerRepo:  playerRepo,
+		clubRepo:    clubRepo,
+		gameDayRepo: gameDayRepo,
 	}
 }
 
@@ -125,6 +128,19 @@ func (r *Repository) Create(ctx context.Context, params CreateTransactionParams)
 	now := time.Now()
 	txID := uuid.New().String()
 
+	txDate := params.TransactionDate
+	if txDate.IsZero() && params.GameDayID != nil && r.gameDayRepo != nil {
+		gd, err := r.gameDayRepo.GetByID(ctx, *params.GameDayID)
+		if err == nil {
+			txDate = gd.Date
+		}
+	}
+	if txDate.IsZero() {
+		txDate = now
+	}
+	// Normalize to noon UTC so the calendar day is preserved when PostgreSQL
+	// converts to session timezone for DATE storage (avoids off-by-one in western TZ).
+	dateOnly := txDate.UTC().Truncate(24 * time.Hour).Add(12 * time.Hour)
 	dbTx, err := qtx.CreateTransaction(ctx, db.CreateTransactionParams{
 		ID:                  txID,
 		ClubID:              params.ClubID,
@@ -138,6 +154,7 @@ func (r *Repository) Create(ctx context.Context, params CreateTransactionParams)
 		PlayerBalanceAfter:  toNullInt32(playerBalanceAfter),
 		ClubBalanceBefore:   int32(clubBalanceBefore),
 		ClubBalanceAfter:    int32(clubBalanceAfter),
+		TransactionDate:     dateOnly,
 		CreatedAt:           now,
 		UpdatedAt:           now,
 	})
@@ -594,6 +611,7 @@ func dbTransactionToTransaction(dbTx db.Transaction) *Transaction {
 		PlayerBalanceAfter:  fromNullInt32(dbTx.PlayerBalanceAfter),
 		ClubBalanceBefore:   int(dbTx.ClubBalanceBefore),
 		ClubBalanceAfter:    int(dbTx.ClubBalanceAfter),
+		TransactionDate:     dbTx.TransactionDate,
 		CreatedAt:           dbTx.CreatedAt,
 		UpdatedAt:           dbTx.UpdatedAt,
 	}
@@ -613,6 +631,7 @@ func dbTransactionWithPlayerToTransaction(dbTx db.GetTransactionByIDRow) *Transa
 		PlayerBalanceAfter:  fromNullInt32(dbTx.PlayerBalanceAfter),
 		ClubBalanceBefore:   int(dbTx.ClubBalanceBefore),
 		ClubBalanceAfter:    int(dbTx.ClubBalanceAfter),
+		TransactionDate:     dbTx.TransactionDate,
 		CreatedAt:           dbTx.CreatedAt,
 		UpdatedAt:           dbTx.UpdatedAt,
 		PlayerName:          fromNullString(dbTx.PlayerName),
@@ -655,6 +674,7 @@ func dbListClubRowToTransaction(dbTx db.ListTransactionsByClubRow) *Transaction 
 		PlayerBalanceAfter:  fromNullInt32(dbTx.PlayerBalanceAfter),
 		ClubBalanceBefore:   int(dbTx.ClubBalanceBefore),
 		ClubBalanceAfter:    int(dbTx.ClubBalanceAfter),
+		TransactionDate:     dbTx.TransactionDate,
 		CreatedAt:           dbTx.CreatedAt,
 		UpdatedAt:           dbTx.UpdatedAt,
 		PlayerName:          fromNullString(dbTx.PlayerName),
@@ -675,6 +695,7 @@ func dbListPlayerRowToTransaction(dbTx db.ListTransactionsByPlayerRow) *Transact
 		PlayerBalanceAfter:  fromNullInt32(dbTx.PlayerBalanceAfter),
 		ClubBalanceBefore:   int(dbTx.ClubBalanceBefore),
 		ClubBalanceAfter:    int(dbTx.ClubBalanceAfter),
+		TransactionDate:     dbTx.TransactionDate,
 		CreatedAt:           dbTx.CreatedAt,
 		UpdatedAt:           dbTx.UpdatedAt,
 		PlayerName:          fromNullString(dbTx.PlayerName),
@@ -695,6 +716,7 @@ func dbListGameDayRowToTransaction(dbTx db.ListTransactionsByGameDayRow) *Transa
 		PlayerBalanceAfter:  fromNullInt32(dbTx.PlayerBalanceAfter),
 		ClubBalanceBefore:   int(dbTx.ClubBalanceBefore),
 		ClubBalanceAfter:    int(dbTx.ClubBalanceAfter),
+		TransactionDate:     dbTx.TransactionDate,
 		CreatedAt:           dbTx.CreatedAt,
 		UpdatedAt:           dbTx.UpdatedAt,
 		PlayerName:          fromNullString(dbTx.PlayerName),

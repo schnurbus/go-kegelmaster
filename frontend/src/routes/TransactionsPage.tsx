@@ -162,10 +162,11 @@ function TransactionsPage() {
 
   const columns: ColumnDef<Transaction>[] = [
     {
-      accessorKey: "created_at",
+      accessorKey: "transaction_date",
       header: "Datum",
       cell: ({ row }) => {
-        const date = new Date(row.getValue("created_at"));
+        const dateStr = (row.getValue("transaction_date") ?? row.original.created_at) as string;
+        const date = new Date(dateStr);
         return (
           <div className="font-medium">
             {date.toLocaleDateString("de-DE", {

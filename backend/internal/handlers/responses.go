@@ -402,6 +402,7 @@ type TransactionResponse struct {
 	PlayerBalanceAfter  *int    `json:"player_balance_after,omitempty"`
 	ClubBalanceBefore   int     `json:"club_balance_before"`
 	ClubBalanceAfter    int     `json:"club_balance_after"`
+	TransactionDate     string  `json:"transaction_date"` // effective date (game day date for fee/base_fee)
 	CreatedAt           string  `json:"created_at"`
 	UpdatedAt           string  `json:"updated_at"`
 }
@@ -421,6 +422,7 @@ func TransactionResponseFromEntity(t transaction.Transaction) TransactionRespons
 		PlayerBalanceAfter:  t.PlayerBalanceAfter,
 		ClubBalanceBefore:   t.ClubBalanceBefore,
 		ClubBalanceAfter:    t.ClubBalanceAfter,
+		TransactionDate:     t.TransactionDate.Format("2006-01-02"),
 		CreatedAt:           t.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:           t.UpdatedAt.Format(time.RFC3339),
 	}

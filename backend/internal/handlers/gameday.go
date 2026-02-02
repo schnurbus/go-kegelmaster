@@ -150,12 +150,13 @@ func (h *Handler) HandleCreateGameDay(c fiber.Ctx) error {
 				playerID := player.ID
 				gameDayID := gameDayEntity.ID
 				_, err = h.TransactionRepo.Create(ctx, transaction.CreateTransactionParams{
-					ClubID:          clubID,
-					PlayerID:        &playerID,
-					TransactionType: transaction.TransactionTypeBaseFee,
-					Amount:          -clubEntity.BaseFee, // Negative for debt
-					Description:     fmt.Sprintf("Grundgebühr für %s", date.Format("02.01.2006")),
-					GameDayID:       &gameDayID,
+					ClubID:           clubID,
+					PlayerID:         &playerID,
+					TransactionType:  transaction.TransactionTypeBaseFee,
+					Amount:           -clubEntity.BaseFee, // Negative for debt
+					Description:      fmt.Sprintf("Grundgebühr für %s", date.Format("02.01.2006")),
+					GameDayID:        &gameDayID,
+					TransactionDate:  gameDayEntity.Date,
 				})
 				if err != nil {
 					slog.Error("create base fee transaction", "player", player.ID, "error", err)
@@ -609,12 +610,10 @@ func (h *Handler) HandleUpdateFees(c fiber.Ctx) error {
 		if fee.Count <= 0 || math.IsNaN(fee.Count) || math.IsInf(fee.Count, 0) {
 			// Check if there's an existing fee and transaction to delete
 			if existingFee, exists := existingFeeMap[fee.PenaltyTypeID]; exists {
-				// Try to get and delete the associated transaction
+				// Try to get and delete the associated fee transaction (reverts player balance)
 				existingTx, err := h.TransactionRepo.GetByGameDayFee(ctx, existingFee.ID)
 				if err == nil && existingTx != nil {
-					// Delete transaction (this will revert the balance via CASCADE or manual revert)
-					// Since transactions CASCADE delete, we need to handle balance revert
-					if err := h.TransactionRepo.Delete(ctx, existingTx.ID); err != nil {
+					if err := h.TransactionRepo.DeleteFeeTransaction(ctx, existingTx.ID); err != nil {
 						slog.Error("delete fee transaction", "error", err)
 					}
 				}
@@ -681,10 +680,10 @@ func (h *Handler) HandleUpdateFees(c fiber.Ctx) error {
 		amount := -(pt.Price * countStored / quantityScale)
 
 		if isUpdate {
-			// Delete old transaction and create new one with updated amount
+			// Delete old fee transaction and create new one with updated amount (DeleteFeeTransaction reverts balance)
 			existingTx, err := h.TransactionRepo.GetByGameDayFee(ctx, existingFee.ID)
 			if err == nil && existingTx != nil {
-				if err := h.TransactionRepo.Delete(ctx, existingTx.ID); err != nil {
+				if err := h.TransactionRepo.DeleteFeeTransaction(ctx, existingTx.ID); err != nil {
 					slog.Error("delete old fee transaction", "error", err)
 				}
 			}
@@ -696,13 +695,14 @@ func (h *Handler) HandleUpdateFees(c fiber.Ctx) error {
 			quantityDesc = fmt.Sprintf("%.2f", float64(countStored)/float64(quantityScale))
 		}
 		_, err = h.TransactionRepo.Create(ctx, transaction.CreateTransactionParams{
-			ClubID:          clubID,
-			PlayerID:        &playerID,
-			TransactionType: transaction.TransactionTypeFee,
-			Amount:          amount,
-			Description:     fmt.Sprintf("%s ×%s", pt.Name, quantityDesc),
-			GameDayFeeID:    &createdFee.ID,
-			GameDayID:       &gameDayID,
+			ClubID:           clubID,
+			PlayerID:         &playerID,
+			TransactionType:  transaction.TransactionTypeFee,
+			Amount:           amount,
+			Description:      fmt.Sprintf("%s ×%s", pt.Name, quantityDesc),
+			GameDayFeeID:     &createdFee.ID,
+			GameDayID:        &gameDayID,
+			TransactionDate:  gd.Date,
 		})
 		if err != nil {
 			slog.Error("create fee transaction", "error", err)

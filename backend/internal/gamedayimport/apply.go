@@ -140,12 +140,13 @@ func applyWrite(ctx context.Context, resolved *ResolvedInput, playerByName map[s
 						}
 						playerID := p.ID
 						_, err = deps.TransactionRepo.Create(ctx, transaction.CreateTransactionParams{
-							ClubID:          resolved.ClubID,
-							PlayerID:        &playerID,
-							TransactionType: transaction.TransactionTypeBaseFee,
-							Amount:          -clubEntity.BaseFee,
-							Description:     fmt.Sprintf("Grundgebühr für %s", d.Format("02.01.2006")),
-							GameDayID:       &gameDayID,
+							ClubID:           resolved.ClubID,
+							PlayerID:         &playerID,
+							TransactionType:  transaction.TransactionTypeBaseFee,
+							Amount:           -clubEntity.BaseFee,
+							Description:      fmt.Sprintf("Grundgebühr für %s", d.Format("02.01.2006")),
+							GameDayID:        &gameDayID,
+							TransactionDate:  d,
 						})
 						if err != nil {
 							slog.Error("Grundgebühr-Transaktion anlegen", "player", p.ID, "error", err)
@@ -236,13 +237,14 @@ func applyWrite(ctx context.Context, resolved *ResolvedInput, playerByName map[s
 					quantityDesc = fmt.Sprintf("%.2f", float64(countStored)/float64(quantityScale))
 				}
 				_, err = deps.TransactionRepo.Create(ctx, transaction.CreateTransactionParams{
-					ClubID:          resolved.ClubID,
-					PlayerID:        &playerID,
-					TransactionType: transaction.TransactionTypeFee,
-					Amount:          amount,
-					Description:     fmt.Sprintf("%s ×%s", col.PenaltyTypeName, quantityDesc),
-					GameDayFeeID:    &createdFee.ID,
-					GameDayID:       &gameDayID,
+					ClubID:           resolved.ClubID,
+					PlayerID:         &playerID,
+					TransactionType:  transaction.TransactionTypeFee,
+					Amount:           amount,
+					Description:      fmt.Sprintf("%s ×%s", col.PenaltyTypeName, quantityDesc),
+					GameDayFeeID:     &createdFee.ID,
+					GameDayID:        &gameDayID,
+					TransactionDate:  dateOnly(row.Date),
 				})
 				if err != nil {
 					slog.Error("Fee-Transaktion anlegen", "error", err)

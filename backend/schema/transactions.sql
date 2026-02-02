@@ -85,7 +85,10 @@ CREATE TABLE IF NOT EXISTS transactions (
     player_balance_after INTEGER,
     club_balance_before INTEGER NOT NULL,
     club_balance_after INTEGER NOT NULL,
-    
+
+    -- Effective date: for fee/base_fee = game day date, for manual = created_at date
+    transaction_date DATE NOT NULL DEFAULT CURRENT_DATE,
+
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

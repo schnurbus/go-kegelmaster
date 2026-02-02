@@ -136,6 +136,7 @@ type Transaction struct {
 	PlayerBalanceAfter  sql.NullInt32  `json:"player_balance_after"`
 	ClubBalanceBefore   int32          `json:"club_balance_before"`
 	ClubBalanceAfter    int32          `json:"club_balance_after"`
+	TransactionDate     time.Time      `json:"transaction_date"`
 	CreatedAt           time.Time      `json:"created_at"`
 	UpdatedAt           time.Time      `json:"updated_at"`
 }

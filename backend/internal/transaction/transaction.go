@@ -52,6 +52,7 @@ type Transaction struct {
 	PlayerBalanceAfter  *int
 	ClubBalanceBefore   int
 	ClubBalanceAfter    int
+	TransactionDate     time.Time // effective date (game day date for fee/base_fee)
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
 
@@ -61,13 +62,14 @@ type Transaction struct {
 
 // CreateTransactionParams for creating a new transaction
 type CreateTransactionParams struct {
-	ClubID          string
-	PlayerID        *string
-	TransactionType TransactionType
-	Amount          int
-	Description     string
-	GameDayFeeID    *string
-	GameDayID       *string
+	ClubID           string
+	PlayerID         *string
+	TransactionType  TransactionType
+	Amount           int
+	Description      string
+	GameDayFeeID     *string
+	GameDayID        *string
+	TransactionDate  time.Time // for fee/base_fee = game day date; for manual = effective date
 }
 
 // ListTransactionsParams for querying transactions

@@ -271,9 +271,9 @@ func TestRepository_Replace(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "name", "description", "price", "display_order", "allows_decimal_quantity", "created_at", "updated_at", "deleted_at", "replaced_by_id"}).
 			AddRow(oldID, clubID, "Old Penalty", "Old Description", 500, 1, false, now, now, nil, nil))
 
-	// Second call: MarkPenaltyTypeAsReplaced
+	// Second call: MarkPenaltyTypeAsReplaced (deleted_at only, replaced_by_id nil) to free (club_id, name) for unique index
 	mock.ExpectExec(`UPDATE penalty_types`).
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), oldID).
+		WithArgs(sqlmock.AnyArg(), nil, oldID).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	// Third call: CreatePenaltyType for new version
@@ -281,6 +281,11 @@ func TestRepository_Replace(t *testing.T) {
 		WithArgs(sqlmock.AnyArg(), clubID, "New Penalty", sqlmock.AnyArg(), 1000, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "name", "description", "price", "display_order", "allows_decimal_quantity", "created_at", "updated_at", "deleted_at", "replaced_by_id"}).
 			AddRow(newID, clubID, "New Penalty", "New Description", 1000, 1, false, now, now, nil, nil))
+
+	// Fourth call: SetPenaltyTypeReplacedBy
+	mock.ExpectExec(`UPDATE penalty_types`).
+		WithArgs(sqlmock.AnyArg(), oldID).
+		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	ctx := context.Background()
 	newPenaltyType, err := repo.Replace(ctx, ReplacePenaltyTypeParams{

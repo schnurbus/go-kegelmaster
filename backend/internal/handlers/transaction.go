@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 
@@ -194,11 +195,12 @@ func (h *Handler) HandleCreateTransaction(c fiber.Ctx) error {
 	// Create transaction(s) - may create 2 if auto-tip splits deposit
 	txType := transaction.TransactionType(req.TransactionType)
 	params := transaction.CreateTransactionParams{
-		ClubID:          clubID,
-		PlayerID:        req.PlayerID,
-		TransactionType: txType,
-		Amount:          req.Amount,
-		Description:     strings.TrimSpace(req.Description),
+		ClubID:           clubID,
+		PlayerID:         req.PlayerID,
+		TransactionType:  txType,
+		Amount:           req.Amount,
+		Description:      strings.TrimSpace(req.Description),
+		TransactionDate:  time.Now().UTC().Truncate(24 * time.Hour),
 	}
 
 	// Convert expense amounts to negative (user enters positive, backend stores negative)
