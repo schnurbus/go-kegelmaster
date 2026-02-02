@@ -31,12 +31,17 @@ type CreatePlayerParams struct {
 	Name         string
 	Balance      int
 	StartBalance int
+	Gender       *string
 }
 
 func (r *Repository) Create(ctx context.Context, params CreatePlayerParams) (Player, error) {
 	now := time.Now().UTC()
 	id := uuid.NewString()
 
+	var gender sql.NullString
+	if params.Gender != nil && *params.Gender != "" {
+		gender = sql.NullString{String: *params.Gender, Valid: true}
+	}
 	dbPlayer, err := r.queries.CreatePlayer(ctx, db.CreatePlayerParams{
 		ID:           id,
 		ClubID:       params.ClubID,
@@ -45,6 +50,7 @@ func (r *Repository) Create(ctx context.Context, params CreatePlayerParams) (Pla
 		Name:         params.Name,
 		Balance:      int32(params.Balance),
 		StartBalance: int32(params.StartBalance),
+		Gender:       gender,
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	})
@@ -98,6 +104,10 @@ func (r *Repository) GetByUserIDAndClubID(ctx context.Context, userID, clubID st
 
 // dbPlayerToPlayer converts a db.Player to a player.Player
 func dbPlayerToPlayer(dbPlayer db.Player) Player {
+	var gender *string
+	if dbPlayer.Gender.Valid {
+		gender = &dbPlayer.Gender.String
+	}
 	return Player{
 		ID:           dbPlayer.ID,
 		ClubID:       dbPlayer.ClubID,
@@ -106,6 +116,7 @@ func dbPlayerToPlayer(dbPlayer db.Player) Player {
 		Name:         dbPlayer.Name,
 		Balance:      int(dbPlayer.Balance),
 		StartBalance: int(dbPlayer.StartBalance),
+		Gender:       gender,
 		CreatedAt:    dbPlayer.CreatedAt,
 		UpdatedAt:    dbPlayer.UpdatedAt,
 	}
@@ -118,11 +129,16 @@ type UpdatePlayerParams struct {
 	StartBalance int
 	UserID       *string
 	RoleID       *string
+	Gender       *string
 }
 
 func (r *Repository) Update(ctx context.Context, params UpdatePlayerParams) (Player, error) {
 	now := time.Now().UTC()
 
+	var gender sql.NullString
+	if params.Gender != nil && *params.Gender != "" {
+		gender = sql.NullString{String: *params.Gender, Valid: true}
+	}
 	dbPlayer, err := r.queries.UpdatePlayer(ctx, db.UpdatePlayerParams{
 		ID:           params.ID,
 		Name:         params.Name,
@@ -130,6 +146,7 @@ func (r *Repository) Update(ctx context.Context, params UpdatePlayerParams) (Pla
 		StartBalance: int32(params.StartBalance),
 		UserID:       params.UserID,
 		RoleID:       params.RoleID,
+		Gender:       gender,
 		UpdatedAt:    now,
 	})
 	if errors.Is(err, sql.ErrNoRows) {

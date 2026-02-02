@@ -7,6 +7,7 @@ INSERT INTO players (
     name,
     balance,
     start_balance,
+    gender,
     created_at,
     updated_at
 ) VALUES (
@@ -18,7 +19,8 @@ INSERT INTO players (
     $6,
     $7,
     $8,
-    $9
+    $9,
+    $10
 )
 RETURNING *;
 
@@ -39,8 +41,9 @@ SET
     start_balance = $3,
     user_id = $4,
     role_id = $5,
-    updated_at = $6
-WHERE id = $7
+    gender = $6,
+    updated_at = $7
+WHERE id = $8
 RETURNING *;
 
 -- name: DeletePlayer :exec

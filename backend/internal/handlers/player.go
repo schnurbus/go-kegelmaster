@@ -19,6 +19,7 @@ type createPlayerRequest struct {
 	StartBalance int     `json:"start_balance"`
 	UserID       *string `json:"user_id"`
 	RoleID       *string `json:"role_id"`
+	Gender       *string `json:"gender"` // male, female, or nil
 }
 
 func (r createPlayerRequest) validate() error {
@@ -79,6 +80,7 @@ func (h *Handler) HandleCreatePlayer(c fiber.Ctx) error {
 		StartBalance: req.StartBalance,
 		UserID:       req.UserID,
 		RoleID:       req.RoleID,
+		Gender:       req.Gender,
 	})
 	if err != nil {
 		slog.Error("create player", "error", err)
@@ -207,6 +209,7 @@ type updatePlayerRequest struct {
 	StartBalance int     `json:"start_balance"`
 	UserID       *string `json:"user_id"`
 	RoleID       *string `json:"role_id"`
+	Gender       *string `json:"gender"` // male, female, or nil
 }
 
 func (r updatePlayerRequest) validate() error {
@@ -282,6 +285,7 @@ func (h *Handler) HandleUpdatePlayer(c fiber.Ctx) error {
 		StartBalance: req.StartBalance,
 		UserID:       req.UserID,
 		RoleID:       req.RoleID,
+		Gender:       req.Gender,
 	})
 	if err != nil {
 		if errors.Is(err, player.ErrNotFound) {

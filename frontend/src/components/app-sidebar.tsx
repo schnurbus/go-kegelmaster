@@ -154,6 +154,11 @@ function useDashboardData() {
         url: "/app/penalty-types",
         icon: AlertCircleIcon,
       },
+      {
+        title: "Wettbewerbe",
+        url: "/app/competitions",
+        icon: ClipboardListIcon,
+      },
       // {
       //   name: "Data Library",
       //   url: "#",

@@ -67,6 +67,46 @@ func (q *Queries) CreateGameDay(ctx context.Context, arg CreateGameDayParams) (G
 	return i, err
 }
 
+const createGameDayCompetitionValue = `-- name: CreateGameDayCompetitionValue :one
+
+INSERT INTO game_day_competition_values (
+    id, game_day_participant_id, competition_id, value, created_at, updated_at
+)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, game_day_participant_id, competition_id, value, created_at, updated_at
+`
+
+type CreateGameDayCompetitionValueParams struct {
+	ID                   string    `json:"id"`
+	GameDayParticipantID string    `json:"game_day_participant_id"`
+	CompetitionID        string    `json:"competition_id"`
+	Value                int32     `json:"value"`
+	CreatedAt            time.Time `json:"created_at"`
+	UpdatedAt            time.Time `json:"updated_at"`
+}
+
+// ==================== COMPETITION VALUES ====================
+func (q *Queries) CreateGameDayCompetitionValue(ctx context.Context, arg CreateGameDayCompetitionValueParams) (GameDayCompetitionValue, error) {
+	row := q.db.QueryRowContext(ctx, createGameDayCompetitionValue,
+		arg.ID,
+		arg.GameDayParticipantID,
+		arg.CompetitionID,
+		arg.Value,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	var i GameDayCompetitionValue
+	err := row.Scan(
+		&i.ID,
+		&i.GameDayParticipantID,
+		&i.CompetitionID,
+		&i.Value,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createGameDayFee = `-- name: CreateGameDayFee :one
 
 INSERT INTO game_day_fees (
@@ -150,6 +190,15 @@ func (q *Queries) CreateGameDayParticipant(ctx context.Context, arg CreateGameDa
 	return i, err
 }
 
+const deleteAllCompetitionValuesByParticipant = `-- name: DeleteAllCompetitionValuesByParticipant :exec
+DELETE FROM game_day_competition_values WHERE game_day_participant_id = $1
+`
+
+func (q *Queries) DeleteAllCompetitionValuesByParticipant(ctx context.Context, gameDayParticipantID string) error {
+	_, err := q.db.ExecContext(ctx, deleteAllCompetitionValuesByParticipant, gameDayParticipantID)
+	return err
+}
+
 const deleteAllFeesByParticipant = `-- name: DeleteAllFeesByParticipant :exec
 DELETE FROM game_day_fees WHERE game_day_participant_id = $1
 `
@@ -174,6 +223,30 @@ DELETE FROM game_days WHERE id = $1
 
 func (q *Queries) DeleteGameDay(ctx context.Context, id string) error {
 	_, err := q.db.ExecContext(ctx, deleteGameDay, id)
+	return err
+}
+
+const deleteGameDayCompetitionValue = `-- name: DeleteGameDayCompetitionValue :exec
+DELETE FROM game_day_competition_values WHERE id = $1
+`
+
+func (q *Queries) DeleteGameDayCompetitionValue(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, deleteGameDayCompetitionValue, id)
+	return err
+}
+
+const deleteGameDayCompetitionValueByParticipantAndCompetition = `-- name: DeleteGameDayCompetitionValueByParticipantAndCompetition :exec
+DELETE FROM game_day_competition_values
+WHERE game_day_participant_id = $1 AND competition_id = $2
+`
+
+type DeleteGameDayCompetitionValueByParticipantAndCompetitionParams struct {
+	GameDayParticipantID string `json:"game_day_participant_id"`
+	CompetitionID        string `json:"competition_id"`
+}
+
+func (q *Queries) DeleteGameDayCompetitionValueByParticipantAndCompetition(ctx context.Context, arg DeleteGameDayCompetitionValueByParticipantAndCompetitionParams) error {
+	_, err := q.db.ExecContext(ctx, deleteGameDayCompetitionValueByParticipantAndCompetition, arg.GameDayParticipantID, arg.CompetitionID)
 	return err
 }
 
@@ -232,6 +305,94 @@ func (q *Queries) GetGameDayByID(ctx context.Context, id string) (GameDay, error
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const getGameDayCompetitionValuesByGameDay = `-- name: GetGameDayCompetitionValuesByGameDay :many
+SELECT gdcv.id, gdcv.game_day_participant_id, gdcv.competition_id, gdcv.value, gdcv.created_at, gdcv.updated_at, gdp.player_id, p.name as player_name
+FROM game_day_competition_values gdcv
+JOIN game_day_participants gdp ON gdp.id = gdcv.game_day_participant_id
+JOIN players p ON p.id = gdp.player_id
+WHERE gdp.game_day_id = $1
+ORDER BY p.name ASC, gdcv.competition_id ASC
+`
+
+type GetGameDayCompetitionValuesByGameDayRow struct {
+	ID                   string    `json:"id"`
+	GameDayParticipantID string    `json:"game_day_participant_id"`
+	CompetitionID        string    `json:"competition_id"`
+	Value                int32     `json:"value"`
+	CreatedAt            time.Time `json:"created_at"`
+	UpdatedAt            time.Time `json:"updated_at"`
+	PlayerID             string    `json:"player_id"`
+	PlayerName           string    `json:"player_name"`
+}
+
+func (q *Queries) GetGameDayCompetitionValuesByGameDay(ctx context.Context, gameDayID string) ([]GetGameDayCompetitionValuesByGameDayRow, error) {
+	rows, err := q.db.QueryContext(ctx, getGameDayCompetitionValuesByGameDay, gameDayID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetGameDayCompetitionValuesByGameDayRow
+	for rows.Next() {
+		var i GetGameDayCompetitionValuesByGameDayRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.GameDayParticipantID,
+			&i.CompetitionID,
+			&i.Value,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.PlayerID,
+			&i.PlayerName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getGameDayCompetitionValuesByParticipant = `-- name: GetGameDayCompetitionValuesByParticipant :many
+SELECT id, game_day_participant_id, competition_id, value, created_at, updated_at FROM game_day_competition_values
+WHERE game_day_participant_id = $1
+ORDER BY competition_id ASC
+`
+
+func (q *Queries) GetGameDayCompetitionValuesByParticipant(ctx context.Context, gameDayParticipantID string) ([]GameDayCompetitionValue, error) {
+	rows, err := q.db.QueryContext(ctx, getGameDayCompetitionValuesByParticipant, gameDayParticipantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GameDayCompetitionValue
+	for rows.Next() {
+		var i GameDayCompetitionValue
+		if err := rows.Scan(
+			&i.ID,
+			&i.GameDayParticipantID,
+			&i.CompetitionID,
+			&i.Value,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getGameDayFeesByGameDay = `-- name: GetGameDayFeesByGameDay :many
@@ -562,6 +723,48 @@ func (q *Queries) UpdateGameDayFee(ctx context.Context, arg UpdateGameDayFeePara
 		&i.PenaltyTypeDescription,
 		&i.PenaltyTypePrice,
 		&i.Count,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const upsertGameDayCompetitionValue = `-- name: UpsertGameDayCompetitionValue :one
+INSERT INTO game_day_competition_values (
+    id, game_day_participant_id, competition_id, value, created_at, updated_at
+)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (game_day_participant_id, competition_id)
+DO UPDATE SET
+    value = EXCLUDED.value,
+    updated_at = EXCLUDED.updated_at
+RETURNING id, game_day_participant_id, competition_id, value, created_at, updated_at
+`
+
+type UpsertGameDayCompetitionValueParams struct {
+	ID                   string    `json:"id"`
+	GameDayParticipantID string    `json:"game_day_participant_id"`
+	CompetitionID        string    `json:"competition_id"`
+	Value                int32     `json:"value"`
+	CreatedAt            time.Time `json:"created_at"`
+	UpdatedAt            time.Time `json:"updated_at"`
+}
+
+func (q *Queries) UpsertGameDayCompetitionValue(ctx context.Context, arg UpsertGameDayCompetitionValueParams) (GameDayCompetitionValue, error) {
+	row := q.db.QueryRowContext(ctx, upsertGameDayCompetitionValue,
+		arg.ID,
+		arg.GameDayParticipantID,
+		arg.CompetitionID,
+		arg.Value,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	var i GameDayCompetitionValue
+	err := row.Scan(
+		&i.ID,
+		&i.GameDayParticipantID,
+		&i.CompetitionID,
+		&i.Value,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

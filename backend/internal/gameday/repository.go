@@ -267,6 +267,58 @@ func (r *Repository) DeleteFee(ctx context.Context, participantID, penaltyTypeID
 	return nil
 }
 
+// ==================== COMPETITION VALUE OPERATIONS ====================
+
+type UpsertCompetitionValueParams struct {
+	ParticipantID string
+	CompetitionID string
+	Value         int
+}
+
+func (r *Repository) UpsertCompetitionValue(ctx context.Context, params UpsertCompetitionValueParams) (GameDayCompetitionValue, error) {
+	now := time.Now().UTC()
+	id := uuid.NewString()
+
+	dbVal, err := r.queries.UpsertGameDayCompetitionValue(ctx, db.UpsertGameDayCompetitionValueParams{
+		ID:                   id,
+		GameDayParticipantID: params.ParticipantID,
+		CompetitionID:        params.CompetitionID,
+		Value:                int32(params.Value),
+		CreatedAt:            now,
+		UpdatedAt:            now,
+	})
+	if err != nil {
+		return GameDayCompetitionValue{}, err
+	}
+
+	return dbCompetitionValueToValue(dbVal), nil
+}
+
+func (r *Repository) GetCompetitionValuesByParticipant(ctx context.Context, participantID string) ([]GameDayCompetitionValue, error) {
+	dbVals, err := r.queries.GetGameDayCompetitionValuesByParticipant(ctx, participantID)
+	if err != nil {
+		return nil, err
+	}
+
+	vals := make([]GameDayCompetitionValue, len(dbVals))
+	for i, dbVal := range dbVals {
+		vals[i] = dbCompetitionValueToValue(dbVal)
+	}
+
+	return vals, nil
+}
+
+func dbCompetitionValueToValue(dbV db.GameDayCompetitionValue) GameDayCompetitionValue {
+	return GameDayCompetitionValue{
+		ID:                   dbV.ID,
+		GameDayParticipantID: dbV.GameDayParticipantID,
+		CompetitionID:        dbV.CompetitionID,
+		Value:                int(dbV.Value),
+		CreatedAt:            dbV.CreatedAt,
+		UpdatedAt:            dbV.UpdatedAt,
+	}
+}
+
 // ==================== SUMMARIES ====================
 
 func (r *Repository) GetSummariesByClubID(ctx context.Context, clubID string) ([]GameDaySummary, error) {
@@ -298,7 +350,7 @@ func (r *Repository) GetGameDayWithDetails(ctx context.Context, gameDayID string
 		return GameDayDetail{}, err
 	}
 
-	// Get fees for each participant
+	// Get fees and competition values for each participant
 	participantsWithFees := make([]ParticipantWithFees, len(participants))
 	for i, participant := range participants {
 		fees, err := r.GetFeesByParticipant(ctx, participant.ID)
@@ -306,9 +358,15 @@ func (r *Repository) GetGameDayWithDetails(ctx context.Context, gameDayID string
 			return GameDayDetail{}, err
 		}
 
+		competitionValues, err := r.GetCompetitionValuesByParticipant(ctx, participant.ID)
+		if err != nil {
+			return GameDayDetail{}, err
+		}
+
 		participantsWithFees[i] = ParticipantWithFees{
-			Participant: participant,
-			Fees:        fees,
+			Participant:      participant,
+			Fees:             fees,
+			CompetitionValues: competitionValues,
 		}
 	}
 

@@ -105,6 +105,49 @@ WHERE game_day_participant_id = $1 AND penalty_type_id = $2;
 -- name: DeleteAllFeesByParticipant :exec
 DELETE FROM game_day_fees WHERE game_day_participant_id = $1;
 
+-- ==================== COMPETITION VALUES ====================
+
+-- name: CreateGameDayCompetitionValue :one
+INSERT INTO game_day_competition_values (
+    id, game_day_participant_id, competition_id, value, created_at, updated_at
+)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING *;
+
+-- name: UpsertGameDayCompetitionValue :one
+INSERT INTO game_day_competition_values (
+    id, game_day_participant_id, competition_id, value, created_at, updated_at
+)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (game_day_participant_id, competition_id)
+DO UPDATE SET
+    value = EXCLUDED.value,
+    updated_at = EXCLUDED.updated_at
+RETURNING *;
+
+-- name: GetGameDayCompetitionValuesByParticipant :many
+SELECT * FROM game_day_competition_values
+WHERE game_day_participant_id = $1
+ORDER BY competition_id ASC;
+
+-- name: GetGameDayCompetitionValuesByGameDay :many
+SELECT gdcv.*, gdp.player_id, p.name as player_name
+FROM game_day_competition_values gdcv
+JOIN game_day_participants gdp ON gdp.id = gdcv.game_day_participant_id
+JOIN players p ON p.id = gdp.player_id
+WHERE gdp.game_day_id = $1
+ORDER BY p.name ASC, gdcv.competition_id ASC;
+
+-- name: DeleteGameDayCompetitionValue :exec
+DELETE FROM game_day_competition_values WHERE id = $1;
+
+-- name: DeleteGameDayCompetitionValueByParticipantAndCompetition :exec
+DELETE FROM game_day_competition_values
+WHERE game_day_participant_id = $1 AND competition_id = $2;
+
+-- name: DeleteAllCompetitionValuesByParticipant :exec
+DELETE FROM game_day_competition_values WHERE game_day_participant_id = $1;
+
 -- ==================== SUMMARIES ====================
 
 -- name: GetGameDaySummariesByClubID :many

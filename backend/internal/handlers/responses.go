@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/competition"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/gameday"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/penaltytype"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/player"
@@ -113,6 +114,7 @@ type PlayerResponse struct {
 	Name         string    `json:"name"`
 	Balance      int       `json:"balance"`
 	StartBalance int       `json:"start_balance"`
+	Gender       *string   `json:"gender,omitempty"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
@@ -126,6 +128,7 @@ func PlayerResponseFromEntity(p player.Player) PlayerResponse {
 		Name:         p.Name,
 		Balance:      p.Balance,
 		StartBalance: p.StartBalance,
+		Gender:       p.Gender,
 		CreatedAt:    p.CreatedAt,
 		UpdatedAt:    p.UpdatedAt,
 	}
@@ -169,6 +172,39 @@ func PenaltyTypesResponseFromEntities(penaltyTypes []penaltytype.PenaltyType) []
 	result := make([]PenaltyTypeResponse, len(penaltyTypes))
 	for i, p := range penaltyTypes {
 		result[i] = PenaltyTypeResponseFromEntity(p)
+	}
+	return result
+}
+
+// Competition responses
+type CompetitionResponse struct {
+	ID               string    `json:"id"`
+	ClubID           string    `json:"club_id"`
+	Name             string    `json:"name"`
+	ScoringType      string    `json:"scoring_type"`
+	IsGenderSpecific bool      `json:"is_gender_specific"`
+	DisplayOrder     int       `json:"display_order"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+}
+
+func CompetitionResponseFromEntity(c competition.Competition) CompetitionResponse {
+	return CompetitionResponse{
+		ID:               c.ID,
+		ClubID:           c.ClubID,
+		Name:             c.Name,
+		ScoringType:      c.ScoringType,
+		IsGenderSpecific: c.IsGenderSpecific,
+		DisplayOrder:     c.DisplayOrder,
+		CreatedAt:        c.CreatedAt,
+		UpdatedAt:        c.UpdatedAt,
+	}
+}
+
+func CompetitionsResponseFromEntities(competitions []competition.Competition) []CompetitionResponse {
+	result := make([]CompetitionResponse, len(competitions))
+	for i, c := range competitions {
+		result[i] = CompetitionResponseFromEntity(c)
 	}
 	return result
 }
@@ -286,9 +322,38 @@ func FeesResponseFromEntities(fees []gameday.GameDayFee) []FeeResponse {
 	return responses
 }
 
+type CompetitionValueResponse struct {
+	ID                   string `json:"id"`
+	GameDayParticipantID string `json:"game_day_participant_id"`
+	CompetitionID        string `json:"competition_id"`
+	Value                int    `json:"value"`
+	CreatedAt            string `json:"created_at"`
+	UpdatedAt            string `json:"updated_at"`
+}
+
+func CompetitionValueResponseFromEntity(cv gameday.GameDayCompetitionValue) CompetitionValueResponse {
+	return CompetitionValueResponse{
+		ID:                   cv.ID,
+		GameDayParticipantID: cv.GameDayParticipantID,
+		CompetitionID:        cv.CompetitionID,
+		Value:                cv.Value,
+		CreatedAt:            cv.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:            cv.UpdatedAt.Format(time.RFC3339),
+	}
+}
+
+func CompetitionValuesResponseFromEntities(cvs []gameday.GameDayCompetitionValue) []CompetitionValueResponse {
+	responses := make([]CompetitionValueResponse, len(cvs))
+	for i, cv := range cvs {
+		responses[i] = CompetitionValueResponseFromEntity(cv)
+	}
+	return responses
+}
+
 type ParticipantWithFeesResponse struct {
-	Participant ParticipantResponse `json:"participant"`
-	Fees        []FeeResponse       `json:"fees"`
+	Participant      ParticipantResponse         `json:"participant"`
+	Fees             []FeeResponse               `json:"fees"`
+	CompetitionValues []CompetitionValueResponse `json:"competition_values"`
 }
 
 type GameDayDetailResponse struct {
@@ -300,8 +365,9 @@ func GameDayDetailResponseFromEntity(detail gameday.GameDayDetail) GameDayDetail
 	participants := make([]ParticipantWithFeesResponse, len(detail.Participants))
 	for i, pwf := range detail.Participants {
 		participants[i] = ParticipantWithFeesResponse{
-			Participant: ParticipantResponseFromEntity(pwf.Participant),
-			Fees:        FeesResponseFromEntities(pwf.Fees),
+			Participant:      ParticipantResponseFromEntity(pwf.Participant),
+			Fees:             FeesResponseFromEntities(pwf.Fees),
+			CompetitionValues: CompetitionValuesResponseFromEntities(pwf.CompetitionValues),
 		}
 	}
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/schnurbus/go-kegelmaster/backend/internal/auth"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/competition"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/config"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/database"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/email"
@@ -41,6 +42,7 @@ func main() {
 	roleRepo := role.NewRepository(db)
 	playerRepo := player.NewRepository(db)
 	penaltyTypeRepo := penaltytype.NewRepository(db)
+	competitionRepo := competition.NewRepository(db)
 	gameDayRepo := gameday.NewRepository(db)
 	transactionRepo := transaction.NewRepository(db, playerRepo, clubRepo)
 	authSvc := auth.NewService(cfg.JWTSecret, cfg.TokenTTLMin)
@@ -54,6 +56,7 @@ func main() {
 		RoleRepo:        roleRepo,
 		PlayerRepo:      playerRepo,
 		PenaltyTypeRepo: penaltyTypeRepo,
+		CompetitionRepo: competitionRepo,
 		GameDayRepo:     gameDayRepo,
 		TransactionRepo: transactionRepo,
 		AuthService:     authSvc,

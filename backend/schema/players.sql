@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS players (
     name TEXT NOT NULL,
     balance INTEGER NOT NULL DEFAULT 0,
     start_balance INTEGER NOT NULL DEFAULT 0,
+    gender TEXT CHECK (gender IS NULL OR gender IN ('male', 'female')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
