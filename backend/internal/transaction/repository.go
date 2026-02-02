@@ -145,14 +145,12 @@ func (r *Repository) Create(ctx context.Context, params CreateTransactionParams)
 		return nil, fmt.Errorf("failed to create transaction: %w", err)
 	}
 
-	// Update player balance if applicable
+	// Nur Saldo aktualisieren; andere Spielerfelder bleiben unberührt
 	if hasPlayer {
-		_, err = qtx.UpdatePlayer(ctx, db.UpdatePlayerParams{
-			ID:           playerEntity.ID,
-			Name:         playerEntity.Name,
-			Balance:      int32(playerEntity.Balance),
-			StartBalance: int32(playerEntity.StartBalance),
-			UpdatedAt:    now,
+		err = qtx.UpdatePlayerBalance(ctx, db.UpdatePlayerBalanceParams{
+			ID:        playerEntity.ID,
+			Balance:   int32(playerEntity.Balance),
+			UpdatedAt: now,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to update player balance: %w", err)
@@ -443,19 +441,10 @@ func (r *Repository) DeleteFeeTransaction(ctx context.Context, id string) error 
 		}
 		// Revert: fee amount is negative (debt), so add it back to reduce debt
 		newBalance := playerEntity.Balance - tx.Amount
-		var gender sql.NullString
-		if playerEntity.Gender != nil && *playerEntity.Gender != "" {
-			gender = sql.NullString{String: *playerEntity.Gender, Valid: true}
-		}
-		_, err = qtx.UpdatePlayer(ctx, db.UpdatePlayerParams{
-			ID:           playerEntity.ID,
-			Name:         playerEntity.Name,
-			Balance:      int32(newBalance),
-			StartBalance: int32(playerEntity.StartBalance),
-			UserID:       playerEntity.UserID,
-			RoleID:       playerEntity.RoleID,
-			Gender:       gender,
-			UpdatedAt:    time.Now(),
+		err = qtx.UpdatePlayerBalance(ctx, db.UpdatePlayerBalanceParams{
+			ID:        playerEntity.ID,
+			Balance:   int32(newBalance),
+			UpdatedAt: time.Now(),
 		})
 		if err != nil {
 			return fmt.Errorf("failed to revert player balance: %w", err)
@@ -512,12 +501,10 @@ func (r *Repository) Delete(ctx context.Context, id string) error {
 		// Tips and expenses don't affect player balance
 
 		if tx.TransactionType == TransactionTypeDeposit {
-			_, err = qtx.UpdatePlayer(ctx, db.UpdatePlayerParams{
-				ID:           playerEntity.ID,
-				Name:         playerEntity.Name,
-				Balance:      int32(newBalance),
-				StartBalance: int32(playerEntity.StartBalance),
-				UpdatedAt:    time.Now(),
+			err = qtx.UpdatePlayerBalance(ctx, db.UpdatePlayerBalanceParams{
+				ID:        playerEntity.ID,
+				Balance:   int32(newBalance),
+				UpdatedAt: time.Now(),
 			})
 			if err != nil {
 				return fmt.Errorf("failed to update player balance: %w", err)

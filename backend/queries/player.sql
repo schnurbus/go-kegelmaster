@@ -46,6 +46,11 @@ SET
 WHERE id = $8
 RETURNING *;
 
+-- name: UpdatePlayerBalance :exec
+UPDATE players
+SET balance = $1, updated_at = $2
+WHERE id = $3;
+
 -- name: DeletePlayer :exec
 DELETE FROM players
 WHERE id = $1;

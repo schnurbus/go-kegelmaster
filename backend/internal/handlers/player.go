@@ -278,13 +278,23 @@ func (h *Handler) HandleUpdatePlayer(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 
+	// Bestehende UserID/RoleID beibehalten, wenn Request sie nicht mitschickt (verhindert versehentliches NULL)
+	userID := req.UserID
+	if userID == nil {
+		userID = existingPlayer.UserID
+	}
+	roleID := req.RoleID
+	if roleID == nil || *roleID == "" {
+		roleID = existingPlayer.RoleID
+	}
+
 	updatedPlayer, err := h.PlayerRepo.Update(ctx, player.UpdatePlayerParams{
 		ID:           playerID,
 		Name:         strings.TrimSpace(req.Name),
 		Balance:      req.Balance,
 		StartBalance: req.StartBalance,
-		UserID:       req.UserID,
-		RoleID:       req.RoleID,
+		UserID:       userID,
+		RoleID:       roleID,
 		Gender:       req.Gender,
 	})
 	if err != nil {
