@@ -12,6 +12,7 @@ This file contains essential information for agentic coding agents working in th
 - **Run with coverage**: `cd backend && go test -cover ./...`
 - **List all tests**: `cd backend && go test -list=. ./internal/club`
 - **Build binary**: `make backend-build`
+- **Build import CLI**: `make import-build` (builds `bin/import` for CSV-Spieltag-Import)
 - **Format code**: `make fmt` (uses gofmt on cmd/ and internal/)
 - **Generate SQL code**: `make sqlc-generate` (runs sqlc for type-safe queries)
 
@@ -20,6 +21,12 @@ This file contains essential information for agentic coding agents working in th
 - **Migrate down**: `make migrate-down` (rolls back migrations)
 - **Create migration**: `migrate create -ext sql -dir backend/migrations migration_name`
 - **Database URL**: Set via `DATABASE_URL` env var (defaults to postgres://kegelmaster:kegelmaster@localhost:5432/kegelmaster?sslmode=disable)
+
+### CLI Import Tool (Spieltag-CSV)
+- **Build**: `make import-build` → binary `bin/import`
+- **Run**: `./bin/import --club "Club-Name" --file pfad/zur.csv [--database-url URL] [--dry-run]`
+- **Flags**: `--club` (Pflicht), `--file` (Pflicht), `--database-url` (optional, sonst `DATABASE_URL`), `--dry-run` (nur anzeigen, keine DB-Änderungen)
+- **CSV**: Semikolon-getrennt; erste Zeile Header: Datum, Name, dann Strafen-/Wettbewerbsnamen; Datenzeilen: DD.MM.YYYY, Spielername, Zahlen. Unbekannte Spieler oder Spalten führen zu Fehlerabbruch. Ausführung ist idempotent.
 
 ### Frontend Commands
 - **Dev server**: `make frontend-dev` or `cd frontend && npm run dev` (starts Vite dev server)
@@ -35,13 +42,16 @@ This file contains essential information for agentic coding agents working in th
 
 ```
 backend/
-├── cmd/api/              # Application entry point (main.go)
-├── internal/             # Private application code
+├── cmd/
+│   ├── api/             # Application entry point (main.go)
+│   └── import/          # CLI Import-Tool (Spieltag-CSV)
+├── internal/            # Private application code
 │   ├── auth/            # Authentication service
 │   ├── club/            # Club entity & repository
 │   ├── config/          # Configuration management
 │   ├── database/        # Database connection
 │   ├── db/              # SQLc generated code (DO NOT EDIT)
+│   ├── gamedayimport/   # CSV parsing, resolve, apply for import CLI
 │   ├── handlers/        # HTTP handlers
 │   ├── permission/      # Permission system
 │   ├── player/          # Player entity & repository
