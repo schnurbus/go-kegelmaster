@@ -57,6 +57,7 @@ type GameDayFee struct {
 	PenaltyTypeDescription sql.NullString `json:"penalty_type_description"`
 	PenaltyTypePrice       int32          `json:"penalty_type_price"`
 	Count                  int32          `json:"count"`
+	QuantityScale          int32          `json:"quantity_scale"`
 	CreatedAt              time.Time      `json:"created_at"`
 	UpdatedAt              time.Time      `json:"updated_at"`
 }
@@ -69,16 +70,17 @@ type GameDayParticipant struct {
 }
 
 type PenaltyType struct {
-	ID           string         `json:"id"`
-	ClubID       string         `json:"club_id"`
-	Name         string         `json:"name"`
-	Description  sql.NullString `json:"description"`
-	Price        int32          `json:"price"`
-	DisplayOrder int32          `json:"display_order"`
-	CreatedAt    time.Time      `json:"created_at"`
-	UpdatedAt    time.Time      `json:"updated_at"`
-	DeletedAt    sql.NullTime   `json:"deleted_at"`
-	ReplacedByID *string        `json:"replaced_by_id"`
+	ID                    string         `json:"id"`
+	ClubID                string         `json:"club_id"`
+	Name                  string         `json:"name"`
+	Description           sql.NullString `json:"description"`
+	Price                 int32          `json:"price"`
+	DisplayOrder          int32          `json:"display_order"`
+	AllowsDecimalQuantity bool           `json:"allows_decimal_quantity"`
+	CreatedAt             time.Time      `json:"created_at"`
+	UpdatedAt             time.Time      `json:"updated_at"`
+	DeletedAt             sql.NullTime   `json:"deleted_at"`
+	ReplacedByID          *string        `json:"replaced_by_id"`
 }
 
 type Player struct {
@@ -134,6 +136,7 @@ type Transaction struct {
 	PlayerBalanceAfter  sql.NullInt32  `json:"player_balance_after"`
 	ClubBalanceBefore   int32          `json:"club_balance_before"`
 	ClubBalanceAfter    int32          `json:"club_balance_after"`
+	TransactionDate     time.Time      `json:"transaction_date"`
 	CreatedAt           time.Time      `json:"created_at"`
 	UpdatedAt           time.Time      `json:"updated_at"`
 }

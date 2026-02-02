@@ -6,6 +6,7 @@ INSERT INTO penalty_types (
     description,
     price,
     display_order,
+    allows_decimal_quantity,
     created_at,
     updated_at
 ) VALUES (
@@ -16,7 +17,8 @@ INSERT INTO penalty_types (
     $5,
     $6,
     $7,
-    $8
+    $8,
+    $9
 )
 RETURNING *;
 
@@ -34,6 +36,11 @@ UPDATE penalty_types
 SET deleted_at = $1,
     replaced_by_id = $2
 WHERE id = $3 AND deleted_at IS NULL;
+
+-- name: SetPenaltyTypeReplacedBy :exec
+UPDATE penalty_types
+SET replaced_by_id = $1
+WHERE id = $2 AND deleted_at IS NOT NULL;
 
 -- name: DeletePenaltyType :exec
 UPDATE penalty_types

@@ -38,7 +38,8 @@ type GameDayFee struct {
 	PenaltyTypeName        string // Snapshot
 	PenaltyTypeDescription string // Snapshot
 	PenaltyTypePrice       int    // Snapshot (Cent)
-	Count                  int
+	Count                  int    // scaled when QuantityScale > 1 (e.g. 250 = 2.5)
+	QuantityScale          int    // 1 = integer, 100 = 2 decimal places
 	CreatedAt              time.Time
 	UpdatedAt              time.Time
 }

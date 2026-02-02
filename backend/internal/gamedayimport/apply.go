@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math"
 	"time"
 
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
@@ -139,12 +140,13 @@ func applyWrite(ctx context.Context, resolved *ResolvedInput, playerByName map[s
 						}
 						playerID := p.ID
 						_, err = deps.TransactionRepo.Create(ctx, transaction.CreateTransactionParams{
-							ClubID:          resolved.ClubID,
-							PlayerID:        &playerID,
-							TransactionType: transaction.TransactionTypeBaseFee,
-							Amount:          -clubEntity.BaseFee,
-							Description:     fmt.Sprintf("Grundgebühr für %s", d.Format("02.01.2006")),
-							GameDayID:       &gameDayID,
+							ClubID:           resolved.ClubID,
+							PlayerID:         &playerID,
+							TransactionType:  transaction.TransactionTypeBaseFee,
+							Amount:           -clubEntity.BaseFee,
+							Description:      fmt.Sprintf("Grundgebühr für %s", d.Format("02.01.2006")),
+							GameDayID:        &gameDayID,
+							TransactionDate:  d,
 						})
 						if err != nil {
 							slog.Error("Grundgebühr-Transaktion anlegen", "player", p.ID, "error", err)
@@ -187,8 +189,8 @@ func applyWrite(ctx context.Context, resolved *ResolvedInput, playerByName map[s
 
 		for _, col := range resolved.ColumnMapping {
 			if col.Kind == ColumnKindPenalty {
-				count := row.Values[col.ColumnName]
-				if count <= 0 {
+				countRaw := row.Values[col.ColumnName]
+				if countRaw <= 0 || math.IsNaN(countRaw) {
 					if existingFee, exists := existingFeeMap[col.PenaltyTypeID]; exists {
 						existingTx, err := deps.TransactionRepo.GetByGameDayFee(ctx, existingFee.ID)
 						if err == nil && existingTx != nil {
@@ -196,6 +198,15 @@ func applyWrite(ctx context.Context, resolved *ResolvedInput, playerByName map[s
 						}
 						_ = deps.GameDayRepo.DeleteFee(ctx, participant.ID, col.PenaltyTypeID)
 					}
+					continue
+				}
+
+				quantityScale := 1
+				if col.AllowsDecimalQuantity {
+					quantityScale = 100
+				}
+				countStored := int(math.Round(countRaw * float64(quantityScale)))
+				if countStored <= 0 {
 					continue
 				}
 
@@ -213,27 +224,33 @@ func applyWrite(ctx context.Context, resolved *ResolvedInput, playerByName map[s
 					PenaltyTypeName:        col.PenaltyTypeName,
 					PenaltyTypeDescription: col.PenaltyTypeDescription,
 					PenaltyTypePrice:       col.PenaltyTypePrice,
-					Count:                  count,
+					Count:                  countStored,
+					QuantityScale:          quantityScale,
 				})
 				if err != nil {
 					return fmt.Errorf("Fee upsert: %w", err)
 				}
 
-				amount := -(col.PenaltyTypePrice * count)
+				amount := -(col.PenaltyTypePrice * countStored / quantityScale)
+				quantityDesc := fmt.Sprintf("%d", countStored)
+				if quantityScale > 1 {
+					quantityDesc = fmt.Sprintf("%.2f", float64(countStored)/float64(quantityScale))
+				}
 				_, err = deps.TransactionRepo.Create(ctx, transaction.CreateTransactionParams{
-					ClubID:          resolved.ClubID,
-					PlayerID:        &playerID,
-					TransactionType: transaction.TransactionTypeFee,
-					Amount:          amount,
-					Description:     fmt.Sprintf("%s ×%d", col.PenaltyTypeName, count),
-					GameDayFeeID:    &createdFee.ID,
-					GameDayID:       &gameDayID,
+					ClubID:           resolved.ClubID,
+					PlayerID:         &playerID,
+					TransactionType:  transaction.TransactionTypeFee,
+					Amount:           amount,
+					Description:      fmt.Sprintf("%s ×%s", col.PenaltyTypeName, quantityDesc),
+					GameDayFeeID:     &createdFee.ID,
+					GameDayID:        &gameDayID,
+					TransactionDate:  dateOnly(row.Date),
 				})
 				if err != nil {
 					slog.Error("Fee-Transaktion anlegen", "error", err)
 				}
 			} else {
-				value := row.Values[col.ColumnName]
+				value := int(math.Round(row.Values[col.ColumnName]))
 				_, err = deps.GameDayRepo.UpsertCompetitionValue(ctx, gameday.UpsertCompetitionValueParams{
 					ParticipantID: participant.ID,
 					CompetitionID: col.CompetitionID,

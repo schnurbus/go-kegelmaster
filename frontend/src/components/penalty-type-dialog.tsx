@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 
 import type { PenaltyType } from "@/types/penalty-type";
 
@@ -35,6 +36,7 @@ export function PenaltyTypeDialog({
   const [description, setDescription] = React.useState("");
   const [price, setPrice] = React.useState("");
   const [displayOrder, setDisplayOrder] = React.useState("");
+  const [allowsDecimalQuantity, setAllowsDecimalQuantity] = React.useState(false);
   const isEdit = !!penaltyType;
 
   React.useEffect(() => {
@@ -43,11 +45,13 @@ export function PenaltyTypeDialog({
       setDescription(penaltyType.description || "");
       setPrice((penaltyType.price / 100).toFixed(2));
       setDisplayOrder(penaltyType.display_order.toString());
+      setAllowsDecimalQuantity(penaltyType.allows_decimal_quantity ?? false);
     } else if (open && !penaltyType) {
       setName("");
       setDescription("");
       setPrice("");
       setDisplayOrder("");
+      setAllowsDecimalQuantity(false);
     }
   }, [open, penaltyType]);
 
@@ -73,10 +77,12 @@ export function PenaltyTypeDialog({
       description: string;
       price: number;
       display_order?: number;
+      allows_decimal_quantity: boolean;
     } = {
       name: name.trim(),
       description: description.trim(),
       price: Math.round(priceValue * 100), // Convert to cents
+      allows_decimal_quantity: allowsDecimalQuantity,
     };
 
     // Add display_order only if provided (for new entries)
@@ -120,6 +126,7 @@ export function PenaltyTypeDialog({
       setDescription("");
       setPrice("");
       setDisplayOrder("");
+      setAllowsDecimalQuantity(false);
     } catch (error) {
       console.error("Error saving penalty type:", error);
       toast.error(
@@ -175,6 +182,16 @@ export function PenaltyTypeDialog({
               onChange={(e) => setPrice(e.target.value)}
               required
             />
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="allows_decimal_quantity"
+              checked={allowsDecimalQuantity}
+              onCheckedChange={(checked) => setAllowsDecimalQuantity(checked === true)}
+            />
+            <Label htmlFor="allows_decimal_quantity" className="text-sm font-normal cursor-pointer">
+              Dezimalanzahl erlauben (z.B. 2,5 Stück)
+            </Label>
           </div>
           {!isEdit && (
             <div className="space-y-2">

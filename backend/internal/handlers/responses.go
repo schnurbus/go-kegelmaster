@@ -143,28 +143,30 @@ func PlayersResponseFromEntities(players []player.Player) []PlayerResponse {
 }
 
 type PenaltyTypeResponse struct {
-	ID           string    `json:"id"`
-	ClubID       string    `json:"club_id"`
-	Name         string    `json:"name"`
-	Description  string    `json:"description"`
-	Price        int       `json:"price"`
-	DisplayOrder int       `json:"display_order"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
-	ReplacedByID *string   `json:"replaced_by_id,omitempty"`
+	ID                    string    `json:"id"`
+	ClubID                string    `json:"club_id"`
+	Name                  string    `json:"name"`
+	Description           string    `json:"description"`
+	Price                 int       `json:"price"`
+	DisplayOrder          int       `json:"display_order"`
+	AllowsDecimalQuantity bool      `json:"allows_decimal_quantity"`
+	CreatedAt             time.Time `json:"created_at"`
+	UpdatedAt             time.Time `json:"updated_at"`
+	ReplacedByID          *string   `json:"replaced_by_id,omitempty"`
 }
 
 func PenaltyTypeResponseFromEntity(p penaltytype.PenaltyType) PenaltyTypeResponse {
 	return PenaltyTypeResponse{
-		ID:           p.ID,
-		ClubID:       p.ClubID,
-		Name:         p.Name,
-		Description:  p.Description,
-		Price:        p.Price,
-		DisplayOrder: p.DisplayOrder,
-		CreatedAt:    p.CreatedAt,
-		UpdatedAt:    p.UpdatedAt,
-		ReplacedByID: p.ReplacedByID,
+		ID:                    p.ID,
+		ClubID:                p.ClubID,
+		Name:                  p.Name,
+		Description:           p.Description,
+		Price:                 p.Price,
+		DisplayOrder:          p.DisplayOrder,
+		AllowsDecimalQuantity: p.AllowsDecimalQuantity,
+		CreatedAt:             p.CreatedAt,
+		UpdatedAt:             p.UpdatedAt,
+		ReplacedByID:          p.ReplacedByID,
 	}
 }
 
@@ -289,18 +291,24 @@ func ParticipantResponseFromEntity(p gameday.GameDayParticipant) ParticipantResp
 }
 
 type FeeResponse struct {
-	ID                     string `json:"id"`
-	GameDayParticipantID   string `json:"game_day_participant_id"`
-	PenaltyTypeID          string `json:"penalty_type_id"`
-	PenaltyTypeName        string `json:"penalty_type_name"`
-	PenaltyTypeDescription string `json:"penalty_type_description"`
-	PenaltyTypePrice       int    `json:"penalty_type_price"`
-	Count                  int    `json:"count"`
-	CreatedAt              string `json:"created_at"`
-	UpdatedAt              string `json:"updated_at"`
+	ID                     string  `json:"id"`
+	GameDayParticipantID   string  `json:"game_day_participant_id"`
+	PenaltyTypeID          string  `json:"penalty_type_id"`
+	PenaltyTypeName        string  `json:"penalty_type_name"`
+	PenaltyTypeDescription string  `json:"penalty_type_description"`
+	PenaltyTypePrice       int     `json:"penalty_type_price"`
+	Count                  int     `json:"count"`           // stored value (scaled when quantity_scale > 1)
+	QuantityScale          int     `json:"quantity_scale"`   // 1 or 100
+	Quantity               float64 `json:"quantity"`         // display: count / quantity_scale
+	CreatedAt              string  `json:"created_at"`
+	UpdatedAt              string  `json:"updated_at"`
 }
 
 func FeeResponseFromEntity(f gameday.GameDayFee) FeeResponse {
+	quantity := float64(f.Count)
+	if f.QuantityScale > 0 {
+		quantity = float64(f.Count) / float64(f.QuantityScale)
+	}
 	return FeeResponse{
 		ID:                     f.ID,
 		GameDayParticipantID:   f.GameDayParticipantID,
@@ -309,6 +317,8 @@ func FeeResponseFromEntity(f gameday.GameDayFee) FeeResponse {
 		PenaltyTypeDescription: f.PenaltyTypeDescription,
 		PenaltyTypePrice:       f.PenaltyTypePrice,
 		Count:                  f.Count,
+		QuantityScale:          f.QuantityScale,
+		Quantity:               quantity,
 		CreatedAt:              f.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:              f.UpdatedAt.Format(time.RFC3339),
 	}
@@ -392,6 +402,7 @@ type TransactionResponse struct {
 	PlayerBalanceAfter  *int    `json:"player_balance_after,omitempty"`
 	ClubBalanceBefore   int     `json:"club_balance_before"`
 	ClubBalanceAfter    int     `json:"club_balance_after"`
+	TransactionDate     string  `json:"transaction_date"` // effective date (game day date for fee/base_fee)
 	CreatedAt           string  `json:"created_at"`
 	UpdatedAt           string  `json:"updated_at"`
 }
@@ -411,6 +422,7 @@ func TransactionResponseFromEntity(t transaction.Transaction) TransactionRespons
 		PlayerBalanceAfter:  t.PlayerBalanceAfter,
 		ClubBalanceBefore:   t.ClubBalanceBefore,
 		ClubBalanceAfter:    t.ClubBalanceAfter,
+		TransactionDate:     t.TransactionDate.Format("2006-01-02"),
 		CreatedAt:           t.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:           t.UpdatedAt.Format(time.RFC3339),
 	}

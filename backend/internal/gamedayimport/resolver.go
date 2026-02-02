@@ -98,12 +98,13 @@ func Resolve(ctx context.Context, parsed *ParsedCSV, clubName string, deps *Depe
 			return nil, nil, fmt.Errorf("%w: %q", ErrAmbiguousColumn, colName)
 		case hasPenalty:
 			mapping = append(mapping, ColumnMapping{
-				ColumnName:            colName,
-				Kind:                  ColumnKindPenalty,
-				PenaltyTypeID:         inPenalty.ID,
-				PenaltyTypeName:       inPenalty.Name,
+				ColumnName:             colName,
+				Kind:                   ColumnKindPenalty,
+				PenaltyTypeID:          inPenalty.ID,
+				PenaltyTypeName:        inPenalty.Name,
 				PenaltyTypeDescription: inPenalty.Description,
-				PenaltyTypePrice:      inPenalty.Price,
+				PenaltyTypePrice:       inPenalty.Price,
+				AllowsDecimalQuantity:  inPenalty.AllowsDecimalQuantity,
 			})
 		case hasCompetition:
 			mapping = append(mapping, ColumnMapping{

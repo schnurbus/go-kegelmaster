@@ -112,10 +112,10 @@ const createGameDayFee = `-- name: CreateGameDayFee :one
 INSERT INTO game_day_fees (
     id, game_day_participant_id, penalty_type_id,
     penalty_type_name, penalty_type_description, penalty_type_price,
-    count, created_at, updated_at
+    count, quantity_scale, created_at, updated_at
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, game_day_participant_id, penalty_type_id, penalty_type_name, penalty_type_description, penalty_type_price, count, created_at, updated_at
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id, game_day_participant_id, penalty_type_id, penalty_type_name, penalty_type_description, penalty_type_price, count, quantity_scale, created_at, updated_at
 `
 
 type CreateGameDayFeeParams struct {
@@ -126,6 +126,7 @@ type CreateGameDayFeeParams struct {
 	PenaltyTypeDescription sql.NullString `json:"penalty_type_description"`
 	PenaltyTypePrice       int32          `json:"penalty_type_price"`
 	Count                  int32          `json:"count"`
+	QuantityScale          int32          `json:"quantity_scale"`
 	CreatedAt              time.Time      `json:"created_at"`
 	UpdatedAt              time.Time      `json:"updated_at"`
 }
@@ -140,6 +141,7 @@ func (q *Queries) CreateGameDayFee(ctx context.Context, arg CreateGameDayFeePara
 		arg.PenaltyTypeDescription,
 		arg.PenaltyTypePrice,
 		arg.Count,
+		arg.QuantityScale,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -152,6 +154,7 @@ func (q *Queries) CreateGameDayFee(ctx context.Context, arg CreateGameDayFeePara
 		&i.PenaltyTypeDescription,
 		&i.PenaltyTypePrice,
 		&i.Count,
+		&i.QuantityScale,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -396,7 +399,7 @@ func (q *Queries) GetGameDayCompetitionValuesByParticipant(ctx context.Context, 
 }
 
 const getGameDayFeesByGameDay = `-- name: GetGameDayFeesByGameDay :many
-SELECT gdf.id, gdf.game_day_participant_id, gdf.penalty_type_id, gdf.penalty_type_name, gdf.penalty_type_description, gdf.penalty_type_price, gdf.count, gdf.created_at, gdf.updated_at, gdp.player_id, p.name as player_name
+SELECT gdf.id, gdf.game_day_participant_id, gdf.penalty_type_id, gdf.penalty_type_name, gdf.penalty_type_description, gdf.penalty_type_price, gdf.count, gdf.quantity_scale, gdf.created_at, gdf.updated_at, gdp.player_id, p.name as player_name
 FROM game_day_fees gdf
 JOIN game_day_participants gdp ON gdp.id = gdf.game_day_participant_id
 JOIN players p ON p.id = gdp.player_id
@@ -412,6 +415,7 @@ type GetGameDayFeesByGameDayRow struct {
 	PenaltyTypeDescription sql.NullString `json:"penalty_type_description"`
 	PenaltyTypePrice       int32          `json:"penalty_type_price"`
 	Count                  int32          `json:"count"`
+	QuantityScale          int32          `json:"quantity_scale"`
 	CreatedAt              time.Time      `json:"created_at"`
 	UpdatedAt              time.Time      `json:"updated_at"`
 	PlayerID               string         `json:"player_id"`
@@ -435,6 +439,7 @@ func (q *Queries) GetGameDayFeesByGameDay(ctx context.Context, gameDayID string)
 			&i.PenaltyTypeDescription,
 			&i.PenaltyTypePrice,
 			&i.Count,
+			&i.QuantityScale,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.PlayerID,
@@ -454,7 +459,7 @@ func (q *Queries) GetGameDayFeesByGameDay(ctx context.Context, gameDayID string)
 }
 
 const getGameDayFeesByParticipant = `-- name: GetGameDayFeesByParticipant :many
-SELECT id, game_day_participant_id, penalty_type_id, penalty_type_name, penalty_type_description, penalty_type_price, count, created_at, updated_at FROM game_day_fees 
+SELECT id, game_day_participant_id, penalty_type_id, penalty_type_name, penalty_type_description, penalty_type_price, count, quantity_scale, created_at, updated_at FROM game_day_fees 
 WHERE game_day_participant_id = $1
 ORDER BY penalty_type_name ASC
 `
@@ -476,6 +481,7 @@ func (q *Queries) GetGameDayFeesByParticipant(ctx context.Context, gameDayPartic
 			&i.PenaltyTypeDescription,
 			&i.PenaltyTypePrice,
 			&i.Count,
+			&i.QuantityScale,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -701,19 +707,25 @@ func (q *Queries) UpdateGameDay(ctx context.Context, arg UpdateGameDayParams) (G
 
 const updateGameDayFee = `-- name: UpdateGameDayFee :one
 UPDATE game_day_fees
-SET count = $2, updated_at = $3
+SET count = $2, quantity_scale = $3, updated_at = $4
 WHERE id = $1
-RETURNING id, game_day_participant_id, penalty_type_id, penalty_type_name, penalty_type_description, penalty_type_price, count, created_at, updated_at
+RETURNING id, game_day_participant_id, penalty_type_id, penalty_type_name, penalty_type_description, penalty_type_price, count, quantity_scale, created_at, updated_at
 `
 
 type UpdateGameDayFeeParams struct {
-	ID        string    `json:"id"`
-	Count     int32     `json:"count"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID            string    `json:"id"`
+	Count         int32     `json:"count"`
+	QuantityScale int32     `json:"quantity_scale"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 func (q *Queries) UpdateGameDayFee(ctx context.Context, arg UpdateGameDayFeeParams) (GameDayFee, error) {
-	row := q.db.QueryRowContext(ctx, updateGameDayFee, arg.ID, arg.Count, arg.UpdatedAt)
+	row := q.db.QueryRowContext(ctx, updateGameDayFee,
+		arg.ID,
+		arg.Count,
+		arg.QuantityScale,
+		arg.UpdatedAt,
+	)
 	var i GameDayFee
 	err := row.Scan(
 		&i.ID,
@@ -723,6 +735,7 @@ func (q *Queries) UpdateGameDayFee(ctx context.Context, arg UpdateGameDayFeePara
 		&i.PenaltyTypeDescription,
 		&i.PenaltyTypePrice,
 		&i.Count,
+		&i.QuantityScale,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -775,14 +788,15 @@ const upsertGameDayFee = `-- name: UpsertGameDayFee :one
 INSERT INTO game_day_fees (
     id, game_day_participant_id, penalty_type_id,
     penalty_type_name, penalty_type_description, penalty_type_price,
-    count, created_at, updated_at
+    count, quantity_scale, created_at, updated_at
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 ON CONFLICT (game_day_participant_id, penalty_type_id)
 DO UPDATE SET 
     count = EXCLUDED.count,
+    quantity_scale = EXCLUDED.quantity_scale,
     updated_at = EXCLUDED.updated_at
-RETURNING id, game_day_participant_id, penalty_type_id, penalty_type_name, penalty_type_description, penalty_type_price, count, created_at, updated_at
+RETURNING id, game_day_participant_id, penalty_type_id, penalty_type_name, penalty_type_description, penalty_type_price, count, quantity_scale, created_at, updated_at
 `
 
 type UpsertGameDayFeeParams struct {
@@ -793,6 +807,7 @@ type UpsertGameDayFeeParams struct {
 	PenaltyTypeDescription sql.NullString `json:"penalty_type_description"`
 	PenaltyTypePrice       int32          `json:"penalty_type_price"`
 	Count                  int32          `json:"count"`
+	QuantityScale          int32          `json:"quantity_scale"`
 	CreatedAt              time.Time      `json:"created_at"`
 	UpdatedAt              time.Time      `json:"updated_at"`
 }
@@ -806,6 +821,7 @@ func (q *Queries) UpsertGameDayFee(ctx context.Context, arg UpsertGameDayFeePara
 		arg.PenaltyTypeDescription,
 		arg.PenaltyTypePrice,
 		arg.Count,
+		arg.QuantityScale,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -818,6 +834,7 @@ func (q *Queries) UpsertGameDayFee(ctx context.Context, arg UpsertGameDayFeePara
 		&i.PenaltyTypeDescription,
 		&i.PenaltyTypePrice,
 		&i.Count,
+		&i.QuantityScale,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

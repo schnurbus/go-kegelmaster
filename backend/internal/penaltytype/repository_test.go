@@ -28,9 +28,9 @@ func TestRepository_Create(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"max_display_order"}).AddRow(int64(0)))
 
 	mock.ExpectQuery(`INSERT INTO penalty_types`).
-		WithArgs(sqlmock.AnyArg(), clubID, "Test Penalty", sqlmock.AnyArg(), 500, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "name", "description", "price", "display_order", "created_at", "updated_at", "deleted_at", "replaced_by_id"}).
-			AddRow(penaltyTypeID, clubID, "Test Penalty", "Test Description", 500, 1, now, now, nil, nil))
+		WithArgs(sqlmock.AnyArg(), clubID, "Test Penalty", sqlmock.AnyArg(), 500, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "name", "description", "price", "display_order", "allows_decimal_quantity", "created_at", "updated_at", "deleted_at", "replaced_by_id"}).
+			AddRow(penaltyTypeID, clubID, "Test Penalty", "Test Description", 500, 1, false, now, now, nil, nil))
 
 	ctx := context.Background()
 	penaltyType, err := repo.Create(ctx, CreatePenaltyTypeParams{
@@ -86,9 +86,9 @@ func TestRepository_Create_NoDescription(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"max_display_order"}).AddRow(int64(0)))
 
 	mock.ExpectQuery(`INSERT INTO penalty_types`).
-		WithArgs(sqlmock.AnyArg(), clubID, "Test Penalty", sqlmock.AnyArg(), 500, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "name", "description", "price", "display_order", "created_at", "updated_at", "deleted_at", "replaced_by_id"}).
-			AddRow(penaltyTypeID, clubID, "Test Penalty", nil, 500, 1, now, now, nil, nil))
+		WithArgs(sqlmock.AnyArg(), clubID, "Test Penalty", sqlmock.AnyArg(), 500, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "name", "description", "price", "display_order", "allows_decimal_quantity", "created_at", "updated_at", "deleted_at", "replaced_by_id"}).
+			AddRow(penaltyTypeID, clubID, "Test Penalty", nil, 500, 1, false, now, now, nil, nil))
 
 	ctx := context.Background()
 	penaltyType, err := repo.Create(ctx, CreatePenaltyTypeParams{
@@ -124,10 +124,10 @@ func TestRepository_GetByID(t *testing.T) {
 	clubID := uuid.NewString()
 	now := time.Now().UTC()
 
-	mock.ExpectQuery(`.*SELECT id, club_id, name, description, price, display_order, created_at, updated_at, deleted_at, replaced_by_id FROM penalty_types.*`).
+	mock.ExpectQuery(`.*SELECT id, club_id, name, description, price, display_order, allows_decimal_quantity, created_at, updated_at, deleted_at, replaced_by_id FROM penalty_types.*`).
 		WithArgs(penaltyTypeID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "name", "description", "price", "display_order", "created_at", "updated_at", "deleted_at", "replaced_by_id"}).
-			AddRow(penaltyTypeID, clubID, "Test Penalty", "Test Description", 500, 1, now, now, nil, nil))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "name", "description", "price", "display_order", "allows_decimal_quantity", "created_at", "updated_at", "deleted_at", "replaced_by_id"}).
+			AddRow(penaltyTypeID, clubID, "Test Penalty", "Test Description", 500, 1, false, now, now, nil, nil))
 
 	ctx := context.Background()
 	penaltyType, err := repo.GetByID(ctx, penaltyTypeID)
@@ -159,7 +159,7 @@ func TestRepository_GetByID_NotFound(t *testing.T) {
 
 	penaltyTypeID := uuid.NewString()
 
-	mock.ExpectQuery(`.*SELECT id, club_id, name, description, price, display_order, created_at, updated_at, deleted_at, replaced_by_id FROM penalty_types.*`).
+	mock.ExpectQuery(`.*SELECT id, club_id, name, description, price, display_order, allows_decimal_quantity, created_at, updated_at, deleted_at, replaced_by_id FROM penalty_types.*`).
 		WithArgs(penaltyTypeID).
 		WillReturnError(sql.ErrNoRows)
 
@@ -192,11 +192,11 @@ func TestRepository_GetByClubID(t *testing.T) {
 	penaltyTypeID2 := uuid.NewString()
 	now := time.Now().UTC()
 
-	mock.ExpectQuery(`SELECT id, club_id, name, description, price, display_order, created_at, updated_at, deleted_at, replaced_by_id FROM penalty_types`).
+	mock.ExpectQuery(`SELECT id, club_id, name, description, price, display_order, allows_decimal_quantity, created_at, updated_at, deleted_at, replaced_by_id FROM penalty_types`).
 		WithArgs(clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "name", "description", "price", "display_order", "created_at", "updated_at", "deleted_at", "replaced_by_id"}).
-			AddRow(penaltyTypeID1, clubID, "Penalty 1", "Description 1", 500, 1, now, now, nil, nil).
-			AddRow(penaltyTypeID2, clubID, "Penalty 2", "Description 2", 1000, 2, now, now, nil, nil))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "name", "description", "price", "display_order", "allows_decimal_quantity", "created_at", "updated_at", "deleted_at", "replaced_by_id"}).
+			AddRow(penaltyTypeID1, clubID, "Penalty 1", "Description 1", 500, 1, false, now, now, nil, nil).
+			AddRow(penaltyTypeID2, clubID, "Penalty 2", "Description 2", 1000, 2, false, now, now, nil, nil))
 
 	ctx := context.Background()
 	penaltyTypes, err := repo.GetByClubID(ctx, clubID)
@@ -231,9 +231,9 @@ func TestRepository_GetByClubID_Empty(t *testing.T) {
 
 	clubID := uuid.NewString()
 
-	mock.ExpectQuery(`SELECT id, club_id, name, description, price, display_order, created_at, updated_at, deleted_at, replaced_by_id FROM penalty_types`).
+	mock.ExpectQuery(`SELECT id, club_id, name, description, price, display_order, allows_decimal_quantity, created_at, updated_at, deleted_at, replaced_by_id FROM penalty_types`).
 		WithArgs(clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "name", "description", "price", "display_order", "created_at", "updated_at", "deleted_at", "replaced_by_id"}))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "name", "description", "price", "display_order", "allows_decimal_quantity", "created_at", "updated_at", "deleted_at", "replaced_by_id"}))
 
 	ctx := context.Background()
 	penaltyTypes, err := repo.GetByClubID(ctx, clubID)
@@ -266,21 +266,26 @@ func TestRepository_Replace(t *testing.T) {
 	now := time.Now().UTC()
 
 	// First call: GetByID to get old penalty type
-	mock.ExpectQuery(`.*SELECT id, club_id, name, description, price, display_order, created_at, updated_at, deleted_at, replaced_by_id FROM penalty_types.*`).
+	mock.ExpectQuery(`.*SELECT id, club_id, name, description, price, display_order, allows_decimal_quantity, created_at, updated_at, deleted_at, replaced_by_id FROM penalty_types.*`).
 		WithArgs(oldID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "name", "description", "price", "display_order", "created_at", "updated_at", "deleted_at", "replaced_by_id"}).
-			AddRow(oldID, clubID, "Old Penalty", "Old Description", 500, 1, now, now, nil, nil))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "name", "description", "price", "display_order", "allows_decimal_quantity", "created_at", "updated_at", "deleted_at", "replaced_by_id"}).
+			AddRow(oldID, clubID, "Old Penalty", "Old Description", 500, 1, false, now, now, nil, nil))
 
-	// Second call: MarkPenaltyTypeAsReplaced
+	// Second call: MarkPenaltyTypeAsReplaced (deleted_at only, replaced_by_id nil) to free (club_id, name) for unique index
 	mock.ExpectExec(`UPDATE penalty_types`).
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), oldID).
+		WithArgs(sqlmock.AnyArg(), nil, oldID).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	// Third call: CreatePenaltyType for new version
 	mock.ExpectQuery(`INSERT INTO penalty_types`).
-		WithArgs(sqlmock.AnyArg(), clubID, "New Penalty", sqlmock.AnyArg(), 1000, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "name", "description", "price", "display_order", "created_at", "updated_at", "deleted_at", "replaced_by_id"}).
-			AddRow(newID, clubID, "New Penalty", "New Description", 1000, 1, now, now, nil, nil))
+		WithArgs(sqlmock.AnyArg(), clubID, "New Penalty", sqlmock.AnyArg(), 1000, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "name", "description", "price", "display_order", "allows_decimal_quantity", "created_at", "updated_at", "deleted_at", "replaced_by_id"}).
+			AddRow(newID, clubID, "New Penalty", "New Description", 1000, 1, false, now, now, nil, nil))
+
+	// Fourth call: SetPenaltyTypeReplacedBy
+	mock.ExpectExec(`UPDATE penalty_types`).
+		WithArgs(sqlmock.AnyArg(), oldID).
+		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	ctx := context.Background()
 	newPenaltyType, err := repo.Replace(ctx, ReplacePenaltyTypeParams{
@@ -327,7 +332,7 @@ func TestRepository_Replace_NotFound(t *testing.T) {
 	oldID := uuid.NewString()
 
 	// GetByID returns not found
-	mock.ExpectQuery(`SELECT id, club_id, name, description, price, display_order, created_at, updated_at, deleted_at, replaced_by_id FROM penalty_types`).
+	mock.ExpectQuery(`SELECT id, club_id, name, description, price, display_order, allows_decimal_quantity, created_at, updated_at, deleted_at, replaced_by_id FROM penalty_types`).
 		WithArgs(oldID).
 		WillReturnError(sql.ErrNoRows)
 
@@ -365,10 +370,10 @@ func TestRepository_Delete(t *testing.T) {
 	now := time.Now().UTC()
 
 	// First call: GetByID to verify exists
-	mock.ExpectQuery(`.*SELECT id, club_id, name, description, price, display_order, created_at, updated_at, deleted_at, replaced_by_id FROM penalty_types.*`).
+	mock.ExpectQuery(`.*SELECT id, club_id, name, description, price, display_order, allows_decimal_quantity, created_at, updated_at, deleted_at, replaced_by_id FROM penalty_types.*`).
 		WithArgs(penaltyTypeID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "name", "description", "price", "display_order", "created_at", "updated_at", "deleted_at", "replaced_by_id"}).
-			AddRow(penaltyTypeID, clubID, "Test Penalty", "Test Description", 500, 1, now, now, nil, nil))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "name", "description", "price", "display_order", "allows_decimal_quantity", "created_at", "updated_at", "deleted_at", "replaced_by_id"}).
+			AddRow(penaltyTypeID, clubID, "Test Penalty", "Test Description", 500, 1, false, now, now, nil, nil))
 
 	// Second call: DeletePenaltyType (soft delete)
 	mock.ExpectExec(`UPDATE penalty_types`).
@@ -399,7 +404,7 @@ func TestRepository_Delete_NotFound(t *testing.T) {
 	penaltyTypeID := uuid.NewString()
 
 	// GetByID returns not found
-	mock.ExpectQuery(`SELECT id, club_id, name, description, price, display_order, created_at, updated_at, deleted_at, replaced_by_id FROM penalty_types`).
+	mock.ExpectQuery(`SELECT id, club_id, name, description, price, display_order, allows_decimal_quantity, created_at, updated_at, deleted_at, replaced_by_id FROM penalty_types`).
 		WithArgs(penaltyTypeID).
 		WillReturnError(sql.ErrNoRows)
 

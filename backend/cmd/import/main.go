@@ -52,7 +52,7 @@ func main() {
 	penaltyTypeRepo := penaltytype.NewRepository(db)
 	competitionRepo := competition.NewRepository(db)
 	gameDayRepo := gameday.NewRepository(db)
-	transactionRepo := transaction.NewRepository(db, playerRepo, clubRepo)
+	transactionRepo := transaction.NewRepository(db, playerRepo, clubRepo, gameDayRepo)
 	roleRepo := role.NewRepository(db)
 
 	deps := &gamedayimport.Dependencies{

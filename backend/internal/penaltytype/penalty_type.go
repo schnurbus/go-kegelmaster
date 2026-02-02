@@ -11,14 +11,15 @@ var (
 
 // PenaltyType represents a penalty type entity in the system.
 type PenaltyType struct {
-	ID           string
-	ClubID       string
-	Name         string
-	Description  string
-	Price        int // Cent-Betrag
-	DisplayOrder int
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-	DeletedAt    *time.Time
-	ReplacedByID *string
+	ID                    string
+	ClubID                string
+	Name                  string
+	Description           string
+	Price                 int  // Cent-Betrag
+	DisplayOrder          int
+	AllowsDecimalQuantity bool // when true, fee count can be decimal (stored as count*100)
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+	DeletedAt             *time.Time
+	ReplacedByID          *string
 }

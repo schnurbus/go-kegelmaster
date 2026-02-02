@@ -21,11 +21,12 @@ func NewRepository(dbConn *sql.DB) *Repository {
 }
 
 type CreatePenaltyTypeParams struct {
-	ClubID       string
-	Name         string
-	Description  string
-	Price        int
-	DisplayOrder *int // Optional: if nil, will be set automatically
+	ClubID                string
+	Name                  string
+	Description           string
+	Price                 int
+	DisplayOrder          *int  // Optional: if nil, will be set automatically
+	AllowsDecimalQuantity bool
 }
 
 func (r *Repository) Create(ctx context.Context, params CreatePenaltyTypeParams) (PenaltyType, error) {
@@ -55,14 +56,15 @@ func (r *Repository) Create(ctx context.Context, params CreatePenaltyTypeParams)
 	}
 
 	dbPenaltyType, err := r.queries.CreatePenaltyType(ctx, db.CreatePenaltyTypeParams{
-		ID:           id,
-		ClubID:       params.ClubID,
-		Name:         params.Name,
-		Description:  description,
-		Price:        int32(params.Price),
-		DisplayOrder: displayOrder,
-		CreatedAt:    now,
-		UpdatedAt:    now,
+		ID:                    id,
+		ClubID:                params.ClubID,
+		Name:                  params.Name,
+		Description:           description,
+		Price:                 int32(params.Price),
+		DisplayOrder:          displayOrder,
+		AllowsDecimalQuantity: params.AllowsDecimalQuantity,
+		CreatedAt:             now,
+		UpdatedAt:             now,
 	})
 	if err != nil {
 		return PenaltyType{}, err
@@ -98,10 +100,11 @@ func (r *Repository) GetByClubID(ctx context.Context, clubID string) ([]PenaltyT
 }
 
 type ReplacePenaltyTypeParams struct {
-	ID          string
-	Name        string
-	Description string
-	Price       int
+	ID                    string
+	Name                  string
+	Description           string
+	Price                 int
+	AllowsDecimalQuantity bool
 }
 
 func (r *Repository) Replace(ctx context.Context, params ReplacePenaltyTypeParams) (PenaltyType, error) {
@@ -114,31 +117,41 @@ func (r *Repository) Replace(ctx context.Context, params ReplacePenaltyTypeParam
 	now := time.Now().UTC()
 	newID := uuid.NewString()
 
-	// Mark old penalty type as replaced
+	// 1) Soft-delete old row first so (club_id, name) is free for the unique index (WHERE deleted_at IS NULL)
 	err = r.queries.MarkPenaltyTypeAsReplaced(ctx, db.MarkPenaltyTypeAsReplacedParams{
 		DeletedAt:    sql.NullTime{Time: now, Valid: true},
-		ReplacedByID: &newID,
-		ID:           params.ID,
+		ReplacedByID: nil, // set after new row exists (FK)
+		ID:            params.ID,
 	})
 	if err != nil {
 		return PenaltyType{}, err
 	}
 
-	// Create new penalty type (keep display_order from old version)
 	var description sql.NullString
 	if params.Description != "" {
 		description = sql.NullString{String: params.Description, Valid: true}
 	}
 
+	// 2) Create new penalty type (same name allowed now; old row is excluded from unique index)
 	dbPenaltyType, err := r.queries.CreatePenaltyType(ctx, db.CreatePenaltyTypeParams{
-		ID:           newID,
-		ClubID:       oldPenaltyType.ClubID,
-		Name:         params.Name,
-		Description:  description,
-		Price:        int32(params.Price),
-		DisplayOrder: int32(oldPenaltyType.DisplayOrder),
-		CreatedAt:    now,
-		UpdatedAt:    now,
+		ID:                    newID,
+		ClubID:                oldPenaltyType.ClubID,
+		Name:                  params.Name,
+		Description:           description,
+		Price:                 int32(params.Price),
+		DisplayOrder:          int32(oldPenaltyType.DisplayOrder),
+		AllowsDecimalQuantity: params.AllowsDecimalQuantity,
+		CreatedAt:             now,
+		UpdatedAt:             now,
+	})
+	if err != nil {
+		return PenaltyType{}, err
+	}
+
+	// 3) Set replaced_by_id on old row (FK now valid)
+	err = r.queries.SetPenaltyTypeReplacedBy(ctx, db.SetPenaltyTypeReplacedByParams{
+		ReplacedByID: &newID,
+		ID:           params.ID,
 	})
 	if err != nil {
 		return PenaltyType{}, err
@@ -213,15 +226,16 @@ func dbPenaltyTypeToPenaltyType(dbPenaltyType db.PenaltyType) PenaltyType {
 	replacedByID := dbPenaltyType.ReplacedByID
 
 	return PenaltyType{
-		ID:           dbPenaltyType.ID,
-		ClubID:       dbPenaltyType.ClubID,
-		Name:         dbPenaltyType.Name,
-		Description:  description,
-		Price:        int(dbPenaltyType.Price),
-		DisplayOrder: int(dbPenaltyType.DisplayOrder),
-		CreatedAt:    dbPenaltyType.CreatedAt,
-		UpdatedAt:    dbPenaltyType.UpdatedAt,
-		DeletedAt:    deletedAt,
-		ReplacedByID: replacedByID,
+		ID:                    dbPenaltyType.ID,
+		ClubID:                dbPenaltyType.ClubID,
+		Name:                  dbPenaltyType.Name,
+		Description:           description,
+		Price:                 int(dbPenaltyType.Price),
+		DisplayOrder:          int(dbPenaltyType.DisplayOrder),
+		AllowsDecimalQuantity: dbPenaltyType.AllowsDecimalQuantity,
+		CreatedAt:             dbPenaltyType.CreatedAt,
+		UpdatedAt:             dbPenaltyType.UpdatedAt,
+		DeletedAt:             deletedAt,
+		ReplacedByID:          replacedByID,
 	}
 }

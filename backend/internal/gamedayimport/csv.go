@@ -21,7 +21,7 @@ const dateLayout = "02.01.2006"
 
 // ParseFile reads and parses a semicolon-separated CSV file.
 // First row is header: column 0 = Datum, 1 = Name, rest = penalty or competition column names.
-// Data rows: date (DD.MM.YYYY), player name, then integer values per column.
+// Data rows: date (DD.MM.YYYY), player name, then numeric values per column (decimal allowed, e.g. 2.5).
 // Empty cells are treated as 0.
 func ParseFile(path string) (*ParsedCSV, error) {
 	f, err := os.Open(path)
@@ -84,7 +84,7 @@ func ParseFile(path string) (*ParsedCSV, error) {
 			return nil, fmt.Errorf("Zeile %d: leerer Spielername", i+1)
 		}
 
-		values := make(map[string]int, len(valueColumns))
+		values := make(map[string]float64, len(valueColumns))
 		for j, colName := range valueColumns {
 			raw := ""
 			if j+2 < len(rec) {
@@ -94,7 +94,7 @@ func ParseFile(path string) (*ParsedCSV, error) {
 				values[colName] = 0
 				continue
 			}
-			v, err := strconv.Atoi(raw)
+			v, err := strconv.ParseFloat(strings.Replace(raw, ",", ".", 1), 64)
 			if err != nil {
 				return nil, fmt.Errorf("Zeile %d, Spalte %s: %w (Wert: %q)", i+1, colName, ErrInvalidValue, raw)
 			}

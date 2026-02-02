@@ -214,7 +214,8 @@ type UpsertFeeParams struct {
 	PenaltyTypeName        string
 	PenaltyTypeDescription string
 	PenaltyTypePrice       int
-	Count                  int
+	Count                  int   // scaled when QuantityScale > 1
+	QuantityScale          int   // 1 or 100
 }
 
 func (r *Repository) UpsertFee(ctx context.Context, params UpsertFeeParams) (GameDayFee, error) {
@@ -231,6 +232,7 @@ func (r *Repository) UpsertFee(ctx context.Context, params UpsertFeeParams) (Gam
 		PenaltyTypeDescription: description,
 		PenaltyTypePrice:       int32(params.PenaltyTypePrice),
 		Count:                  int32(params.Count),
+		QuantityScale:          int32(params.QuantityScale),
 		CreatedAt:              now,
 		UpdatedAt:              now,
 	})
@@ -427,6 +429,7 @@ func dbFeeToFee(dbF db.GameDayFee) GameDayFee {
 		PenaltyTypeDescription: description,
 		PenaltyTypePrice:       int(dbF.PenaltyTypePrice),
 		Count:                  int(dbF.Count),
+		QuantityScale:          int(dbF.QuantityScale),
 		CreatedAt:              dbF.CreatedAt,
 		UpdatedAt:              dbF.UpdatedAt,
 	}

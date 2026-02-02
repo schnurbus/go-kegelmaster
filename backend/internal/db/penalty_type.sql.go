@@ -19,6 +19,7 @@ INSERT INTO penalty_types (
     description,
     price,
     display_order,
+    allows_decimal_quantity,
     created_at,
     updated_at
 ) VALUES (
@@ -29,20 +30,22 @@ INSERT INTO penalty_types (
     $5,
     $6,
     $7,
-    $8
+    $8,
+    $9
 )
-RETURNING id, club_id, name, description, price, display_order, created_at, updated_at, deleted_at, replaced_by_id
+RETURNING id, club_id, name, description, price, display_order, allows_decimal_quantity, created_at, updated_at, deleted_at, replaced_by_id
 `
 
 type CreatePenaltyTypeParams struct {
-	ID           string         `json:"id"`
-	ClubID       string         `json:"club_id"`
-	Name         string         `json:"name"`
-	Description  sql.NullString `json:"description"`
-	Price        int32          `json:"price"`
-	DisplayOrder int32          `json:"display_order"`
-	CreatedAt    time.Time      `json:"created_at"`
-	UpdatedAt    time.Time      `json:"updated_at"`
+	ID                    string         `json:"id"`
+	ClubID                string         `json:"club_id"`
+	Name                  string         `json:"name"`
+	Description           sql.NullString `json:"description"`
+	Price                 int32          `json:"price"`
+	DisplayOrder          int32          `json:"display_order"`
+	AllowsDecimalQuantity bool           `json:"allows_decimal_quantity"`
+	CreatedAt             time.Time      `json:"created_at"`
+	UpdatedAt             time.Time      `json:"updated_at"`
 }
 
 func (q *Queries) CreatePenaltyType(ctx context.Context, arg CreatePenaltyTypeParams) (PenaltyType, error) {
@@ -53,6 +56,7 @@ func (q *Queries) CreatePenaltyType(ctx context.Context, arg CreatePenaltyTypePa
 		arg.Description,
 		arg.Price,
 		arg.DisplayOrder,
+		arg.AllowsDecimalQuantity,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -64,6 +68,7 @@ func (q *Queries) CreatePenaltyType(ctx context.Context, arg CreatePenaltyTypePa
 		&i.Description,
 		&i.Price,
 		&i.DisplayOrder,
+		&i.AllowsDecimalQuantity,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
@@ -102,7 +107,7 @@ func (q *Queries) GetMaxDisplayOrderByClubID(ctx context.Context, clubID string)
 }
 
 const getPenaltyTypeByID = `-- name: GetPenaltyTypeByID :one
-SELECT id, club_id, name, description, price, display_order, created_at, updated_at, deleted_at, replaced_by_id FROM penalty_types
+SELECT id, club_id, name, description, price, display_order, allows_decimal_quantity, created_at, updated_at, deleted_at, replaced_by_id FROM penalty_types
 WHERE id = $1 AND deleted_at IS NULL
 `
 
@@ -116,6 +121,7 @@ func (q *Queries) GetPenaltyTypeByID(ctx context.Context, id string) (PenaltyTyp
 		&i.Description,
 		&i.Price,
 		&i.DisplayOrder,
+		&i.AllowsDecimalQuantity,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
@@ -125,7 +131,7 @@ func (q *Queries) GetPenaltyTypeByID(ctx context.Context, id string) (PenaltyTyp
 }
 
 const getPenaltyTypesByClubID = `-- name: GetPenaltyTypesByClubID :many
-SELECT id, club_id, name, description, price, display_order, created_at, updated_at, deleted_at, replaced_by_id FROM penalty_types
+SELECT id, club_id, name, description, price, display_order, allows_decimal_quantity, created_at, updated_at, deleted_at, replaced_by_id FROM penalty_types
 WHERE club_id = $1 AND deleted_at IS NULL
 ORDER BY display_order ASC, created_at ASC
 `
@@ -146,6 +152,7 @@ func (q *Queries) GetPenaltyTypesByClubID(ctx context.Context, clubID string) ([
 			&i.Description,
 			&i.Price,
 			&i.DisplayOrder,
+			&i.AllowsDecimalQuantity,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
@@ -179,6 +186,22 @@ type MarkPenaltyTypeAsReplacedParams struct {
 
 func (q *Queries) MarkPenaltyTypeAsReplaced(ctx context.Context, arg MarkPenaltyTypeAsReplacedParams) error {
 	_, err := q.db.ExecContext(ctx, markPenaltyTypeAsReplaced, arg.DeletedAt, arg.ReplacedByID, arg.ID)
+	return err
+}
+
+const setPenaltyTypeReplacedBy = `-- name: SetPenaltyTypeReplacedBy :exec
+UPDATE penalty_types
+SET replaced_by_id = $1
+WHERE id = $2 AND deleted_at IS NOT NULL
+`
+
+type SetPenaltyTypeReplacedByParams struct {
+	ReplacedByID *string `json:"replaced_by_id"`
+	ID           string  `json:"id"`
+}
+
+func (q *Queries) SetPenaltyTypeReplacedBy(ctx context.Context, arg SetPenaltyTypeReplacedByParams) error {
+	_, err := q.db.ExecContext(ctx, setPenaltyTypeReplacedBy, arg.ReplacedByID, arg.ID)
 	return err
 }
 

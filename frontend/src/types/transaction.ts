@@ -14,6 +14,8 @@ export interface Transaction {
   player_balance_after?: number;
   club_balance_before: number;
   club_balance_after: number;
+  /** Effective date (game day date for fee/base_fee, else created_at date) */
+  transaction_date: string; // YYYY-MM-DD
   created_at: string;
   updated_at: string;
 }

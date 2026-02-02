@@ -63,10 +63,10 @@ INSERT INTO transactions (
     amount, description, game_day_fee_id, game_day_id,
     player_balance_before, player_balance_after,
     club_balance_before, club_balance_after,
-    created_at, updated_at
+    transaction_date, created_at, updated_at
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-RETURNING id, club_id, player_id, transaction_type, amount, description, game_day_fee_id, game_day_id, player_balance_before, player_balance_after, club_balance_before, club_balance_after, created_at, updated_at
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+RETURNING id, club_id, player_id, transaction_type, amount, description, game_day_fee_id, game_day_id, player_balance_before, player_balance_after, club_balance_before, club_balance_after, transaction_date, created_at, updated_at
 `
 
 type CreateTransactionParams struct {
@@ -82,6 +82,7 @@ type CreateTransactionParams struct {
 	PlayerBalanceAfter  sql.NullInt32  `json:"player_balance_after"`
 	ClubBalanceBefore   int32          `json:"club_balance_before"`
 	ClubBalanceAfter    int32          `json:"club_balance_after"`
+	TransactionDate     time.Time      `json:"transaction_date"`
 	CreatedAt           time.Time      `json:"created_at"`
 	UpdatedAt           time.Time      `json:"updated_at"`
 }
@@ -101,6 +102,7 @@ func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionPa
 		arg.PlayerBalanceAfter,
 		arg.ClubBalanceBefore,
 		arg.ClubBalanceAfter,
+		arg.TransactionDate,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -118,6 +120,7 @@ func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionPa
 		&i.PlayerBalanceAfter,
 		&i.ClubBalanceBefore,
 		&i.ClubBalanceAfter,
+		&i.TransactionDate,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -163,7 +166,7 @@ func (q *Queries) GetGameDayTransactionSummary(ctx context.Context, gameDayID *s
 }
 
 const getTransactionByGameDayFee = `-- name: GetTransactionByGameDayFee :one
-SELECT id, club_id, player_id, transaction_type, amount, description, game_day_fee_id, game_day_id, player_balance_before, player_balance_after, club_balance_before, club_balance_after, created_at, updated_at FROM transactions WHERE game_day_fee_id = $1
+SELECT id, club_id, player_id, transaction_type, amount, description, game_day_fee_id, game_day_id, player_balance_before, player_balance_after, club_balance_before, club_balance_after, transaction_date, created_at, updated_at FROM transactions WHERE game_day_fee_id = $1
 `
 
 func (q *Queries) GetTransactionByGameDayFee(ctx context.Context, gameDayFeeID *string) (Transaction, error) {
@@ -182,6 +185,7 @@ func (q *Queries) GetTransactionByGameDayFee(ctx context.Context, gameDayFeeID *
 		&i.PlayerBalanceAfter,
 		&i.ClubBalanceBefore,
 		&i.ClubBalanceAfter,
+		&i.TransactionDate,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -189,7 +193,7 @@ func (q *Queries) GetTransactionByGameDayFee(ctx context.Context, gameDayFeeID *
 }
 
 const getTransactionByID = `-- name: GetTransactionByID :one
-SELECT t.id, t.club_id, t.player_id, t.transaction_type, t.amount, t.description, t.game_day_fee_id, t.game_day_id, t.player_balance_before, t.player_balance_after, t.club_balance_before, t.club_balance_after, t.created_at, t.updated_at, p.name as player_name
+SELECT t.id, t.club_id, t.player_id, t.transaction_type, t.amount, t.description, t.game_day_fee_id, t.game_day_id, t.player_balance_before, t.player_balance_after, t.club_balance_before, t.club_balance_after, t.transaction_date, t.created_at, t.updated_at, p.name as player_name
 FROM transactions t
 LEFT JOIN players p ON p.id = t.player_id
 WHERE t.id = $1
@@ -208,6 +212,7 @@ type GetTransactionByIDRow struct {
 	PlayerBalanceAfter  sql.NullInt32  `json:"player_balance_after"`
 	ClubBalanceBefore   int32          `json:"club_balance_before"`
 	ClubBalanceAfter    int32          `json:"club_balance_after"`
+	TransactionDate     time.Time      `json:"transaction_date"`
 	CreatedAt           time.Time      `json:"created_at"`
 	UpdatedAt           time.Time      `json:"updated_at"`
 	PlayerName          sql.NullString `json:"player_name"`
@@ -229,6 +234,7 @@ func (q *Queries) GetTransactionByID(ctx context.Context, id string) (GetTransac
 		&i.PlayerBalanceAfter,
 		&i.ClubBalanceBefore,
 		&i.ClubBalanceAfter,
+		&i.TransactionDate,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PlayerName,
@@ -237,11 +243,11 @@ func (q *Queries) GetTransactionByID(ctx context.Context, id string) (GetTransac
 }
 
 const listTransactionsByClub = `-- name: ListTransactionsByClub :many
-SELECT t.id, t.club_id, t.player_id, t.transaction_type, t.amount, t.description, t.game_day_fee_id, t.game_day_id, t.player_balance_before, t.player_balance_after, t.club_balance_before, t.club_balance_after, t.created_at, t.updated_at, p.name as player_name
+SELECT t.id, t.club_id, t.player_id, t.transaction_type, t.amount, t.description, t.game_day_fee_id, t.game_day_id, t.player_balance_before, t.player_balance_after, t.club_balance_before, t.club_balance_after, t.transaction_date, t.created_at, t.updated_at, p.name as player_name
 FROM transactions t
 LEFT JOIN players p ON p.id = t.player_id
 WHERE t.club_id = $1
-ORDER BY t.created_at DESC
+ORDER BY t.transaction_date DESC, t.created_at DESC
 LIMIT $2 OFFSET $3
 `
 
@@ -264,6 +270,7 @@ type ListTransactionsByClubRow struct {
 	PlayerBalanceAfter  sql.NullInt32  `json:"player_balance_after"`
 	ClubBalanceBefore   int32          `json:"club_balance_before"`
 	ClubBalanceAfter    int32          `json:"club_balance_after"`
+	TransactionDate     time.Time      `json:"transaction_date"`
 	CreatedAt           time.Time      `json:"created_at"`
 	UpdatedAt           time.Time      `json:"updated_at"`
 	PlayerName          sql.NullString `json:"player_name"`
@@ -291,6 +298,7 @@ func (q *Queries) ListTransactionsByClub(ctx context.Context, arg ListTransactio
 			&i.PlayerBalanceAfter,
 			&i.ClubBalanceBefore,
 			&i.ClubBalanceAfter,
+			&i.TransactionDate,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.PlayerName,
@@ -309,11 +317,11 @@ func (q *Queries) ListTransactionsByClub(ctx context.Context, arg ListTransactio
 }
 
 const listTransactionsByGameDay = `-- name: ListTransactionsByGameDay :many
-SELECT t.id, t.club_id, t.player_id, t.transaction_type, t.amount, t.description, t.game_day_fee_id, t.game_day_id, t.player_balance_before, t.player_balance_after, t.club_balance_before, t.club_balance_after, t.created_at, t.updated_at, p.name as player_name
+SELECT t.id, t.club_id, t.player_id, t.transaction_type, t.amount, t.description, t.game_day_fee_id, t.game_day_id, t.player_balance_before, t.player_balance_after, t.club_balance_before, t.club_balance_after, t.transaction_date, t.created_at, t.updated_at, p.name as player_name
 FROM transactions t
 LEFT JOIN players p ON p.id = t.player_id
 WHERE t.game_day_id = $1
-ORDER BY t.created_at ASC
+ORDER BY t.transaction_date ASC, t.created_at ASC
 `
 
 type ListTransactionsByGameDayRow struct {
@@ -329,6 +337,7 @@ type ListTransactionsByGameDayRow struct {
 	PlayerBalanceAfter  sql.NullInt32  `json:"player_balance_after"`
 	ClubBalanceBefore   int32          `json:"club_balance_before"`
 	ClubBalanceAfter    int32          `json:"club_balance_after"`
+	TransactionDate     time.Time      `json:"transaction_date"`
 	CreatedAt           time.Time      `json:"created_at"`
 	UpdatedAt           time.Time      `json:"updated_at"`
 	PlayerName          sql.NullString `json:"player_name"`
@@ -356,6 +365,7 @@ func (q *Queries) ListTransactionsByGameDay(ctx context.Context, gameDayID *stri
 			&i.PlayerBalanceAfter,
 			&i.ClubBalanceBefore,
 			&i.ClubBalanceAfter,
+			&i.TransactionDate,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.PlayerName,
@@ -374,11 +384,11 @@ func (q *Queries) ListTransactionsByGameDay(ctx context.Context, gameDayID *stri
 }
 
 const listTransactionsByPlayer = `-- name: ListTransactionsByPlayer :many
-SELECT t.id, t.club_id, t.player_id, t.transaction_type, t.amount, t.description, t.game_day_fee_id, t.game_day_id, t.player_balance_before, t.player_balance_after, t.club_balance_before, t.club_balance_after, t.created_at, t.updated_at, p.name as player_name
+SELECT t.id, t.club_id, t.player_id, t.transaction_type, t.amount, t.description, t.game_day_fee_id, t.game_day_id, t.player_balance_before, t.player_balance_after, t.club_balance_before, t.club_balance_after, t.transaction_date, t.created_at, t.updated_at, p.name as player_name
 FROM transactions t
 LEFT JOIN players p ON p.id = t.player_id
 WHERE t.club_id = $1 AND t.player_id = $2
-ORDER BY t.created_at DESC
+ORDER BY t.transaction_date DESC, t.created_at DESC
 LIMIT $3 OFFSET $4
 `
 
@@ -402,6 +412,7 @@ type ListTransactionsByPlayerRow struct {
 	PlayerBalanceAfter  sql.NullInt32  `json:"player_balance_after"`
 	ClubBalanceBefore   int32          `json:"club_balance_before"`
 	ClubBalanceAfter    int32          `json:"club_balance_after"`
+	TransactionDate     time.Time      `json:"transaction_date"`
 	CreatedAt           time.Time      `json:"created_at"`
 	UpdatedAt           time.Time      `json:"updated_at"`
 	PlayerName          sql.NullString `json:"player_name"`
@@ -434,6 +445,7 @@ func (q *Queries) ListTransactionsByPlayer(ctx context.Context, arg ListTransact
 			&i.PlayerBalanceAfter,
 			&i.ClubBalanceBefore,
 			&i.ClubBalanceAfter,
+			&i.TransactionDate,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.PlayerName,
@@ -452,11 +464,11 @@ func (q *Queries) ListTransactionsByPlayer(ctx context.Context, arg ListTransact
 }
 
 const listTransactionsByType = `-- name: ListTransactionsByType :many
-SELECT t.id, t.club_id, t.player_id, t.transaction_type, t.amount, t.description, t.game_day_fee_id, t.game_day_id, t.player_balance_before, t.player_balance_after, t.club_balance_before, t.club_balance_after, t.created_at, t.updated_at, p.name as player_name
+SELECT t.id, t.club_id, t.player_id, t.transaction_type, t.amount, t.description, t.game_day_fee_id, t.game_day_id, t.player_balance_before, t.player_balance_after, t.club_balance_before, t.club_balance_after, t.transaction_date, t.created_at, t.updated_at, p.name as player_name
 FROM transactions t
 LEFT JOIN players p ON p.id = t.player_id
 WHERE t.club_id = $1 AND t.transaction_type = $2
-ORDER BY t.created_at DESC
+ORDER BY t.transaction_date DESC, t.created_at DESC
 LIMIT $3 OFFSET $4
 `
 
@@ -480,6 +492,7 @@ type ListTransactionsByTypeRow struct {
 	PlayerBalanceAfter  sql.NullInt32  `json:"player_balance_after"`
 	ClubBalanceBefore   int32          `json:"club_balance_before"`
 	ClubBalanceAfter    int32          `json:"club_balance_after"`
+	TransactionDate     time.Time      `json:"transaction_date"`
 	CreatedAt           time.Time      `json:"created_at"`
 	UpdatedAt           time.Time      `json:"updated_at"`
 	PlayerName          sql.NullString `json:"player_name"`
@@ -512,6 +525,7 @@ func (q *Queries) ListTransactionsByType(ctx context.Context, arg ListTransactio
 			&i.PlayerBalanceAfter,
 			&i.ClubBalanceBefore,
 			&i.ClubBalanceAfter,
+			&i.TransactionDate,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.PlayerName,
@@ -571,7 +585,7 @@ const updateTransaction = `-- name: UpdateTransaction :one
 UPDATE transactions
 SET amount = $2, description = $3, updated_at = $4
 WHERE id = $1
-RETURNING id, club_id, player_id, transaction_type, amount, description, game_day_fee_id, game_day_id, player_balance_before, player_balance_after, club_balance_before, club_balance_after, created_at, updated_at
+RETURNING id, club_id, player_id, transaction_type, amount, description, game_day_fee_id, game_day_id, player_balance_before, player_balance_after, club_balance_before, club_balance_after, transaction_date, created_at, updated_at
 `
 
 type UpdateTransactionParams struct {
@@ -602,6 +616,7 @@ func (q *Queries) UpdateTransaction(ctx context.Context, arg UpdateTransactionPa
 		&i.PlayerBalanceAfter,
 		&i.ClubBalanceBefore,
 		&i.ClubBalanceAfter,
+		&i.TransactionDate,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

@@ -46,7 +46,7 @@ func newTestServer(t *testing.T) (*Server, sqlmock.Sqlmock, *auth.Service) {
 	playerRepo := player.NewRepository(db)
 	penaltyTypeRepo := penaltytype.NewRepository(db)
 	gameDayRepo := gameday.NewRepository(db)
-	transactionRepo := transaction.NewRepository(db, playerRepo, clubRepo)
+	transactionRepo := transaction.NewRepository(db, playerRepo, clubRepo, gameDayRepo)
 	authSvc := auth.NewService("test-secret", 60)
 	permissionCheck := permission.NewChecker(clubRepo, roleRepo, playerRepo)
 

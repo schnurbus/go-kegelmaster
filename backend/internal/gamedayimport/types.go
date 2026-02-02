@@ -11,9 +11,9 @@ type ParsedCSV struct {
 
 // CSVRow represents one data row: date, player name, and values per column name.
 type CSVRow struct {
-	Date       time.Time         // parsed date (DD.MM.YYYY)
-	PlayerName string            // player name
-	Values     map[string]int    // column header name -> value (count or competition score)
+	Date       time.Time           // parsed date (DD.MM.YYYY)
+	PlayerName string              // player name
+	Values     map[string]float64  // column header name -> value (count or competition score; decimal allowed for penalty when type allows)
 }
 
 // ColumnKind indicates whether a CSV column is a penalty type or a competition.
@@ -33,6 +33,7 @@ type ColumnMapping struct {
 	PenaltyTypeName        string
 	PenaltyTypeDescription string
 	PenaltyTypePrice       int
+	AllowsDecimalQuantity  bool
 	// For competition columns
 	CompetitionID string
 }
