@@ -11,6 +11,7 @@ import PlayerDetailPage from "./routes/PlayerDetailPage.tsx";
 import RolesPage from "./routes/RolesPage.tsx";
 import RoleDetailPage from "./routes/RoleDetailPage.tsx";
 import PenaltyTypesPage from "./routes/PenaltyTypesPage.tsx";
+import CompetitionsPage from "./routes/CompetitionsPage.tsx";
 import GameDaysPage from "./routes/GameDaysPage.tsx";
 import GameDayDetailPage from "./routes/GameDayDetailPage.tsx";
 import TransactionsPage from "./routes/TransactionsPage.tsx";
@@ -38,6 +39,7 @@ const router = createBrowserRouter([
           { path: "/app/roles", element: <RolesPage /> },
           { path: "/app/roles/:id", element: <RoleDetailPage /> },
           { path: "/app/penalty-types", element: <PenaltyTypesPage /> },
+          { path: "/app/competitions", element: <CompetitionsPage /> },
           { path: "/app/gamedays", element: <GameDaysPage /> },
           { path: "/app/gamedays/:id", element: <GameDayDetailPage /> },
           { path: "/app/transactions", element: <TransactionsPage /> },

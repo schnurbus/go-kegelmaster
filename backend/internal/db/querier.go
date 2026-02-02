@@ -16,8 +16,11 @@ type Querier interface {
 	CountTransactionsByPlayer(ctx context.Context, arg CountTransactionsByPlayerParams) (int64, error)
 	CountTransactionsByType(ctx context.Context, arg CountTransactionsByTypeParams) (int64, error)
 	CreateClub(ctx context.Context, arg CreateClubParams) (Club, error)
+	CreateCompetition(ctx context.Context, arg CreateCompetitionParams) (Competition, error)
 	// ==================== GAME DAYS ====================
 	CreateGameDay(ctx context.Context, arg CreateGameDayParams) (GameDay, error)
+	// ==================== COMPETITION VALUES ====================
+	CreateGameDayCompetitionValue(ctx context.Context, arg CreateGameDayCompetitionValueParams) (GameDayCompetitionValue, error)
 	// ==================== FEES ====================
 	CreateGameDayFee(ctx context.Context, arg CreateGameDayFeeParams) (GameDayFee, error)
 	// ==================== PARTICIPANTS ====================
@@ -29,10 +32,14 @@ type Querier interface {
 	// ==================== TRANSACTIONS ====================
 	CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	DeleteAllCompetitionValuesByParticipant(ctx context.Context, gameDayParticipantID string) error
 	DeleteAllFeesByParticipant(ctx context.Context, gameDayParticipantID string) error
 	DeleteAllParticipantsByGameDay(ctx context.Context, gameDayID string) error
 	DeleteClub(ctx context.Context, id string) error
+	DeleteCompetition(ctx context.Context, id string) error
 	DeleteGameDay(ctx context.Context, id string) error
+	DeleteGameDayCompetitionValue(ctx context.Context, id string) error
+	DeleteGameDayCompetitionValueByParticipantAndCompetition(ctx context.Context, arg DeleteGameDayCompetitionValueByParticipantAndCompetitionParams) error
 	DeleteGameDayFee(ctx context.Context, id string) error
 	DeleteGameDayFeeByParticipantAndType(ctx context.Context, arg DeleteGameDayFeeByParticipantAndTypeParams) error
 	DeleteGameDayParticipant(ctx context.Context, arg DeleteGameDayParticipantParams) error
@@ -43,7 +50,11 @@ type Querier interface {
 	GetAllClubs(ctx context.Context) ([]Club, error)
 	GetClubByID(ctx context.Context, id string) (Club, error)
 	GetClubsByUserID(ctx context.Context, userID string) ([]Club, error)
+	GetCompetitionByID(ctx context.Context, id string) (Competition, error)
+	GetCompetitionsByClubID(ctx context.Context, clubID string) ([]Competition, error)
 	GetGameDayByID(ctx context.Context, id string) (GameDay, error)
+	GetGameDayCompetitionValuesByGameDay(ctx context.Context, gameDayID string) ([]GetGameDayCompetitionValuesByGameDayRow, error)
+	GetGameDayCompetitionValuesByParticipant(ctx context.Context, gameDayParticipantID string) ([]GameDayCompetitionValue, error)
 	GetGameDayFeesByGameDay(ctx context.Context, gameDayID string) ([]GetGameDayFeesByGameDayRow, error)
 	GetGameDayFeesByParticipant(ctx context.Context, gameDayParticipantID string) ([]GameDayFee, error)
 	GetGameDayParticipants(ctx context.Context, gameDayID string) ([]GetGameDayParticipantsRow, error)
@@ -51,6 +62,7 @@ type Querier interface {
 	GetGameDaySummariesByClubID(ctx context.Context, clubID string) ([]GetGameDaySummariesByClubIDRow, error)
 	GetGameDayTransactionSummary(ctx context.Context, gameDayID *string) (GetGameDayTransactionSummaryRow, error)
 	GetGameDaysByClubID(ctx context.Context, clubID string) ([]GameDay, error)
+	GetMaxCompetitionDisplayOrderByClubID(ctx context.Context, clubID string) (int32, error)
 	GetMaxDisplayOrderByClubID(ctx context.Context, clubID string) (interface{}, error)
 	GetParticipantByGameDayAndPlayer(ctx context.Context, arg GetParticipantByGameDayAndPlayerParams) (GameDayParticipant, error)
 	GetPenaltyTypeByID(ctx context.Context, id string) (PenaltyType, error)
@@ -78,12 +90,14 @@ type Querier interface {
 	SumTransactionsByClub(ctx context.Context, clubID string) (interface{}, error)
 	SumTransactionsByPlayer(ctx context.Context, playerID *string) (interface{}, error)
 	UpdateClub(ctx context.Context, arg UpdateClubParams) (Club, error)
+	UpdateCompetition(ctx context.Context, arg UpdateCompetitionParams) (Competition, error)
 	UpdateGameDay(ctx context.Context, arg UpdateGameDayParams) (GameDay, error)
 	UpdateGameDayFee(ctx context.Context, arg UpdateGameDayFeeParams) (GameDayFee, error)
 	UpdatePenaltyTypeDisplayOrder(ctx context.Context, arg UpdatePenaltyTypeDisplayOrderParams) error
 	UpdatePlayer(ctx context.Context, arg UpdatePlayerParams) (Player, error)
 	UpdateRole(ctx context.Context, arg UpdateRoleParams) (Role, error)
 	UpdateTransaction(ctx context.Context, arg UpdateTransactionParams) (Transaction, error)
+	UpsertGameDayCompetitionValue(ctx context.Context, arg UpsertGameDayCompetitionValueParams) (GameDayCompetitionValue, error)
 	UpsertGameDayFee(ctx context.Context, arg UpsertGameDayFeeParams) (GameDayFee, error)
 }
 

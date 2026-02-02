@@ -43,3 +43,17 @@ CREATE TABLE IF NOT EXISTS game_day_fees (
 
 CREATE INDEX IF NOT EXISTS idx_game_day_fees_participant ON game_day_fees(game_day_participant_id);
 CREATE INDEX IF NOT EXISTS idx_game_day_fees_penalty_type ON game_day_fees(penalty_type_id);
+
+-- Game Day Competition Values (one value per participant per competition)
+CREATE TABLE IF NOT EXISTS game_day_competition_values (
+    id UUID PRIMARY KEY,
+    game_day_participant_id UUID NOT NULL REFERENCES game_day_participants(id) ON DELETE CASCADE,
+    competition_id UUID NOT NULL REFERENCES competitions(id) ON DELETE RESTRICT,
+    value INTEGER NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE(game_day_participant_id, competition_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_game_day_competition_values_participant ON game_day_competition_values(game_day_participant_id);
+CREATE INDEX IF NOT EXISTS idx_game_day_competition_values_competition ON game_day_competition_values(competition_id);

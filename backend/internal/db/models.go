@@ -20,6 +20,17 @@ type Club struct {
 	UpdatedAt      time.Time `json:"updated_at"`
 }
 
+type Competition struct {
+	ID               string    `json:"id"`
+	ClubID           string    `json:"club_id"`
+	Name             string    `json:"name"`
+	ScoringType      string    `json:"scoring_type"`
+	IsGenderSpecific bool      `json:"is_gender_specific"`
+	DisplayOrder     int32     `json:"display_order"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+}
+
 type GameDay struct {
 	ID        string         `json:"id"`
 	ClubID    string         `json:"club_id"`
@@ -27,6 +38,15 @@ type GameDay struct {
 	Notes     sql.NullString `json:"notes"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
+}
+
+type GameDayCompetitionValue struct {
+	ID                   string    `json:"id"`
+	GameDayParticipantID string    `json:"game_day_participant_id"`
+	CompetitionID        string    `json:"competition_id"`
+	Value                int32     `json:"value"`
+	CreatedAt            time.Time `json:"created_at"`
+	UpdatedAt            time.Time `json:"updated_at"`
 }
 
 type GameDayFee struct {
@@ -62,15 +82,16 @@ type PenaltyType struct {
 }
 
 type Player struct {
-	ID           string    `json:"id"`
-	ClubID       string    `json:"club_id"`
-	UserID       *string   `json:"user_id"`
-	RoleID       *string   `json:"role_id"`
-	Name         string    `json:"name"`
-	Balance      int32     `json:"balance"`
-	StartBalance int32     `json:"start_balance"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID           string         `json:"id"`
+	ClubID       string         `json:"club_id"`
+	UserID       *string        `json:"user_id"`
+	RoleID       *string        `json:"role_id"`
+	Name         string         `json:"name"`
+	Balance      int32          `json:"balance"`
+	StartBalance int32          `json:"start_balance"`
+	Gender       sql.NullString `json:"gender"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
 }
 
 type PlayerInvitation struct {

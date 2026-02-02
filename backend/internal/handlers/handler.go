@@ -3,6 +3,7 @@ package handlers
 import (
 	"github.com/schnurbus/go-kegelmaster/backend/internal/auth"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/competition"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/config"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/email"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/gameday"
@@ -23,6 +24,7 @@ type Handler struct {
 	RoleRepo          *role.Repository
 	PlayerRepo        *player.Repository
 	PenaltyTypeRepo   *penaltytype.Repository
+	CompetitionRepo   *competition.Repository
 	GameDayRepo       *gameday.Repository
 	TransactionRepo   *transaction.Repository
 	AuthSvc           *auth.Service
@@ -40,6 +42,7 @@ func NewHandler(cfg config.Config, deps Dependencies) *Handler {
 		RoleRepo:          deps.RoleRepo,
 		PlayerRepo:        deps.PlayerRepo,
 		PenaltyTypeRepo:   deps.PenaltyTypeRepo,
+		CompetitionRepo:   deps.CompetitionRepo,
 		GameDayRepo:       deps.GameDayRepo,
 		TransactionRepo:   deps.TransactionRepo,
 		AuthSvc:           deps.AuthService,
@@ -56,6 +59,7 @@ type Dependencies struct {
 	RoleRepo        *role.Repository
 	PlayerRepo      *player.Repository
 	PenaltyTypeRepo *penaltytype.Repository
+	CompetitionRepo *competition.Repository
 	GameDayRepo     *gameday.Repository
 	TransactionRepo *transaction.Repository
 	AuthService     *auth.Service

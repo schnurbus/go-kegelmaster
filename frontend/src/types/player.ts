@@ -1,3 +1,5 @@
+export type Gender = "male" | "female";
+
 export type Player = {
   id: string;
   club_id: string;
@@ -6,6 +8,7 @@ export type Player = {
   name: string;
   balance: number; // in Cent
   start_balance: number; // in Cent
+  gender?: Gender | null;
   created_at: string;
   updated_at: string;
 };
@@ -16,6 +19,7 @@ export type CreatePlayerRequest = {
   start_balance: number;
   user_id?: string | null;
   role_id: string; // Required
+  gender?: Gender | null;
 };
 
 export type UpdatePlayerRequest = {
@@ -24,6 +28,7 @@ export type UpdatePlayerRequest = {
   start_balance: number;
   user_id?: string | null;
   role_id: string; // Required
+  gender?: Gender | null;
 };
 
 // Re-export Role from role.ts to avoid breaking existing imports

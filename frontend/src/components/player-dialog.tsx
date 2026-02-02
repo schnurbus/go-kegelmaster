@@ -20,7 +20,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import type { Player, Role, CreatePlayerRequest, UpdatePlayerRequest } from "@/types/player";
+import type {
+  Player,
+  Role,
+  Gender,
+  CreatePlayerRequest,
+  UpdatePlayerRequest,
+} from "@/types/player";
 import { euroToCents } from "@/types/player";
 
 type PlayerDialogProps = {
@@ -45,6 +51,7 @@ export function PlayerDialog({
   const [balance, setBalance] = React.useState("0");
   const [startBalance, setStartBalance] = React.useState("0");
   const [roleId, setRoleId] = React.useState<string | null>(null);
+  const [gender, setGender] = React.useState<Gender | null>(null);
   const [inviteEmail, setInviteEmail] = React.useState("");
   const [isSendingInvite, setIsSendingInvite] = React.useState(false);
   const isEdit = !!player;
@@ -56,11 +63,13 @@ export function PlayerDialog({
       setBalance((player.balance / 100).toString());
       setStartBalance((player.start_balance / 100).toString());
       setRoleId(player.role_id);
+      setGender(player.gender ?? null);
       setInviteEmail("");
     } else if (open && !player) {
       setName("");
       setBalance("0");
       setStartBalance("0");
+      setGender(null);
       setInviteEmail("");
       // Pre-select first role when creating new player
       setRoleId(roles.length > 0 ? roles[0].id : null);
@@ -88,6 +97,7 @@ export function PlayerDialog({
         start_balance: euroToCents(parseFloat(startBalance) || 0),
         role_id: roleId!, // role_id is required and validated above
         user_id: null,
+        gender: gender,
       };
 
       const url = isEdit
@@ -122,6 +132,7 @@ export function PlayerDialog({
       setBalance("0");
       setStartBalance("0");
       setRoleId(roles.length > 0 ? roles[0].id : null);
+      setGender(null);
     } catch (error) {
       console.error("Error saving player:", error);
       toast.error(
@@ -296,6 +307,27 @@ export function PlayerDialog({
             </Select>
             <p className="text-sm text-muted-foreground">
               Jeder Spieler muss einer Rolle zugeordnet sein
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="gender">Geschlecht</Label>
+            <Select
+              value={gender ?? "none"}
+              onValueChange={(value) =>
+                setGender(value === "none" ? null : (value as Gender))
+              }
+            >
+              <SelectTrigger id="gender">
+                <SelectValue placeholder="Keine Angabe" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Keine Angabe</SelectItem>
+                <SelectItem value="male">Männlich</SelectItem>
+                <SelectItem value="female">Weiblich</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-sm text-muted-foreground">
+              Für die Auswertung geschlechtsspezifischer Wettbewerbe
             </p>
           </div>
           {canInvite && (

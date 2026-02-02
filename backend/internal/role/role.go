@@ -8,13 +8,14 @@ import (
 type EntityType string
 
 const (
-	EntityTypeRoles        EntityType = "roles"
-	EntityTypePlayers      EntityType = "players"
-	EntityTypeGameNights   EntityType = "game_nights"
-	EntityTypeGameDays     EntityType = "game_days"
-	EntityTypePenalties    EntityType = "penalties"
-	EntityTypePenaltyTypes EntityType = "penalty_types"
-	EntityTypeTransactions EntityType = "transactions"
+	EntityTypeRoles         EntityType = "roles"
+	EntityTypePlayers       EntityType = "players"
+	EntityTypeGameNights    EntityType = "game_nights"
+	EntityTypeGameDays      EntityType = "game_days"
+	EntityTypePenalties     EntityType = "penalties"
+	EntityTypePenaltyTypes  EntityType = "penalty_types"
+	EntityTypeCompetitions  EntityType = "competitions"
+	EntityTypeTransactions  EntityType = "transactions"
 )
 
 // ValidEntityTypes returns a list of all valid entity types.
@@ -26,6 +27,7 @@ func ValidEntityTypes() []EntityType {
 		EntityTypeGameDays,
 		EntityTypePenalties,
 		EntityTypePenaltyTypes,
+		EntityTypeCompetitions,
 		EntityTypeTransactions,
 	}
 }

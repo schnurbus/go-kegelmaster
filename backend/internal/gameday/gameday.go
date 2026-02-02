@@ -43,16 +43,27 @@ type GameDayFee struct {
 	UpdatedAt              time.Time
 }
 
-// GameDayDetail combines game day with participants and their fees
+// GameDayCompetitionValue records a competition value per participant
+type GameDayCompetitionValue struct {
+	ID                   string
+	GameDayParticipantID string
+	CompetitionID        string
+	Value                int
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
+}
+
+// GameDayDetail combines game day with participants, their fees and competition values
 type GameDayDetail struct {
 	GameDay      GameDay
 	Participants []ParticipantWithFees
 }
 
-// ParticipantWithFees combines participant info with their fees
+// ParticipantWithFees combines participant info with their fees and competition values
 type ParticipantWithFees struct {
-	Participant GameDayParticipant
-	Fees        []GameDayFee
+	Participant      GameDayParticipant
+	Fees             []GameDayFee
+	CompetitionValues []GameDayCompetitionValue
 }
 
 // GameDaySummary represents a game day with aggregated statistics

@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"time"
 )
 
@@ -19,6 +20,7 @@ INSERT INTO players (
     name,
     balance,
     start_balance,
+    gender,
     created_at,
     updated_at
 ) VALUES (
@@ -30,21 +32,23 @@ INSERT INTO players (
     $6,
     $7,
     $8,
-    $9
+    $9,
+    $10
 )
-RETURNING id, club_id, user_id, role_id, name, balance, start_balance, created_at, updated_at
+RETURNING id, club_id, user_id, role_id, name, balance, start_balance, gender, created_at, updated_at
 `
 
 type CreatePlayerParams struct {
-	ID           string    `json:"id"`
-	ClubID       string    `json:"club_id"`
-	UserID       *string   `json:"user_id"`
-	RoleID       *string   `json:"role_id"`
-	Name         string    `json:"name"`
-	Balance      int32     `json:"balance"`
-	StartBalance int32     `json:"start_balance"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID           string         `json:"id"`
+	ClubID       string         `json:"club_id"`
+	UserID       *string        `json:"user_id"`
+	RoleID       *string        `json:"role_id"`
+	Name         string         `json:"name"`
+	Balance      int32          `json:"balance"`
+	StartBalance int32          `json:"start_balance"`
+	Gender       sql.NullString `json:"gender"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
 }
 
 func (q *Queries) CreatePlayer(ctx context.Context, arg CreatePlayerParams) (Player, error) {
@@ -56,6 +60,7 @@ func (q *Queries) CreatePlayer(ctx context.Context, arg CreatePlayerParams) (Pla
 		arg.Name,
 		arg.Balance,
 		arg.StartBalance,
+		arg.Gender,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -68,6 +73,7 @@ func (q *Queries) CreatePlayer(ctx context.Context, arg CreatePlayerParams) (Pla
 		&i.Name,
 		&i.Balance,
 		&i.StartBalance,
+		&i.Gender,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -85,7 +91,7 @@ func (q *Queries) DeletePlayer(ctx context.Context, id string) error {
 }
 
 const getPlayerByID = `-- name: GetPlayerByID :one
-SELECT id, club_id, user_id, role_id, name, balance, start_balance, created_at, updated_at FROM players
+SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, created_at, updated_at FROM players
 WHERE id = $1
 `
 
@@ -100,6 +106,7 @@ func (q *Queries) GetPlayerByID(ctx context.Context, id string) (Player, error) 
 		&i.Name,
 		&i.Balance,
 		&i.StartBalance,
+		&i.Gender,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -107,7 +114,7 @@ func (q *Queries) GetPlayerByID(ctx context.Context, id string) (Player, error) 
 }
 
 const getPlayerByUserIDAndClubID = `-- name: GetPlayerByUserIDAndClubID :one
-SELECT id, club_id, user_id, role_id, name, balance, start_balance, created_at, updated_at FROM players
+SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, created_at, updated_at FROM players
 WHERE user_id = $1 AND club_id = $2
 `
 
@@ -127,6 +134,7 @@ func (q *Queries) GetPlayerByUserIDAndClubID(ctx context.Context, arg GetPlayerB
 		&i.Name,
 		&i.Balance,
 		&i.StartBalance,
+		&i.Gender,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -134,7 +142,7 @@ func (q *Queries) GetPlayerByUserIDAndClubID(ctx context.Context, arg GetPlayerB
 }
 
 const getPlayersByClubID = `-- name: GetPlayersByClubID :many
-SELECT id, club_id, user_id, role_id, name, balance, start_balance, created_at, updated_at FROM players
+SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, created_at, updated_at FROM players
 WHERE club_id = $1
 ORDER BY created_at DESC
 `
@@ -156,6 +164,7 @@ func (q *Queries) GetPlayersByClubID(ctx context.Context, clubID string) ([]Play
 			&i.Name,
 			&i.Balance,
 			&i.StartBalance,
+			&i.Gender,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -180,19 +189,21 @@ SET
     start_balance = $3,
     user_id = $4,
     role_id = $5,
-    updated_at = $6
-WHERE id = $7
-RETURNING id, club_id, user_id, role_id, name, balance, start_balance, created_at, updated_at
+    gender = $6,
+    updated_at = $7
+WHERE id = $8
+RETURNING id, club_id, user_id, role_id, name, balance, start_balance, gender, created_at, updated_at
 `
 
 type UpdatePlayerParams struct {
-	Name         string    `json:"name"`
-	Balance      int32     `json:"balance"`
-	StartBalance int32     `json:"start_balance"`
-	UserID       *string   `json:"user_id"`
-	RoleID       *string   `json:"role_id"`
-	UpdatedAt    time.Time `json:"updated_at"`
-	ID           string    `json:"id"`
+	Name         string         `json:"name"`
+	Balance      int32          `json:"balance"`
+	StartBalance int32          `json:"start_balance"`
+	UserID       *string        `json:"user_id"`
+	RoleID       *string        `json:"role_id"`
+	Gender       sql.NullString `json:"gender"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+	ID           string         `json:"id"`
 }
 
 func (q *Queries) UpdatePlayer(ctx context.Context, arg UpdatePlayerParams) (Player, error) {
@@ -202,6 +213,7 @@ func (q *Queries) UpdatePlayer(ctx context.Context, arg UpdatePlayerParams) (Pla
 		arg.StartBalance,
 		arg.UserID,
 		arg.RoleID,
+		arg.Gender,
 		arg.UpdatedAt,
 		arg.ID,
 	)
@@ -214,6 +226,7 @@ func (q *Queries) UpdatePlayer(ctx context.Context, arg UpdatePlayerParams) (Pla
 		&i.Name,
 		&i.Balance,
 		&i.StartBalance,
+		&i.Gender,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

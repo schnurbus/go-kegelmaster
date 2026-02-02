@@ -11,6 +11,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/competition"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/gameday"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/penaltytype"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/role"
@@ -701,4 +702,101 @@ func (h *Handler) HandleUpdateFees(c fiber.Ctx) error {
 	}
 
 	return c.JSON(FeesResponseFromEntities(fees))
+}
+
+type updateCompetitionValuesRequest struct {
+	Values []competitionValueInput `json:"values"`
+}
+
+type competitionValueInput struct {
+	CompetitionID string `json:"competition_id"`
+	Value         int    `json:"value"`
+}
+
+func (h *Handler) HandleUpdateCompetitionValues(c fiber.Ctx) error {
+	if err := h.ValidateCSRF(c); err != nil {
+		return err
+	}
+
+	ctx, cancel := h.RequestContext()
+	defer cancel()
+
+	u, err := h.UserFromCookie(ctx, c)
+	if err != nil {
+		return fiber.NewError(fiber.StatusUnauthorized, "Nicht angemeldet")
+	}
+
+	clubID := c.Params("clubId")
+	gameDayID := c.Params("id")
+	playerID := c.Params("playerId")
+	if clubID == "" || gameDayID == "" || playerID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "Club-ID, Spieltag-ID und Spieler-ID sind erforderlich")
+	}
+
+	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypeGameDays, role.PermissionTypeUpdate)
+	if err != nil {
+		if errors.Is(err, club.ErrNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
+		}
+		slog.Error("check permission", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+	if !hasPermission {
+		return fiber.NewError(fiber.StatusForbidden, "Keine Berechtigung, Wettbewerbs-Werte zu bearbeiten")
+	}
+
+	gd, err := h.GameDayRepo.GetByID(ctx, gameDayID)
+	if err != nil {
+		if errors.Is(err, gameday.ErrNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "Spieltag nicht gefunden")
+		}
+		slog.Error("get game day", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+	if gd.ClubID != clubID {
+		return fiber.NewError(fiber.StatusNotFound, "Spieltag nicht gefunden")
+	}
+
+	participant, err := h.GameDayRepo.GetParticipantByGameDayAndPlayer(ctx, gameDayID, playerID)
+	if err != nil {
+		if errors.Is(err, gameday.ErrParticipantNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "Teilnehmer nicht gefunden")
+		}
+		slog.Error("get participant", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+
+	var req updateCompetitionValuesRequest
+	if err := json.Unmarshal(c.Body(), &req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Ungültige Anfrage")
+	}
+
+	for _, v := range req.Values {
+		_, err := h.CompetitionRepo.GetByID(ctx, v.CompetitionID)
+		if err != nil {
+			if errors.Is(err, competition.ErrNotFound) {
+				return fiber.NewError(fiber.StatusBadRequest, "Wettbewerb "+v.CompetitionID+" nicht gefunden")
+			}
+			slog.Error("get competition", "error", err)
+			return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+		}
+
+		_, err = h.GameDayRepo.UpsertCompetitionValue(ctx, gameday.UpsertCompetitionValueParams{
+			ParticipantID: participant.ID,
+			CompetitionID: v.CompetitionID,
+			Value:         v.Value,
+		})
+		if err != nil {
+			slog.Error("upsert competition value", "error", err)
+			return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+		}
+	}
+
+	competitionValues, err := h.GameDayRepo.GetCompetitionValuesByParticipant(ctx, participant.ID)
+	if err != nil {
+		slog.Error("get competition values", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+
+	return c.JSON(CompetitionValuesResponseFromEntities(competitionValues))
 }

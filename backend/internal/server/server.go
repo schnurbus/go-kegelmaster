@@ -11,6 +11,7 @@ import (
 
 	"github.com/schnurbus/go-kegelmaster/backend/internal/auth"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/competition"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/config"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/email"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/gameday"
@@ -31,6 +32,7 @@ type Dependencies struct {
 	RoleRepo        *role.Repository
 	PlayerRepo      *player.Repository
 	PenaltyTypeRepo *penaltytype.Repository
+	CompetitionRepo *competition.Repository
 	GameDayRepo     *gameday.Repository
 	TransactionRepo *transaction.Repository
 	AuthService     *auth.Service
@@ -83,6 +85,7 @@ func New(cfg config.Config, deps Dependencies) *Server {
 		RoleRepo:        deps.RoleRepo,
 		PlayerRepo:      deps.PlayerRepo,
 		PenaltyTypeRepo: deps.PenaltyTypeRepo,
+		CompetitionRepo: deps.CompetitionRepo,
 		GameDayRepo:     deps.GameDayRepo,
 		TransactionRepo: deps.TransactionRepo,
 		AuthService:     deps.AuthService,
@@ -160,6 +163,13 @@ func (s *Server) registerRoutes() {
 	clubsGroup.Put("/:clubId/penalty-types/:id/display-order", s.handlers.HandleUpdatePenaltyTypeDisplayOrder)
 	clubsGroup.Delete("/:clubId/penalty-types/:id", s.handlers.HandleDeletePenaltyType)
 
+	// Competition endpoints
+	clubsGroup.Get("/:clubId/competitions", s.handlers.HandleGetCompetitions)
+	clubsGroup.Get("/:clubId/competitions/:id", s.handlers.HandleGetCompetition)
+	clubsGroup.Post("/:clubId/competitions", s.handlers.HandleCreateCompetition)
+	clubsGroup.Put("/:clubId/competitions/:id", s.handlers.HandleUpdateCompetition)
+	clubsGroup.Delete("/:clubId/competitions/:id", s.handlers.HandleDeleteCompetition)
+
 	// Game Day endpoints
 	clubsGroup.Get("/:clubId/gamedays", s.handlers.HandleGetGameDays)
 	clubsGroup.Get("/:clubId/gamedays/summaries", s.handlers.HandleGetGameDaySummaries)
@@ -174,6 +184,9 @@ func (s *Server) registerRoutes() {
 
 	// Fee endpoints
 	clubsGroup.Put("/:clubId/gamedays/:id/participants/:playerId/fees", s.handlers.HandleUpdateFees)
+
+	// Competition value endpoints
+	clubsGroup.Put("/:clubId/gamedays/:id/participants/:playerId/competition-values", s.handlers.HandleUpdateCompetitionValues)
 
 	// Transaction endpoints
 	clubsGroup.Get("/:clubId/transactions", s.handlers.HandleListTransactions)

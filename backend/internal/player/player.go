@@ -13,6 +13,7 @@ type Player struct {
 	Name         string
 	Balance      int // Cent-Betrag
 	StartBalance int // Cent-Betrag
+	Gender       *string // male, female, or nil (for evaluation of gender-specific competitions)
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
