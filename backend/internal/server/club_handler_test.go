@@ -34,9 +34,9 @@ func TestCreateClub_Success(t *testing.T) {
 			AddRow(userID, "user@example.com", "hash", now, now))
 
 	mock.ExpectQuery(`INSERT INTO clubs`).
-		WithArgs(sqlmock.AnyArg(), "Test Club", 1000, 500, userID, sqlmock.AnyArg(), sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "base_fee", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID, "Test Club", 1000, 500, userID, now, now))
+		WithArgs(sqlmock.AnyArg(), "Test Club", 1000, 500, true, userID, sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "base_fee", "auto_tip_enabled", "user_id", "created_at", "updated_at"}).
+			AddRow(clubID, "Test Club", 1000, 500, true, userID, now, now))
 
 	body := `{"name":"Test Club","balance":1000,"base_fee":500}`
 	req := mustJSONRequest(t, http.MethodPost, "/api/clubs", body)
@@ -195,11 +195,11 @@ func TestGetClubs_Success(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
 			AddRow(userID, "user@example.com", "hash", now, now))
 
-	mock.ExpectQuery(`SELECT id, name, balance, base_fee, user_id, created_at, updated_at`).
+	mock.ExpectQuery(`SELECT id, name, balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at`).
 		WithArgs(userID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "base_fee", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID1, "Club 1", 1000, 500, userID, now, now).
-			AddRow(clubID2, "Club 2", 2000, 600, userID, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "base_fee", "auto_tip_enabled", "user_id", "created_at", "updated_at"}).
+			AddRow(clubID1, "Club 1", 1000, 500, true, userID, now, now).
+			AddRow(clubID2, "Club 2", 2000, 600, true, userID, now, now))
 
 	req, _ := http.NewRequest(http.MethodGet, "/api/clubs", nil)
 	req.AddCookie(&http.Cookie{Name: authCookieName, Value: token})
@@ -259,10 +259,10 @@ func TestGetClub_Success(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
 			AddRow(userID, "user@example.com", "hash", now, now))
 
-	mock.ExpectQuery(`SELECT id, name, balance, base_fee, user_id, created_at, updated_at`).
+	mock.ExpectQuery(`SELECT id, name, balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at`).
 		WithArgs(clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "base_fee", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID, "Test Club", 1000, 500, userID, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "base_fee", "auto_tip_enabled", "user_id", "created_at", "updated_at"}).
+			AddRow(clubID, "Test Club", 1000, 500, true, userID, now, now))
 
 	req, _ := http.NewRequest(http.MethodGet, "/api/clubs/"+clubID, nil)
 	req.AddCookie(&http.Cookie{Name: authCookieName, Value: token})
@@ -305,7 +305,7 @@ func TestGetClub_NotFound(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
 			AddRow(userID, "user@example.com", "hash", now, now))
 
-	mock.ExpectQuery(`SELECT id, name, balance, base_fee, user_id, created_at, updated_at`).
+	mock.ExpectQuery(`SELECT id, name, balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at`).
 		WithArgs(clubID).
 		WillReturnError(sql.ErrNoRows)
 
@@ -373,15 +373,15 @@ func TestUpdateClub_Success(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
 			AddRow(userID, "user@example.com", "hash", now, now))
 
-	mock.ExpectQuery(`SELECT id, name, balance, base_fee, user_id, created_at, updated_at`).
+	mock.ExpectQuery(`SELECT id, name, balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at`).
 		WithArgs(clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "base_fee", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID, "Old Name", 1000, 500, userID, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "base_fee", "auto_tip_enabled", "user_id", "created_at", "updated_at"}).
+			AddRow(clubID, "Old Name", 1000, 500, true, userID, now, now))
 
 	mock.ExpectQuery(`UPDATE clubs`).
-		WithArgs("Updated Club", 2000, 600, sqlmock.AnyArg(), clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "base_fee", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID, "Updated Club", 2000, 600, userID, now, now.Add(time.Hour)))
+		WithArgs("Updated Club", 2000, 600, false, sqlmock.AnyArg(), clubID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "base_fee", "auto_tip_enabled", "user_id", "created_at", "updated_at"}).
+			AddRow(clubID, "Updated Club", 2000, 600, false, userID, now, now.Add(time.Hour)))
 
 	body := `{"name":"Updated Club","balance":2000,"base_fee":600}`
 	req := mustJSONRequest(t, http.MethodPut, "/api/clubs/"+clubID, body)
@@ -429,10 +429,10 @@ func TestUpdateClub_NotOwner(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
 			AddRow(otherUserID, "other@example.com", "hash", now, now))
 
-	mock.ExpectQuery(`SELECT id, name, balance, base_fee, user_id, created_at, updated_at`).
+	mock.ExpectQuery(`SELECT id, name, balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at`).
 		WithArgs(clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "base_fee", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID, "Test Club", 1000, 500, ownerID, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "base_fee", "auto_tip_enabled", "user_id", "created_at", "updated_at"}).
+			AddRow(clubID, "Test Club", 1000, 500, true, ownerID, now, now))
 
 	body := `{"name":"Updated Club","balance":2000,"base_fee":600}`
 	req := mustJSONRequest(t, http.MethodPut, "/api/clubs/"+clubID, body)
@@ -467,7 +467,7 @@ func TestUpdateClub_NotFound(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
 			AddRow(userID, "user@example.com", "hash", now, now))
 
-	mock.ExpectQuery(`SELECT id, name, balance, base_fee, user_id, created_at, updated_at`).
+	mock.ExpectQuery(`SELECT id, name, balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at`).
 		WithArgs(clubID).
 		WillReturnError(sql.ErrNoRows)
 
@@ -504,10 +504,10 @@ func TestUpdateClub_InvalidRequest(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
 			AddRow(userID, "user@example.com", "hash", now, now))
 
-	mock.ExpectQuery(`SELECT id, name, balance, base_fee, user_id, created_at, updated_at`).
+	mock.ExpectQuery(`SELECT id, name, balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at`).
 		WithArgs(clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "base_fee", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID, "Test Club", 1000, 500, userID, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "base_fee", "auto_tip_enabled", "user_id", "created_at", "updated_at"}).
+			AddRow(clubID, "Test Club", 1000, 500, true, userID, now, now))
 
 	body := `{"name":"","balance":2000,"base_fee":600}`
 	req := mustJSONRequest(t, http.MethodPut, "/api/clubs/"+clubID, body)
@@ -542,16 +542,16 @@ func TestDeleteClub_Success(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
 			AddRow(userID, "user@example.com", "hash", now, now))
 
-	mock.ExpectQuery(`SELECT id, name, balance, base_fee, user_id, created_at, updated_at`).
+	mock.ExpectQuery(`SELECT id, name, balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at`).
 		WithArgs(clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "base_fee", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID, "Test Club", 1000, 500, userID, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "base_fee", "auto_tip_enabled", "user_id", "created_at", "updated_at"}).
+			AddRow(clubID, "Test Club", 1000, 500, true, userID, now, now))
 
 	// Additional GetByID call in Delete method
-	mock.ExpectQuery(`SELECT id, name, balance, base_fee, user_id, created_at, updated_at FROM clubs`).
+	mock.ExpectQuery(`SELECT id, name, balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at FROM clubs`).
 		WithArgs(clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "base_fee", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID, "Test Club", 1000, 500, userID, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "base_fee", "auto_tip_enabled", "user_id", "created_at", "updated_at"}).
+			AddRow(clubID, "Test Club", 1000, 500, true, userID, now, now))
 
 	mock.ExpectExec(`DELETE FROM clubs`).
 		WithArgs(clubID).
@@ -590,10 +590,10 @@ func TestDeleteClub_NotOwner(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
 			AddRow(otherUserID, "other@example.com", "hash", now, now))
 
-	mock.ExpectQuery(`SELECT id, name, balance, base_fee, user_id, created_at, updated_at`).
+	mock.ExpectQuery(`SELECT id, name, balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at`).
 		WithArgs(clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "base_fee", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID, "Test Club", 1000, 500, ownerID, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "base_fee", "auto_tip_enabled", "user_id", "created_at", "updated_at"}).
+			AddRow(clubID, "Test Club", 1000, 500, true, ownerID, now, now))
 
 	req := mustJSONRequest(t, http.MethodDelete, "/api/clubs/"+clubID, "")
 	req.AddCookie(&http.Cookie{Name: authCookieName, Value: token})
@@ -627,7 +627,7 @@ func TestDeleteClub_NotFound(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
 			AddRow(userID, "user@example.com", "hash", now, now))
 
-	mock.ExpectQuery(`SELECT id, name, balance, base_fee, user_id, created_at, updated_at`).
+	mock.ExpectQuery(`SELECT id, name, balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at`).
 		WithArgs(clubID).
 		WillReturnError(sql.ErrNoRows)
 
@@ -682,7 +682,7 @@ func TestCreateClub_DatabaseError(t *testing.T) {
 			AddRow(userID, "user@example.com", "hash", now, now))
 
 	mock.ExpectQuery(`INSERT INTO clubs`).
-		WithArgs(sqlmock.AnyArg(), "Test Club", 1000, 500, userID, sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WithArgs(sqlmock.AnyArg(), "Test Club", 1000, 500, true, userID, sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnError(sql.ErrConnDone)
 
 	body := `{"name":"Test Club","balance":1000,"base_fee":500}`
@@ -749,7 +749,7 @@ func TestGetClubs_DatabaseError(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
 			AddRow(userID, "user@example.com", "hash", now, now))
 
-	mock.ExpectQuery(`SELECT id, name, balance, base_fee, user_id, created_at, updated_at`).
+	mock.ExpectQuery(`SELECT id, name, balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at`).
 		WithArgs(userID).
 		WillReturnError(sql.ErrConnDone)
 
@@ -785,7 +785,7 @@ func TestGetClub_DatabaseError(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
 			AddRow(userID, "user@example.com", "hash", now, now))
 
-	mock.ExpectQuery(`SELECT id, name, balance, base_fee, user_id, created_at, updated_at`).
+	mock.ExpectQuery(`SELECT id, name, balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at`).
 		WithArgs(clubID).
 		WillReturnError(sql.ErrConnDone)
 
@@ -821,13 +821,13 @@ func TestUpdateClub_DatabaseError(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
 			AddRow(userID, "user@example.com", "hash", now, now))
 
-	mock.ExpectQuery(`SELECT id, name, balance, base_fee, user_id, created_at, updated_at`).
+	mock.ExpectQuery(`SELECT id, name, balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at`).
 		WithArgs(clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "base_fee", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID, "Test Club", 1000, 500, userID, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "base_fee", "auto_tip_enabled", "user_id", "created_at", "updated_at"}).
+			AddRow(clubID, "Test Club", 1000, 500, true, userID, now, now))
 
 	mock.ExpectQuery(`UPDATE clubs`).
-		WithArgs("Updated Club", 2000, 600, sqlmock.AnyArg(), clubID).
+		WithArgs("Updated Club", 2000, 600, false, sqlmock.AnyArg(), clubID).
 		WillReturnError(sql.ErrConnDone)
 
 	body := `{"name":"Updated Club","balance":2000,"base_fee":600}`
@@ -863,10 +863,10 @@ func TestUpdateClub_InvalidJSON(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
 			AddRow(userID, "user@example.com", "hash", now, now))
 
-	mock.ExpectQuery(`SELECT id, name, balance, base_fee, user_id, created_at, updated_at`).
+	mock.ExpectQuery(`SELECT id, name, balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at`).
 		WithArgs(clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "base_fee", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID, "Test Club", 1000, 500, userID, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "base_fee", "auto_tip_enabled", "user_id", "created_at", "updated_at"}).
+			AddRow(clubID, "Test Club", 1000, 500, true, userID, now, now))
 
 	body := `{"name":"Updated Club","balance":"invalid"}`
 	req := mustJSONRequest(t, http.MethodPut, "/api/clubs/"+clubID, body)
@@ -901,10 +901,10 @@ func TestUpdateClub_NegativeBaseFee(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
 			AddRow(userID, "user@example.com", "hash", now, now))
 
-	mock.ExpectQuery(`SELECT id, name, balance, base_fee, user_id, created_at, updated_at`).
+	mock.ExpectQuery(`SELECT id, name, balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at`).
 		WithArgs(clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "base_fee", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID, "Test Club", 1000, 500, userID, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "base_fee", "auto_tip_enabled", "user_id", "created_at", "updated_at"}).
+			AddRow(clubID, "Test Club", 1000, 500, true, userID, now, now))
 
 	body := `{"name":"Updated Club","balance":2000,"base_fee":-100}`
 	req := mustJSONRequest(t, http.MethodPut, "/api/clubs/"+clubID, body)
@@ -939,7 +939,7 @@ func TestUpdateClub_GetByIDError(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
 			AddRow(userID, "user@example.com", "hash", now, now))
 
-	mock.ExpectQuery(`SELECT id, name, balance, base_fee, user_id, created_at, updated_at`).
+	mock.ExpectQuery(`SELECT id, name, balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at`).
 		WithArgs(clubID).
 		WillReturnError(sql.ErrConnDone)
 
@@ -976,7 +976,7 @@ func TestDeleteClub_GetByIDError(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
 			AddRow(userID, "user@example.com", "hash", now, now))
 
-	mock.ExpectQuery(`SELECT id, name, balance, base_fee, user_id, created_at, updated_at`).
+	mock.ExpectQuery(`SELECT id, name, balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at`).
 		WithArgs(clubID).
 		WillReturnError(sql.ErrConnDone)
 
@@ -1012,13 +1012,13 @@ func TestDeleteClub_DatabaseError(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
 			AddRow(userID, "user@example.com", "hash", now, now))
 
-	mock.ExpectQuery(`SELECT id, name, balance, base_fee, user_id, created_at, updated_at`).
+	mock.ExpectQuery(`SELECT id, name, balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at`).
 		WithArgs(clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "base_fee", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID, "Test Club", 1000, 500, userID, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "base_fee", "auto_tip_enabled", "user_id", "created_at", "updated_at"}).
+			AddRow(clubID, "Test Club", 1000, 500, true, userID, now, now))
 
 	// Additional GetByID call in Delete method returns error
-	mock.ExpectQuery(`SELECT id, name, balance, base_fee, user_id, created_at, updated_at FROM clubs`).
+	mock.ExpectQuery(`SELECT id, name, balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at FROM clubs`).
 		WithArgs(clubID).
 		WillReturnError(sql.ErrConnDone)
 

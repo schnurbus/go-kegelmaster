@@ -232,3 +232,20 @@ func (q *Queries) UpdatePlayer(ctx context.Context, arg UpdatePlayerParams) (Pla
 	)
 	return i, err
 }
+
+const updatePlayerBalance = `-- name: UpdatePlayerBalance :exec
+UPDATE players
+SET balance = $1, updated_at = $2
+WHERE id = $3
+`
+
+type UpdatePlayerBalanceParams struct {
+	Balance   int32     `json:"balance"`
+	UpdatedAt time.Time `json:"updated_at"`
+	ID        string    `json:"id"`
+}
+
+func (q *Queries) UpdatePlayerBalance(ctx context.Context, arg UpdatePlayerBalanceParams) error {
+	_, err := q.db.ExecContext(ctx, updatePlayerBalance, arg.Balance, arg.UpdatedAt, arg.ID)
+	return err
+}

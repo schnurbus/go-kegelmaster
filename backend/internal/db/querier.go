@@ -95,6 +95,7 @@ type Querier interface {
 	UpdateGameDayFee(ctx context.Context, arg UpdateGameDayFeeParams) (GameDayFee, error)
 	UpdatePenaltyTypeDisplayOrder(ctx context.Context, arg UpdatePenaltyTypeDisplayOrderParams) error
 	UpdatePlayer(ctx context.Context, arg UpdatePlayerParams) (Player, error)
+	UpdatePlayerBalance(ctx context.Context, arg UpdatePlayerBalanceParams) error
 	UpdateRole(ctx context.Context, arg UpdateRoleParams) (Role, error)
 	UpdateTransaction(ctx context.Context, arg UpdateTransactionParams) (Transaction, error)
 	UpsertGameDayCompetitionValue(ctx context.Context, arg UpsertGameDayCompetitionValueParams) (GameDayCompetitionValue, error)
