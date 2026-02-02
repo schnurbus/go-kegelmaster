@@ -1,6 +1,6 @@
 DATABASE_URL ?= postgres://kegelmaster:kegelmaster@localhost:5432/kegelmaster?sslmode=disable
 
-.PHONY: backend-run backend-test backend-build frontend-dev frontend-build compose-up compose-down fmt migrate-up migrate-down sqlc-generate
+.PHONY: backend-run backend-test backend-build backend-build-embed build frontend-dev frontend-build compose-up compose-down fmt migrate-up migrate-down sqlc-generate
 
 backend-run:
 	@cd backend && go run ./cmd/api
@@ -10,6 +10,16 @@ backend-test:
 
 backend-build:
 	@cd backend && go build ./cmd/api
+
+# Build frontend, copy into backend for embed, then build single binary with embedded frontend.
+build: frontend-build
+	@mkdir -p backend/internal/server/web && cp -r frontend/dist/* backend/internal/server/web/
+	@mkdir -p bin && cd backend && go build -tags embed -o ../bin/kegelmaster ./cmd/api
+
+# Build single binary only (assumes frontend/dist already exists from frontend-build).
+backend-build-embed:
+	@mkdir -p backend/internal/server/web && cp -r frontend/dist/* backend/internal/server/web/
+	@mkdir -p bin && cd backend && go build -tags embed -o ../bin/kegelmaster ./cmd/api
 
 frontend-dev:
 	@cd frontend && npm run dev

@@ -196,6 +196,8 @@ func (s *Server) registerRoutes() {
 	clubsGroup.Get("/:clubId/players/:playerId/transactions", s.handlers.HandleListPlayerTransactions)
 	clubsGroup.Get("/:clubId/gamedays/:gamedayId/transactions", s.handlers.HandleListGameDayTransactions)
 	clubsGroup.Get("/:clubId/gamedays/:gamedayId/transaction-summary", s.handlers.HandleGetGameDayTransactionSummary)
+
+	registerStatic(s)
 }
 
 // Listen starts the HTTP server and blocks until it exits.

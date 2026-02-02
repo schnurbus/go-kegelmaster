@@ -13,6 +13,7 @@ Thumbs.db
 # Project wide
 tmp/
 dist/
+bin/
 node_modules/
 .env
 .env.*
@@ -23,6 +24,7 @@ node_modules/
 /backend/tmp/
 /backend/coverage.out
 /backend/vendor/
+/backend/internal/server/web/
 
 # Frontend (Node/Vite)
 /frontend/node_modules/
