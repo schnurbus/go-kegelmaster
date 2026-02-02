@@ -56,6 +56,8 @@ interface GameDayDetail {
       penalty_type_description: string;
       penalty_type_price: number;
       count: number;
+      quantity_scale: number;
+      quantity: number;
       created_at: string;
       updated_at: string;
     }>;
@@ -89,6 +91,7 @@ interface PenaltyType {
   description: string;
   price: number;
   display_order: number;
+  allows_decimal_quantity: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -306,13 +309,13 @@ function GameDayDetailPage() {
     const participantIds = new Set(participants.map(p => p.player_id));
     setSelectedPlayerIds(participantIds);
 
-    // Build fee inputs map
+    // Build fee inputs map (use quantity for display when scale > 1)
     const fees = new Map<string, Map<string, number>>();
     const compValues = new Map<string, Map<string, number>>();
     detail.participants.forEach(p => {
       const playerFees = new Map<string, number>();
       p.fees.forEach(f => {
-        playerFees.set(f.penalty_type_id, f.count);
+        playerFees.set(f.penalty_type_id, f.quantity ?? f.count);
       });
       fees.set(p.participant.player_id, playerFees);
 
@@ -484,9 +487,9 @@ function GameDayDetailPage() {
   const handleFeeChange = (playerId: string, penaltyTypeId: string, count: number) => {
     setFeeInputs(prev => {
       const newMap = new Map(prev);
-      const playerFees = newMap.get(playerId) || new Map();
+      const playerFees = new Map(newMap.get(playerId) || []);
 
-      if (count === 0) {
+      if (count <= 0 || Number.isNaN(count)) {
         playerFees.delete(penaltyTypeId);
       } else {
         playerFees.set(penaltyTypeId, count);
@@ -509,10 +512,10 @@ function GameDayDetailPage() {
         const playerId = participant.player_id;
         const playerFees = feeInputs.get(playerId) || new Map();
 
-        // Convert Map to array format expected by API
+        // Convert Map to array format expected by API (count can be decimal when type allows)
         const fees = Array.from(playerFees.entries()).map(([penaltyTypeId, count]) => ({
           penalty_type_id: penaltyTypeId,
-          count,
+          count: Number(count),
         }));
 
         const response = await fetch(
@@ -804,27 +807,28 @@ function GameDayDetailPage() {
                               {orderedParticipants.map((participant) => {
                                 const playerFees = feeInputs.get(participant.player_id) || new Map();
                                 const total = allPenaltyTypes.reduce((sum, pt) => {
-                                  const count = playerFees.get(pt.id) || 0;
-                                  return sum + (count * pt.price);
+                                  const qty = playerFees.get(pt.id) || 0;
+                                  return sum + (qty * pt.price);
                                 }, 0);
                                 return (
                                   <tr key={participant.player_id} className="border-b hover:bg-muted/50">
                                     <td className="p-2 font-medium">{participant.player_name}</td>
                                     {allPenaltyTypes.map(pt => {
-                                      const currentCount = playerFees.get(pt.id) || 0;
+                                      const currentCount = playerFees.get(pt.id) ?? 0;
                                       const existingFee = detail?.participants
                                         .find(p => p.participant.player_id === participant.player_id)
                                         ?.fees.find(f => f.penalty_type_id === pt.id);
                                       const hasSnapshot = existingFee && existingFee.penalty_type_price !== pt.price;
+                                      const allowDecimal = pt.allows_decimal_quantity === true;
                                       return (
                                         <td key={pt.id} className="p-2 text-center">
                                           <div className="flex flex-col items-center gap-1">
                                             <Input
                                               type="number"
                                               min="0"
-                                              step="1"
-                                              value={currentCount}
-                                              onChange={(e) => handleFeeChange(participant.player_id, pt.id, parseInt(e.target.value) || 0)}
+                                              step={allowDecimal ? "0.01" : "1"}
+                                              value={currentCount === 0 ? "" : currentCount}
+                                              onChange={(e) => handleFeeChange(participant.player_id, pt.id, parseFloat(e.target.value) || 0)}
                                               className="w-20 text-center"
                                             />
                                             {hasSnapshot && (

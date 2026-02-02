@@ -95,10 +95,11 @@ func (h *Handler) HandleGetPenaltyType(c fiber.Ctx) error {
 }
 
 type createPenaltyTypeRequest struct {
-	Name         string `json:"name"`
-	Description  string `json:"description"`
-	Price        int    `json:"price"`
-	DisplayOrder *int   `json:"display_order,omitempty"`
+	Name                  string `json:"name"`
+	Description           string `json:"description"`
+	Price                 int    `json:"price"`
+	DisplayOrder          *int   `json:"display_order,omitempty"`
+	AllowsDecimalQuantity bool   `json:"allows_decimal_quantity"`
 }
 
 func (r createPenaltyTypeRequest) validate() error {
@@ -153,11 +154,12 @@ func (h *Handler) HandleCreatePenaltyType(c fiber.Ctx) error {
 	}
 
 	penaltyType, err := h.PenaltyTypeRepo.Create(ctx, penaltytype.CreatePenaltyTypeParams{
-		ClubID:       clubID,
-		Name:         strings.TrimSpace(req.Name),
-		Description:  strings.TrimSpace(req.Description),
-		Price:        req.Price,
-		DisplayOrder: req.DisplayOrder,
+		ClubID:                clubID,
+		Name:                  strings.TrimSpace(req.Name),
+		Description:           strings.TrimSpace(req.Description),
+		Price:                 req.Price,
+		DisplayOrder:          req.DisplayOrder,
+		AllowsDecimalQuantity: req.AllowsDecimalQuantity,
 	})
 	if err != nil {
 		slog.Error("create penalty type", "error", err)
@@ -168,9 +170,10 @@ func (h *Handler) HandleCreatePenaltyType(c fiber.Ctx) error {
 }
 
 type updatePenaltyTypeRequest struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Price       int    `json:"price"`
+	Name                  string `json:"name"`
+	Description           string `json:"description"`
+	Price                 int    `json:"price"`
+	AllowsDecimalQuantity bool   `json:"allows_decimal_quantity"`
 }
 
 func (r updatePenaltyTypeRequest) validate() error {
@@ -241,10 +244,11 @@ func (h *Handler) HandleUpdatePenaltyType(c fiber.Ctx) error {
 
 	// Replace creates a new version
 	updatedPenaltyType, err := h.PenaltyTypeRepo.Replace(ctx, penaltytype.ReplacePenaltyTypeParams{
-		ID:          penaltyTypeID,
-		Name:        strings.TrimSpace(req.Name),
-		Description: strings.TrimSpace(req.Description),
-		Price:       req.Price,
+		ID:                    penaltyTypeID,
+		Name:                  strings.TrimSpace(req.Name),
+		Description:           strings.TrimSpace(req.Description),
+		Price:                 req.Price,
+		AllowsDecimalQuantity: req.AllowsDecimalQuantity,
 	})
 	if err != nil {
 		if errors.Is(err, penaltytype.ErrNotFound) {

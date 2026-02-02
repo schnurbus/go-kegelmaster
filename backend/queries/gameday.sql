@@ -58,14 +58,14 @@ DELETE FROM game_day_participants WHERE game_day_id = $1;
 INSERT INTO game_day_fees (
     id, game_day_participant_id, penalty_type_id,
     penalty_type_name, penalty_type_description, penalty_type_price,
-    count, created_at, updated_at
+    count, quantity_scale, created_at, updated_at
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING *;
 
 -- name: UpdateGameDayFee :one
 UPDATE game_day_fees
-SET count = $2, updated_at = $3
+SET count = $2, quantity_scale = $3, updated_at = $4
 WHERE id = $1
 RETURNING *;
 
@@ -73,12 +73,13 @@ RETURNING *;
 INSERT INTO game_day_fees (
     id, game_day_participant_id, penalty_type_id,
     penalty_type_name, penalty_type_description, penalty_type_price,
-    count, created_at, updated_at
+    count, quantity_scale, created_at, updated_at
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 ON CONFLICT (game_day_participant_id, penalty_type_id)
 DO UPDATE SET 
     count = EXCLUDED.count,
+    quantity_scale = EXCLUDED.quantity_scale,
     updated_at = EXCLUDED.updated_at
 RETURNING *;
 

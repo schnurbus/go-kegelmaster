@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS game_day_fees (
     penalty_type_description TEXT DEFAULT '',
     penalty_type_price INTEGER NOT NULL,  -- Cent-Betrag
     count INTEGER NOT NULL DEFAULT 1 CHECK (count > 0),
+    quantity_scale INTEGER NOT NULL DEFAULT 1,  -- 1 = integer, 100 = 2 decimal places
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     

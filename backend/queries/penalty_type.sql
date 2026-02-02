@@ -6,6 +6,7 @@ INSERT INTO penalty_types (
     description,
     price,
     display_order,
+    allows_decimal_quantity,
     created_at,
     updated_at
 ) VALUES (
@@ -16,7 +17,8 @@ INSERT INTO penalty_types (
     $5,
     $6,
     $7,
-    $8
+    $8,
+    $9
 )
 RETURNING *;
 

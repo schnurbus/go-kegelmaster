@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"strings"
 	"time"
 
@@ -56,8 +57,8 @@ type updateFeesRequest struct {
 }
 
 type feeInput struct {
-	PenaltyTypeID string `json:"penalty_type_id"`
-	Count         int    `json:"count"`
+	PenaltyTypeID string  `json:"penalty_type_id"`
+	Count         float64 `json:"count"` // decimal allowed when penalty type allows_decimal_quantity
 }
 
 // ==================== HANDLERS ====================
@@ -605,7 +606,7 @@ func (h *Handler) HandleUpdateFees(c fiber.Ctx) error {
 
 	// Process each fee
 	for _, fee := range req.Fees {
-		if fee.Count <= 0 {
+		if fee.Count <= 0 || math.IsNaN(fee.Count) || math.IsInf(fee.Count, 0) {
 			// Check if there's an existing fee and transaction to delete
 			if existingFee, exists := existingFeeMap[fee.PenaltyTypeID]; exists {
 				// Try to get and delete the associated transaction
@@ -651,6 +652,16 @@ func (h *Handler) HandleUpdateFees(c fiber.Ctx) error {
 		// Check if this is an update
 		existingFee, isUpdate := existingFeeMap[fee.PenaltyTypeID]
 
+		// Scale quantity: 100 when decimal allowed, else 1
+		quantityScale := 1
+		if pt.AllowsDecimalQuantity {
+			quantityScale = 100
+		}
+		countStored := int(math.Round(fee.Count * float64(quantityScale)))
+		if countStored <= 0 {
+			continue
+		}
+
 		// Upsert fee with snapshot
 		createdFee, err := h.GameDayRepo.UpsertFee(ctx, gameday.UpsertFeeParams{
 			ParticipantID:          participant.ID,
@@ -658,15 +669,16 @@ func (h *Handler) HandleUpdateFees(c fiber.Ctx) error {
 			PenaltyTypeName:        pt.Name,
 			PenaltyTypeDescription: pt.Description,
 			PenaltyTypePrice:       pt.Price,
-			Count:                  fee.Count,
+			Count:                  countStored,
+			QuantityScale:          quantityScale,
 		})
 		if err != nil {
 			slog.Error("upsert fee", "error", err)
 			return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 		}
 
-		// Calculate transaction amount (negative = debt)
-		amount := -(pt.Price * fee.Count)
+		// Calculate transaction amount (negative = debt): price * count / scale (all integer)
+		amount := -(pt.Price * countStored / quantityScale)
 
 		if isUpdate {
 			// Delete old transaction and create new one with updated amount
@@ -678,13 +690,17 @@ func (h *Handler) HandleUpdateFees(c fiber.Ctx) error {
 			}
 		}
 
-		// Create new transaction
+		// Description: show quantity with decimals when scale > 1
+		quantityDesc := fmt.Sprintf("%d", countStored)
+		if quantityScale > 1 {
+			quantityDesc = fmt.Sprintf("%.2f", float64(countStored)/float64(quantityScale))
+		}
 		_, err = h.TransactionRepo.Create(ctx, transaction.CreateTransactionParams{
 			ClubID:          clubID,
 			PlayerID:        &playerID,
 			TransactionType: transaction.TransactionTypeFee,
 			Amount:          amount,
-			Description:     fmt.Sprintf("%s ×%d", pt.Name, fee.Count),
+			Description:     fmt.Sprintf("%s ×%s", pt.Name, quantityDesc),
 			GameDayFeeID:    &createdFee.ID,
 			GameDayID:       &gameDayID,
 		})
