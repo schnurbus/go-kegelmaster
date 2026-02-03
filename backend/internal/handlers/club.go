@@ -12,11 +12,12 @@ import (
 )
 
 type createClubRequest struct {
-	Name           string `json:"name"`
-	Balance        int    `json:"balance"`
-	StartBalance   int    `json:"start_balance"`
-	BaseFee        int    `json:"base_fee"`
-	AutoTipEnabled *bool  `json:"auto_tip_enabled,omitempty"` // Optional, defaults to true
+	Name               string `json:"name"`
+	Balance            int    `json:"balance"`
+	StartBalance      int    `json:"start_balance"`
+	BaseFee           int    `json:"base_fee"`
+	AutoTipEnabled    *bool  `json:"auto_tip_enabled,omitempty"`    // Optional, defaults to true
+	CouplesModeEnabled *bool  `json:"couples_mode_enabled,omitempty"` // Optional, defaults to false
 }
 
 func (r createClubRequest) validate() error {
@@ -60,14 +61,19 @@ func (h *Handler) HandleCreateClub(c fiber.Ctx) error {
 	if req.AutoTipEnabled != nil {
 		autoTipEnabled = *req.AutoTipEnabled
 	}
+	couplesModeEnabled := false
+	if req.CouplesModeEnabled != nil {
+		couplesModeEnabled = *req.CouplesModeEnabled
+	}
 
 	clubEntity, err := h.ClubRepo.Create(ctx, club.CreateClubParams{
-		Name:           strings.TrimSpace(req.Name),
-		Balance:        req.Balance,
-		StartBalance:   req.StartBalance,
-		BaseFee:        req.BaseFee,
-		AutoTipEnabled: autoTipEnabled,
-		UserID:         u.ID,
+		Name:               strings.TrimSpace(req.Name),
+		Balance:            req.Balance,
+		StartBalance:       req.StartBalance,
+		BaseFee:            req.BaseFee,
+		AutoTipEnabled:     autoTipEnabled,
+		CouplesModeEnabled: couplesModeEnabled,
+		UserID:             u.ID,
 	})
 	if err != nil {
 		slog.Error("create club", "error", err)
@@ -121,11 +127,12 @@ func (h *Handler) HandleGetClub(c fiber.Ctx) error {
 }
 
 type updateClubRequest struct {
-	Name           string `json:"name"`
-	Balance        int    `json:"balance"`
-	StartBalance   int    `json:"start_balance"`
-	BaseFee        int    `json:"base_fee"`
-	AutoTipEnabled bool   `json:"auto_tip_enabled"`
+	Name               string `json:"name"`
+	Balance            int    `json:"balance"`
+	StartBalance       int    `json:"start_balance"`
+	BaseFee            int    `json:"base_fee"`
+	AutoTipEnabled     bool   `json:"auto_tip_enabled"`
+	CouplesModeEnabled bool   `json:"couples_mode_enabled"`
 }
 
 func (r updateClubRequest) validate() error {
@@ -185,12 +192,13 @@ func (h *Handler) HandleUpdateClub(c fiber.Ctx) error {
 	}
 
 	updatedClub, err := h.ClubRepo.Update(ctx, club.UpdateClubParams{
-		ID:             clubID,
-		Name:           strings.TrimSpace(req.Name),
-		Balance:        req.Balance,
-		StartBalance:   req.StartBalance,
-		BaseFee:        req.BaseFee,
-		AutoTipEnabled: req.AutoTipEnabled,
+		ID:                 clubID,
+		Name:               strings.TrimSpace(req.Name),
+		Balance:            req.Balance,
+		StartBalance:       req.StartBalance,
+		BaseFee:            req.BaseFee,
+		AutoTipEnabled:     req.AutoTipEnabled,
+		CouplesModeEnabled: req.CouplesModeEnabled,
 	})
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {

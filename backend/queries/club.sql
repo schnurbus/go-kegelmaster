@@ -6,6 +6,7 @@ INSERT INTO clubs (
     start_balance,
     base_fee,
     auto_tip_enabled,
+    couples_mode_enabled,
     user_id,
     created_at,
     updated_at
@@ -18,7 +19,8 @@ INSERT INTO clubs (
     $6,
     $7,
     $8,
-    $9
+    $9,
+    $10
 )
 RETURNING *;
 
@@ -52,8 +54,9 @@ SET
     start_balance = $3,
     base_fee = $4,
     auto_tip_enabled = $5,
-    updated_at = $6
-WHERE id = $7
+    couples_mode_enabled = $6,
+    updated_at = $7
+WHERE id = $8
 RETURNING *;
 
 -- name: UpdateClubBalance :exec

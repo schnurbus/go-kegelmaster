@@ -30,7 +30,9 @@ export interface PaginatedTransactions {
 
 export interface CreateTransactionRequest {
   transaction_type: 'deposit' | 'tip' | 'expense';
-  player_id?: string; // Required for deposit
+  player_id?: string; // Single player (deposit/tip)
+  /** Paar-Modus: multiple players for deposit; requires couples_mode_enabled and at least 2 */
+  player_ids?: string[];
   amount: number; // in cents
   description: string;
   /** Optional; YYYY-MM-DD. Defaults to today if omitted. */

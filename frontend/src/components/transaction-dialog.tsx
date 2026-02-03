@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { AlertTriangleIcon, GiftIcon, InfoIcon } from "lucide-react";
 
 import type { CreateTransactionRequest } from "@/types/transaction";
@@ -43,12 +44,14 @@ export function TransactionDialog({
   const [players, setPlayers] = React.useState<Player[]>([]);
   const [isLoadingPlayers, setIsLoadingPlayers] = React.useState(false);
   const [autoTipEnabled, setAutoTipEnabled] = React.useState(true);
+  const [couplesModeEnabled, setCouplesModeEnabled] = React.useState(false);
   const [clubBalance, setClubBalance] = React.useState<number>(0);
 
   const [transactionType, setTransactionType] = React.useState<
     "deposit" | "tip" | "expense"
   >("deposit");
   const [playerId, setPlayerId] = React.useState<string>("");
+  const [playerIds, setPlayerIds] = React.useState<string[]>([]);
   const [amount, setAmount] = React.useState("");
   const [description, setDescription] = React.useState("");
   const [transactionDate, setTransactionDate] = React.useState<string>(() => {
@@ -76,7 +79,8 @@ export function TransactionDialog({
       }
 
       const data: Player[] = await response.json();
-      setPlayers(data);
+      const sorted = [...data].sort((a, b) => a.name.localeCompare(b.name, "de"));
+      setPlayers(sorted);
     } catch (error) {
       console.error("Error fetching players:", error);
       toast.error("Fehler beim Laden der Spieler");
@@ -97,6 +101,7 @@ export function TransactionDialog({
 
       const data = await response.json();
       setAutoTipEnabled(data.auto_tip_enabled ?? true);
+      setCouplesModeEnabled(data.couples_mode_enabled ?? false);
       setClubBalance(data.balance ?? 0);
     } catch (error) {
       console.error("Error fetching club info:", error);
@@ -113,6 +118,7 @@ export function TransactionDialog({
       const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       setTransactionType("deposit");
       setPlayerId("");
+      setPlayerIds([]);
       setAmount("");
       setDescription("");
       setTransactionDate(today);
@@ -170,14 +176,23 @@ export function TransactionDialog({
       return;
     }
 
-    if (!description.trim()) {
-      toast.error("Beschreibung ist erforderlich");
-      return;
-    }
-
-    if ((transactionType === "deposit" || transactionType === "tip") && !playerId) {
-      toast.error("Bitte wählen Sie einen Spieler aus");
-      return;
+    const useCouplesMode =
+      transactionType === "deposit" && couplesModeEnabled && playerIds.length >= 2;
+    const singleFromCouplesList =
+      transactionType === "deposit" &&
+      couplesModeEnabled &&
+      playerIds.length === 1;
+    if (transactionType === "deposit" || transactionType === "tip") {
+      if (useCouplesMode || singleFromCouplesList) {
+        // Paar-Modus: 2+ or 1 from list (single deposit)
+      } else if (!playerId) {
+        toast.error(
+          couplesModeEnabled && transactionType === "deposit"
+            ? "Bitte mindestens einen Spieler auswählen (oder zwei für gemeinsame Einzahlung)"
+            : "Bitte wählen Sie einen Spieler aus"
+        );
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -187,9 +202,16 @@ export function TransactionDialog({
         transaction_type: transactionType,
         amount: euroToCents(parseFloat(amount)),
         description: description.trim(),
-        player_id: playerId || undefined,
         transaction_date: transactionDate,
       };
+      if (useCouplesMode) {
+        body.player_ids = playerIds;
+      } else {
+        body.player_id =
+          (couplesModeEnabled && transactionType === "deposit" && playerIds.length === 1
+            ? playerIds[0]
+            : playerId) || undefined;
+      }
 
       const response = await fetch(`/api/clubs/${clubId}/transactions`, {
         method: "POST",
@@ -258,7 +280,8 @@ export function TransactionDialog({
               value={transactionType}
               onValueChange={(value: "deposit" | "tip" | "expense") => {
                 setTransactionType(value);
-                setPlayerId(""); // Reset player when changing type
+                setPlayerId("");
+                setPlayerIds([]);
               }}
               required
             >
@@ -291,44 +314,105 @@ export function TransactionDialog({
 
           {(transactionType === "deposit" || transactionType === "tip") && (
             <div className="space-y-2">
-              <Label htmlFor="player_id">
-                Spieler <span className="text-red-500">*</span>
-              </Label>
-              <Select
-                value={playerId}
-                onValueChange={setPlayerId}
-                required
-                disabled={isLoadingPlayers}
-              >
-                <SelectTrigger id="player_id">
-                  <SelectValue placeholder="Spieler auswählen" />
-                </SelectTrigger>
-                <SelectContent>
-                  {players.map((player) => (
-                    <SelectItem key={player.id} value={player.id}>
-                      {player.name} - Balance: {formatCentsToEuro(player.balance)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {selectedPlayer && (
-                <p className="text-sm text-muted-foreground">
-                  Aktuelles Guthaben:{" "}
-                  <span
-                    className={
-                      selectedPlayer.balance < 0
-                        ? "text-red-500 font-medium"
-                        : selectedPlayer.balance > 0
-                          ? "text-green-500 font-medium"
-                          : ""
-                    }
-                  >
-                    {formatCentsToEuro(selectedPlayer.balance)}
-                  </span>
-                  {selectedPlayer.balance < 0 && (
-                    <span> (Schulden: {formatCentsToEuro(Math.abs(selectedPlayer.balance))})</span>
+              {transactionType === "deposit" && couplesModeEnabled ? (
+                <>
+                  <Label>
+                    Spieler (Paar-Modus) <span className="text-red-500">*</span>
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Mindestens 2 Spieler für gemeinsame Einzahlung auswählen. Der Betrag wird
+                    gleichmäßig verteilt.
+                  </p>
+                  <div className="border rounded-md p-3 space-y-2 max-h-48 overflow-y-auto">
+                    {players.map((player) => (
+                      <div
+                        key={player.id}
+                        className="flex items-center space-x-2"
+                      >
+                        <Checkbox
+                          id={`player-${player.id}`}
+                          checked={playerIds.includes(player.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setPlayerIds((prev) => [...prev, player.id]);
+                              setPlayerId("");
+                            } else {
+                              setPlayerIds((prev) =>
+                                prev.filter((id) => id !== player.id)
+                              );
+                            }
+                          }}
+                        />
+                        <Label
+                          htmlFor={`player-${player.id}`}
+                          className="text-sm font-normal cursor-pointer flex-1"
+                        >
+                          {player.name} – Balance:{" "}
+                          {formatCentsToEuro(player.balance)}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                  {playerIds.length === 1 && (
+                    <p className="text-sm text-muted-foreground">
+                      Ein Spieler: normale Einzahlung. Zwei oder mehr: Betrag
+                      wird gleichmäßig verteilt (Paar-Modus).
+                    </p>
                   )}
-                </p>
+                </>
+              ) : (
+                <>
+                  <Label htmlFor="player_id">
+                    Spieler <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={playerId}
+                    onValueChange={(v) => {
+                      setPlayerId(v);
+                      setPlayerIds([]);
+                    }}
+                    required={!couplesModeEnabled || playerIds.length < 2}
+                    disabled={isLoadingPlayers}
+                  >
+                    <SelectTrigger id="player_id">
+                      <SelectValue placeholder="Spieler auswählen" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {players.map((player) => (
+                        <SelectItem key={player.id} value={player.id}>
+                          {player.name} - Balance:{" "}
+                          {formatCentsToEuro(player.balance)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {selectedPlayer && (
+                    <p className="text-sm text-muted-foreground">
+                      Aktuelles Guthaben:{" "}
+                      <span
+                        className={
+                          selectedPlayer.balance < 0
+                            ? "text-red-500 font-medium"
+                            : selectedPlayer.balance > 0
+                              ? "text-green-500 font-medium"
+                              : ""
+                        }
+                      >
+                        {formatCentsToEuro(selectedPlayer.balance)}
+                      </span>
+                      {selectedPlayer.balance < 0 && (
+                        <span>
+                          {" "}
+                          (Schulden:{" "}
+                          {formatCentsToEuro(
+                            Math.abs(selectedPlayer.balance)
+                          )}
+                          )
+                        </span>
+                      )}
+                    </p>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -392,16 +476,13 @@ export function TransactionDialog({
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="description">
-              Beschreibung <span className="text-red-500">*</span>
-            </Label>
+            <Label htmlFor="description">Beschreibung (optional)</Label>
             <Textarea
               id="description"
               placeholder={getDefaultDescription()}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              required
             />
           </div>
 

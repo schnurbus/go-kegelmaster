@@ -24,18 +24,19 @@ func TestRepository_Create(t *testing.T) {
 	now := time.Now().UTC()
 
 	mock.ExpectQuery(`INSERT INTO clubs`).
-		WithArgs(sqlmock.AnyArg(), "Test Club", 1000, 0, 500, true, userID, sqlmock.AnyArg(), sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID, "Test Club", 1000, 0, 500, true, userID, now, now))
+		WithArgs(sqlmock.AnyArg(), "Test Club", 1000, 0, 500, true, false, userID, sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
+			AddRow(clubID, "Test Club", 1000, 0, 500, true, false, userID, now, now))
 
 	ctx := context.Background()
 	club, err := repo.Create(ctx, CreateClubParams{
-		Name:           "Test Club",
-		Balance:        1000,
-		StartBalance:   0,
-		BaseFee:        500,
-		AutoTipEnabled: true,
-		UserID:         userID,
+		Name:               "Test Club",
+		Balance:            1000,
+		StartBalance:       0,
+		BaseFee:            500,
+		AutoTipEnabled:     true,
+		CouplesModeEnabled: false,
+		UserID:             userID,
 	})
 
 	if err != nil {
@@ -76,10 +77,10 @@ func TestRepository_GetByID(t *testing.T) {
 	userID := uuid.NewString()
 	now := time.Now().UTC()
 
-	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at`).
+	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
 		WithArgs(clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID, "Test Club", 1000, 0, 500, true, userID, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
+			AddRow(clubID, "Test Club", 1000, 0, 500, true, false, userID, now, now))
 
 	ctx := context.Background()
 	club, err := repo.GetByID(ctx, clubID)
@@ -111,7 +112,7 @@ func TestRepository_GetByID_NotFound(t *testing.T) {
 
 	clubID := uuid.NewString()
 
-	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at`).
+	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
 		WithArgs(clubID).
 		WillReturnError(sql.ErrNoRows)
 
@@ -144,10 +145,10 @@ func TestRepository_GetAll(t *testing.T) {
 	userID := uuid.NewString()
 	now := time.Now().UTC()
 
-	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at`).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID1, "Club 1", 1000, 0, 500, true, userID, now, now).
-			AddRow(clubID2, "Club 2", 2000, 0, 600, true, userID, now.Add(time.Hour), now.Add(time.Hour)))
+	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
+			AddRow(clubID1, "Club 1", 1000, 0, 500, true, false, userID, now, now).
+			AddRow(clubID2, "Club 2", 2000, 0, 600, true, false, userID, now.Add(time.Hour), now.Add(time.Hour)))
 
 	ctx := context.Background()
 	clubs, err := repo.GetAll(ctx)
@@ -180,8 +181,8 @@ func TestRepository_GetAll_Empty(t *testing.T) {
 
 	repo := NewRepository(db)
 
-	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at`).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "user_id", "created_at", "updated_at"}))
+	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}))
 
 	ctx := context.Background()
 	clubs, err := repo.GetAll(ctx)
@@ -213,11 +214,11 @@ func TestRepository_GetByUserID(t *testing.T) {
 	userID := uuid.NewString()
 	now := time.Now().UTC()
 
-	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at`).
+	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
 		WithArgs(userID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID1, "Club 1", 1000, 0, 500, true, userID, now, now).
-			AddRow(clubID2, "Club 2", 2000, 0, 600, true, userID, now.Add(time.Hour), now.Add(time.Hour)))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
+			AddRow(clubID1, "Club 1", 1000, 0, 500, true, false, userID, now, now).
+			AddRow(clubID2, "Club 2", 2000, 0, 600, true, false, userID, now.Add(time.Hour), now.Add(time.Hour)))
 
 	ctx := context.Background()
 	clubs, err := repo.GetByUserID(ctx, userID)
@@ -252,9 +253,9 @@ func TestRepository_GetByUserID_Empty(t *testing.T) {
 
 	userID := uuid.NewString()
 
-	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at`).
+	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
 		WithArgs(userID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "user_id", "created_at", "updated_at"}))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}))
 
 	ctx := context.Background()
 	clubs, err := repo.GetByUserID(ctx, userID)
@@ -288,11 +289,11 @@ func TestRepository_GetForUser(t *testing.T) {
 	now := time.Now().UTC()
 
 	// User is owner of club 1; user has linked player in club 2 (owned by other user)
-	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at FROM clubs c`).
+	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at FROM clubs c`).
 		WithArgs(userID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID1, "Club A", 1000, 0, 500, true, userID, now, now).
-			AddRow(clubID2, "Club B", 2000, 0, 600, true, otherUserID, now.Add(time.Hour), now.Add(time.Hour)))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
+			AddRow(clubID1, "Club A", 1000, 0, 500, true, false, userID, now, now).
+			AddRow(clubID2, "Club B", 2000, 0, 600, true, false, otherUserID, now.Add(time.Hour), now.Add(time.Hour)))
 
 	ctx := context.Background()
 	clubs, err := repo.GetForUser(ctx, userID)
@@ -333,9 +334,9 @@ func TestRepository_GetForUser_Empty(t *testing.T) {
 
 	userID := uuid.NewString()
 
-	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at FROM clubs c`).
+	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at FROM clubs c`).
 		WithArgs(userID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "user_id", "created_at", "updated_at"}))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}))
 
 	ctx := context.Background()
 	clubs, err := repo.GetForUser(ctx, userID)
@@ -367,18 +368,19 @@ func TestRepository_Update(t *testing.T) {
 	now := time.Now().UTC()
 
 	mock.ExpectQuery(`UPDATE clubs`).
-		WithArgs("Updated Club", 2000, 0, 600, false, sqlmock.AnyArg(), clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID, "Updated Club", 2000, 0, 600, false, userID, now, now.Add(time.Hour)))
+		WithArgs("Updated Club", 2000, 0, 600, false, false, sqlmock.AnyArg(), clubID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
+			AddRow(clubID, "Updated Club", 2000, 0, 600, false, false, userID, now, now.Add(time.Hour)))
 
 	ctx := context.Background()
 	club, err := repo.Update(ctx, UpdateClubParams{
-		ID:             clubID,
-		Name:           "Updated Club",
-		Balance:        2000,
-		StartBalance:   0,
-		BaseFee:        600,
-		AutoTipEnabled: false,
+		ID:                 clubID,
+		Name:               "Updated Club",
+		Balance:            2000,
+		StartBalance:       0,
+		BaseFee:            600,
+		AutoTipEnabled:     false,
+		CouplesModeEnabled: false,
 	})
 
 	if err != nil {
@@ -415,17 +417,18 @@ func TestRepository_Update_NotFound(t *testing.T) {
 	clubID := uuid.NewString()
 
 	mock.ExpectQuery(`UPDATE clubs`).
-		WithArgs("Updated Club", 2000, 0, 600, true, sqlmock.AnyArg(), clubID).
+		WithArgs("Updated Club", 2000, 0, 600, true, false, sqlmock.AnyArg(), clubID).
 		WillReturnError(sql.ErrNoRows)
 
 	ctx := context.Background()
 	_, err = repo.Update(ctx, UpdateClubParams{
-		ID:             clubID,
-		Name:           "Updated Club",
-		Balance:        2000,
-		StartBalance:   0,
-		BaseFee:        600,
-		AutoTipEnabled: true,
+		ID:                 clubID,
+		Name:               "Updated Club",
+		Balance:            2000,
+		StartBalance:       0,
+		BaseFee:            600,
+		AutoTipEnabled:     true,
+		CouplesModeEnabled: false,
 	})
 
 	if err == nil {
@@ -454,10 +457,10 @@ func TestRepository_Delete(t *testing.T) {
 	now := time.Now().UTC()
 
 	// First call: GetClubByID to check if club exists
-	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at FROM clubs`).
+	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at FROM clubs`).
 		WithArgs(clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID, "Test Club", 1000, 0, 500, true, userID, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
+			AddRow(clubID, "Test Club", 1000, 0, 500, true, false, userID, now, now))
 
 	// Second call: DeleteClub
 	mock.ExpectExec(`DELETE FROM clubs`).
@@ -488,7 +491,7 @@ func TestRepository_Delete_NotFound(t *testing.T) {
 	clubID := uuid.NewString()
 
 	// GetClubByID returns ErrNoRows
-	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at FROM clubs`).
+	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at FROM clubs`).
 		WithArgs(clubID).
 		WillReturnError(sql.ErrNoRows)
 
@@ -519,17 +522,18 @@ func TestRepository_Create_DatabaseError(t *testing.T) {
 	userID := uuid.NewString()
 
 	mock.ExpectQuery(`INSERT INTO clubs`).
-		WithArgs(sqlmock.AnyArg(), "Test Club", 1000, 0, 500, true, userID, sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WithArgs(sqlmock.AnyArg(), "Test Club", 1000, 0, 500, true, false, userID, sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnError(sql.ErrConnDone)
 
 	ctx := context.Background()
 	_, err = repo.Create(ctx, CreateClubParams{
-		Name:           "Test Club",
-		Balance:        1000,
-		StartBalance:   0,
-		BaseFee:        500,
-		AutoTipEnabled: true,
-		UserID:         userID,
+		Name:               "Test Club",
+		Balance:            1000,
+		StartBalance:       0,
+		BaseFee:            500,
+		AutoTipEnabled:     true,
+		CouplesModeEnabled: false,
+		UserID:             userID,
 	})
 
 	if err == nil {
@@ -553,9 +557,9 @@ func TestRepository_GetAll_RowsError(t *testing.T) {
 
 	repo := NewRepository(db)
 
-	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at`).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "user_id", "created_at", "updated_at"}).
-			AddRow(uuid.NewString(), "Club 1", 1000, 0, 500, true, uuid.NewString(), time.Now(), time.Now()).
+	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
+			AddRow(uuid.NewString(), "Club 1", 1000, 0, 500, true, false, uuid.NewString(), time.Now(), time.Now()).
 			RowError(0, sql.ErrConnDone))
 
 	ctx := context.Background()
@@ -581,10 +585,10 @@ func TestRepository_GetByUserID_RowsError(t *testing.T) {
 
 	userID := uuid.NewString()
 
-	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at`).
+	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
 		WithArgs(userID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "user_id", "created_at", "updated_at"}).
-			AddRow(uuid.NewString(), "Club 1", 1000, 0, 500, true, userID, time.Now(), time.Now()).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
+			AddRow(uuid.NewString(), "Club 1", 1000, 0, 500, true, false, userID, time.Now(), time.Now()).
 			RowError(0, sql.ErrConnDone))
 
 	ctx := context.Background()
@@ -611,7 +615,7 @@ func TestRepository_Delete_DatabaseError(t *testing.T) {
 	clubID := uuid.NewString()
 
 	// GetClubByID returns a database error
-	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at FROM clubs`).
+	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at FROM clubs`).
 		WithArgs(clubID).
 		WillReturnError(sql.ErrConnDone)
 
@@ -644,10 +648,10 @@ func TestRepository_Delete_RowsAffectedError(t *testing.T) {
 	now := time.Now().UTC()
 
 	// First call: GetClubByID succeeds
-	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at FROM clubs`).
+	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at FROM clubs`).
 		WithArgs(clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID, "Test Club", 1000, 0, 500, true, userID, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
+			AddRow(clubID, "Test Club", 1000, 0, 500, true, false, userID, now, now))
 
 	// Second call: DeleteClub returns an error
 	mock.ExpectExec(`DELETE FROM clubs`).

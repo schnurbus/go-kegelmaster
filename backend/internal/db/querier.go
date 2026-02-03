@@ -97,6 +97,8 @@ type Querier interface {
 	// SumAmountByClubCash sums only transaction types that affect club till: deposit, tip, expense. Base_fee and fee do not change club cash.
 	SumAmountByClubCash(ctx context.Context, clubID string) (int64, error)
 	SumAmountByPlayer(ctx context.Context, playerID *string) (int64, error)
+	// SumPlayerBalanceDelta sums only transaction types that affect player balance: base_fee, fee, deposit. Tip does not change player balance.
+	SumPlayerBalanceDelta(ctx context.Context, playerID *string) (int64, error)
 	SumTransactionsByClub(ctx context.Context, clubID string) (interface{}, error)
 	SumTransactionsByPlayer(ctx context.Context, playerID *string) (interface{}, error)
 	UpdateClub(ctx context.Context, arg UpdateClubParams) (Club, error)

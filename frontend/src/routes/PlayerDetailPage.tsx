@@ -206,13 +206,13 @@ function PlayerDetailPage() {
                     if (!response.ok) {
                       const message =
                         (body as { message?: string }).message ||
-                        "Fehler beim Neuberechnen der Player-Balance";
+                        "Fehler beim Neuberechnen des Saldos";
                       toast.error(message);
                       return;
                     }
                     const updated = body as Player;
                     setPlayer(updated);
-                    toast.success("Player-Balance wurde neu berechnet.");
+                    toast.success("Saldo wurde neu berechnet.");
                   } catch (error) {
                     console.error("Recalculate balance:", error);
                     toast.error(

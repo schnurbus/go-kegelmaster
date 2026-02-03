@@ -84,10 +84,10 @@ func (r *Repository) Create(ctx context.Context, params CreateTransactionParams)
 
 	case TransactionTypeDeposit:
 		// Deposit is positive
-		// Player balance increases (less debt)
+		// Player balance increases (less debt): balance is negative for debt, so we add the deposit
 		// Club balance increases (money received)
 		if hasPlayer {
-			after := playerEntity.Balance - params.Amount // Subtract positive amount to reduce debt
+			after := playerEntity.Balance + params.Amount // Add positive amount to reduce debt
 			playerBalanceAfter = &after
 			playerEntity.Balance = after
 		}
@@ -177,13 +177,14 @@ func (r *Repository) Create(ctx context.Context, params CreateTransactionParams)
 	// Update club balance if changed
 	if clubBalanceAfter != clubBalanceBefore {
 		_, err = qtx.UpdateClub(ctx, db.UpdateClubParams{
-			ID:             clubEntity.ID,
-			Name:           clubEntity.Name,
-			Balance:        int32(clubBalanceAfter),
-			StartBalance:   int32(clubEntity.StartBalance),
-			BaseFee:        int32(clubEntity.BaseFee),
-			AutoTipEnabled: clubEntity.AutoTipEnabled,
-			UpdatedAt:      now,
+			ID:                 clubEntity.ID,
+			Name:               clubEntity.Name,
+			Balance:            int32(clubBalanceAfter),
+			StartBalance:       int32(clubEntity.StartBalance),
+			BaseFee:            int32(clubEntity.BaseFee),
+			AutoTipEnabled:     clubEntity.AutoTipEnabled,
+			CouplesModeEnabled: clubEntity.CouplesModeEnabled,
+			UpdatedAt:          now,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to update club balance: %w", err)
@@ -301,6 +302,214 @@ func (r *Repository) CreateWithAutoTip(ctx context.Context, params CreateTransac
 		return nil, err
 	}
 	return []Transaction{*tx}, nil
+}
+
+// CreateDepositCouplesMode creates deposit transaction(s) for multiple players (Paar-Modus).
+// Total amount is split equally; each player gets deposit until balance 0; remainder is tip (first player) or split as deposit (all).
+func (r *Repository) CreateDepositCouplesMode(ctx context.Context, clubID string, playerIDs []string, totalAmount int, description string, txDate time.Time, autoTipEnabled bool) ([]Transaction, error) {
+	n := len(playerIDs)
+	if n < 2 {
+		return nil, fmt.Errorf("couples mode requires at least 2 players, got %d", n)
+	}
+	if totalAmount <= 0 {
+		return nil, ErrInvalidAmount
+	}
+
+	clubEntity, err := r.clubRepo.GetByID(ctx, clubID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get club: %w", err)
+	}
+
+	players := make([]player.Player, 0, n)
+	for _, id := range playerIDs {
+		p, err := r.playerRepo.GetByID(ctx, id)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get player %s: %w", id, err)
+		}
+		if p.ClubID != clubID {
+			return nil, fmt.Errorf("player %s does not belong to club", id)
+		}
+		players = append(players, p)
+	}
+
+	baseShare := totalAmount / n
+	remainderCents := totalAmount % n
+	shares := make([]int, n)
+	for i := 0; i < n; i++ {
+		shares[i] = baseShare
+		if i < remainderCents {
+			shares[i]++
+		}
+	}
+
+	tx, err := r.database.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	qtx := r.queries.WithTx(tx)
+	now := time.Now()
+	dateOnly := txDate.UTC().Truncate(24 * time.Hour).Add(12 * time.Hour)
+	clubBalanceBefore := clubEntity.Balance
+	clubBalanceAfter := clubBalanceBefore + totalAmount
+
+	var results []Transaction
+	totalDeposited := 0
+	playerBalances := make([]int, n)
+	for i := range playerBalances {
+		playerBalances[i] = players[i].Balance
+	}
+
+	for i := 0; i < n; i++ {
+		debt := 0
+		if playerBalances[i] < 0 {
+			debt = -playerBalances[i]
+		}
+		depositToZero := shares[i]
+		if depositToZero > debt {
+			depositToZero = debt
+		}
+		if depositToZero <= 0 {
+			continue
+		}
+
+		balanceBefore := playerBalances[i]
+		balanceAfter := balanceBefore + depositToZero
+		playerBalances[i] = balanceAfter
+		totalDeposited += depositToZero
+
+		txID := uuid.New().String()
+		pid := players[i].ID
+		dbTx, err := qtx.CreateTransaction(ctx, db.CreateTransactionParams{
+			ID:                  txID,
+			ClubID:              clubID,
+			PlayerID:            &pid,
+			TransactionType:     string(TransactionTypeDeposit),
+			Amount:              int32(depositToZero),
+			Description:         sql.NullString{String: description, Valid: description != ""},
+			GameDayFeeID:        nil,
+			GameDayID:           nil,
+			PlayerBalanceBefore: toNullInt32(&balanceBefore),
+			PlayerBalanceAfter:  toNullInt32(&balanceAfter),
+			ClubBalanceBefore:   int32(clubBalanceBefore),
+			ClubBalanceAfter:    int32(clubBalanceAfter),
+			TransactionDate:     dateOnly,
+			CreatedAt:           now,
+			UpdatedAt:           now,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create deposit transaction: %w", err)
+		}
+		results = append(results, *dbTransactionToTransaction(dbTx))
+
+		err = qtx.UpdatePlayerBalance(ctx, db.UpdatePlayerBalanceParams{
+			ID:        players[i].ID,
+			Balance:   int32(balanceAfter),
+			UpdatedAt: now,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to update player balance: %w", err)
+		}
+	}
+
+	rest := totalAmount - totalDeposited
+	if rest > 0 {
+		if autoTipEnabled {
+			firstPlayerID := players[0].ID
+			txID := uuid.New().String()
+			balanceBefore := playerBalances[0]
+			dbTx, err := qtx.CreateTransaction(ctx, db.CreateTransactionParams{
+				ID:                  txID,
+				ClubID:              clubID,
+				PlayerID:            &firstPlayerID,
+				TransactionType:     string(TransactionTypeTip),
+				Amount:              int32(rest),
+				Description:         sql.NullString{String: "Auto-tip (Paar-Modus Überschuss)", Valid: true},
+				GameDayFeeID:        nil,
+				GameDayID:           nil,
+				PlayerBalanceBefore: toNullInt32(&balanceBefore),
+				PlayerBalanceAfter:  toNullInt32(&balanceBefore),
+				ClubBalanceBefore:   int32(clubBalanceBefore),
+				ClubBalanceAfter:    int32(clubBalanceAfter),
+				TransactionDate:     dateOnly,
+				CreatedAt:           now,
+				UpdatedAt:           now,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("failed to create tip transaction: %w", err)
+			}
+			results = append(results, *dbTransactionToTransaction(dbTx))
+		} else {
+			restBase := rest / n
+			restRem := rest % n
+			for i := 0; i < n; i++ {
+				extra := restBase
+				if i < restRem {
+					extra++
+				}
+				if extra <= 0 {
+					continue
+				}
+				balanceBefore := playerBalances[i]
+				balanceAfter := balanceBefore + extra
+				playerBalances[i] = balanceAfter
+
+				txID := uuid.New().String()
+				pid := players[i].ID
+				dbTx, err := qtx.CreateTransaction(ctx, db.CreateTransactionParams{
+					ID:                  txID,
+					ClubID:              clubID,
+					PlayerID:            &pid,
+					TransactionType:     string(TransactionTypeDeposit),
+					Amount:              int32(extra),
+					Description:         sql.NullString{String: "Guthaben (Paar-Modus Überschuss)", Valid: true},
+					GameDayFeeID:        nil,
+					GameDayID:           nil,
+					PlayerBalanceBefore: toNullInt32(&balanceBefore),
+					PlayerBalanceAfter:  toNullInt32(&balanceAfter),
+					ClubBalanceBefore:   int32(clubBalanceBefore),
+					ClubBalanceAfter:    int32(clubBalanceAfter),
+					TransactionDate:     dateOnly,
+					CreatedAt:           now,
+					UpdatedAt:           now,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to create surplus deposit: %w", err)
+				}
+				results = append(results, *dbTransactionToTransaction(dbTx))
+
+				err = qtx.UpdatePlayerBalance(ctx, db.UpdatePlayerBalanceParams{
+					ID:        players[i].ID,
+					Balance:   int32(balanceAfter),
+					UpdatedAt: now,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to update player balance: %w", err)
+				}
+			}
+		}
+	}
+
+	_, err = qtx.UpdateClub(ctx, db.UpdateClubParams{
+		ID:                 clubEntity.ID,
+		Name:               clubEntity.Name,
+		Balance:            int32(clubBalanceAfter),
+		StartBalance:       int32(clubEntity.StartBalance),
+		BaseFee:            int32(clubEntity.BaseFee),
+		AutoTipEnabled:     clubEntity.AutoTipEnabled,
+		CouplesModeEnabled: clubEntity.CouplesModeEnabled,
+		UpdatedAt:          now,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to update club balance: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit: %w", err)
+	}
+
+	return results, nil
 }
 
 // GetByID retrieves a transaction by ID
@@ -548,8 +757,8 @@ func (r *Repository) Delete(ctx context.Context, id string) error {
 
 		var newBalance int
 		if tx.TransactionType == TransactionTypeDeposit {
-			// Revert deposit: add back the amount (increase debt)
-			newBalance = playerEntity.Balance + tx.Amount
+			// Revert deposit: subtract the amount (restore previous debt)
+			newBalance = playerEntity.Balance - tx.Amount
 		}
 		// Tips and expenses don't affect player balance
 
@@ -582,13 +791,14 @@ func (r *Repository) Delete(ctx context.Context, id string) error {
 	}
 
 	_, err = qtx.UpdateClub(ctx, db.UpdateClubParams{
-		ID:             clubEntity.ID,
-		Name:           clubEntity.Name,
-		Balance:        int32(newClubBalance),
-		StartBalance:   int32(clubEntity.StartBalance),
-		BaseFee:        int32(clubEntity.BaseFee),
-		AutoTipEnabled: clubEntity.AutoTipEnabled,
-		UpdatedAt:      time.Now(),
+		ID:                 clubEntity.ID,
+		Name:               clubEntity.Name,
+		Balance:            int32(newClubBalance),
+		StartBalance:       int32(clubEntity.StartBalance),
+		BaseFee:            int32(clubEntity.BaseFee),
+		AutoTipEnabled:     clubEntity.AutoTipEnabled,
+		CouplesModeEnabled: clubEntity.CouplesModeEnabled,
+		UpdatedAt:          time.Now(),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to update club balance: %w", err)
@@ -632,13 +842,13 @@ func (r *Repository) GetGameDaySummary(ctx context.Context, gameDayID string) (*
 	}, nil
 }
 
-// RecalculatePlayerBalance recomputes the player balance from start_balance + SUM(amount) of all transactions for that player and updates the player row.
+// RecalculatePlayerBalance recomputes the player balance from start_balance + SUM(amount) of transactions that affect player balance (base_fee, fee, deposit). Tip does not change player balance.
 func (r *Repository) RecalculatePlayerBalance(ctx context.Context, playerID string) error {
 	playerEntity, err := r.playerRepo.GetByID(ctx, playerID)
 	if err != nil {
 		return fmt.Errorf("failed to get player: %w", err)
 	}
-	sum, err := r.queries.SumAmountByPlayer(ctx, &playerID)
+	sum, err := r.queries.SumPlayerBalanceDelta(ctx, &playerID)
 	if err != nil {
 		return fmt.Errorf("failed to sum transactions: %w", err)
 	}
