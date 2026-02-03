@@ -114,6 +114,7 @@ type createTransactionRequest struct {
 	TransactionType string  `json:"transaction_type"`
 	Amount          int     `json:"amount"`
 	Description     string  `json:"description,omitempty"`
+	TransactionDate *string `json:"transaction_date,omitempty"` // YYYY-MM-DD, optional
 }
 
 func (r createTransactionRequest) validate() error {
@@ -138,9 +139,16 @@ func (r createTransactionRequest) validate() error {
 		return errors.New("Beschreibung ist erforderlich")
 	}
 
-	// Deposits require a player
-	if txType == transaction.TransactionTypeDeposit && r.PlayerID == nil {
-		return errors.New("Einzahlungen benötigen einen Spieler")
+	// Deposits and tips require a player
+	if (txType == transaction.TransactionTypeDeposit || txType == transaction.TransactionTypeTip) && r.PlayerID == nil {
+		return errors.New("Einzahlungen und Trinkgeld benötigen einen Spieler")
+	}
+
+	// If transaction_date is set, must be valid YYYY-MM-DD
+	if r.TransactionDate != nil && strings.TrimSpace(*r.TransactionDate) != "" {
+		if _, err := time.Parse("2006-01-02", *r.TransactionDate); err != nil {
+			return errors.New("Transaktionsdatum muss im Format YYYY-MM-DD sein")
+		}
 	}
 
 	return nil
@@ -194,13 +202,20 @@ func (h *Handler) HandleCreateTransaction(c fiber.Ctx) error {
 
 	// Create transaction(s) - may create 2 if auto-tip splits deposit
 	txType := transaction.TransactionType(req.TransactionType)
+	txDate := time.Now().UTC().Truncate(24 * time.Hour)
+	if req.TransactionDate != nil && strings.TrimSpace(*req.TransactionDate) != "" {
+		if parsed, err := time.Parse("2006-01-02", *req.TransactionDate); err == nil {
+			// Noon UTC so calendar day is preserved when stored as DATE
+			txDate = time.Date(parsed.Year(), parsed.Month(), parsed.Day(), 12, 0, 0, 0, time.UTC)
+		}
+	}
 	params := transaction.CreateTransactionParams{
 		ClubID:           clubID,
 		PlayerID:         req.PlayerID,
 		TransactionType:  txType,
 		Amount:           req.Amount,
 		Description:      strings.TrimSpace(req.Description),
-		TransactionDate:  time.Now().UTC().Truncate(24 * time.Hour),
+		TransactionDate:  txDate,
 	}
 
 	// Convert expense amounts to negative (user enters positive, backend stores negative)

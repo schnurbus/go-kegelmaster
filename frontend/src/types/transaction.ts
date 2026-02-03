@@ -33,6 +33,8 @@ export interface CreateTransactionRequest {
   player_id?: string; // Required for deposit
   amount: number; // in cents
   description: string;
+  /** Optional; YYYY-MM-DD. Defaults to today if omitted. */
+  transaction_date?: string;
 }
 
 export interface TransactionSummary {

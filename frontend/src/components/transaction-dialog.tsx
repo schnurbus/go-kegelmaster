@@ -51,6 +51,10 @@ export function TransactionDialog({
   const [playerId, setPlayerId] = React.useState<string>("");
   const [amount, setAmount] = React.useState("");
   const [description, setDescription] = React.useState("");
+  const [transactionDate, setTransactionDate] = React.useState<string>(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  });
 
   // Fetch players and club info when dialog opens
   React.useEffect(() => {
@@ -105,10 +109,13 @@ export function TransactionDialog({
   // Reset form when dialog opens/closes
   React.useEffect(() => {
     if (open) {
+      const d = new Date();
+      const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       setTransactionType("deposit");
       setPlayerId("");
       setAmount("");
       setDescription("");
+      setTransactionDate(today);
     }
   }, [open]);
 
@@ -168,7 +175,7 @@ export function TransactionDialog({
       return;
     }
 
-    if (transactionType === "deposit" && !playerId) {
+    if ((transactionType === "deposit" || transactionType === "tip") && !playerId) {
       toast.error("Bitte wählen Sie einen Spieler aus");
       return;
     }
@@ -181,6 +188,7 @@ export function TransactionDialog({
         amount: euroToCents(parseFloat(amount)),
         description: description.trim(),
         player_id: playerId || undefined,
+        transaction_date: transactionDate,
       };
 
       const response = await fetch(`/api/clubs/${clubId}/transactions`, {
@@ -268,7 +276,20 @@ export function TransactionDialog({
             </p>
           </div>
 
-          {transactionType === "deposit" && (
+          <div className="space-y-2">
+            <Label htmlFor="transaction_date">
+              Transaktionsdatum <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="transaction_date"
+              type="date"
+              value={transactionDate}
+              onChange={(e) => setTransactionDate(e.target.value)}
+              required
+            />
+          </div>
+
+          {(transactionType === "deposit" || transactionType === "tip") && (
             <div className="space-y-2">
               <Label htmlFor="player_id">
                 Spieler <span className="text-red-500">*</span>
