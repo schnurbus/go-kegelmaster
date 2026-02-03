@@ -2,7 +2,7 @@ name: E2E Tests
 on: [push, pull_request]
 
 jobs:
-  test:
+  e2e-test:
     runs-on: ubuntu-latest
     
     # Hier definieren wir die PostgreSQL Datenbank
@@ -61,7 +61,7 @@ jobs:
       run: |
         cd frontend
         npm ci
-        npx playwright install --with-deps
+        npx playwright install chromium --with-deps
 
     # 3. Frontend starten, dann E2E ausführen (in einem Step, damit der Dev-Server läuft)
     - name: Run Playwright tests
