@@ -15,19 +15,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { ArrowLeftIcon, Loader2Icon, SaveIcon } from "lucide-react";
+import { ArrowLeftIcon, CalculatorIcon, Loader2Icon, SaveIcon } from "lucide-react";
 
 function ClubEditPage() {
   const { clubId } = useParams<{ clubId: string }>();
   const navigate = useNavigate();
   const { setActiveClub, refreshClubs } = useClub();
-  const { csrfToken, refreshCsrf } = useAuth();
+  const { user, csrfToken, refreshCsrf } = useAuth();
   const [name, setName] = React.useState("");
   const [balance, setBalance] = React.useState("");
+  const [startBalance, setStartBalance] = React.useState("");
   const [baseFee, setBaseFee] = React.useState("");
   const [autoTipEnabled, setAutoTipEnabled] = React.useState(true);
+  const [clubUserId, setClubUserId] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isSaving, setIsSaving] = React.useState(false);
+  const [isRecalculating, setIsRecalculating] = React.useState(false);
+
+  const isOwner = clubUserId != null && user != null && clubUserId === user.id;
 
   const fetchClub = React.useCallback(async () => {
     if (!clubId) return;
@@ -47,8 +52,10 @@ function ClubEditPage() {
       const data = await response.json();
       setName(data.name ?? "");
       setBalance(data.balance != null ? (data.balance / 100).toFixed(2) : "0");
+      setStartBalance(data.start_balance != null ? (data.start_balance / 100).toFixed(2) : "0");
       setBaseFee(data.base_fee != null ? (data.base_fee / 100).toFixed(2) : "0");
       setAutoTipEnabled(data.auto_tip_enabled ?? true);
+      setClubUserId(data.user_id ?? null);
     } catch (error) {
       console.error("Error fetching club:", error);
       toast.error("Fehler beim Laden des Clubs");
@@ -72,6 +79,7 @@ function ClubEditPage() {
       return;
     }
     const balanceCents = Math.round(parseFloat(balance || "0") * 100);
+    const startBalanceCents = Math.round(parseFloat(startBalance || "0") * 100);
     const baseFeeCents = Math.round(parseFloat(baseFee || "0") * 100);
     if (balanceCents < 0) {
       toast.error("Balance darf nicht negativ sein");
@@ -95,6 +103,7 @@ function ClubEditPage() {
         body: JSON.stringify({
           name: nameTrimmed,
           balance: balanceCents,
+          start_balance: startBalanceCents,
           base_fee: baseFeeCents,
           auto_tip_enabled: autoTipEnabled,
         }),
@@ -169,7 +178,7 @@ function ClubEditPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="club-balance">Startguthaben (€)</Label>
+                <Label htmlFor="club-balance">Aktuelle Balance (€)</Label>
                 <Input
                   id="club-balance"
                   type="number"
@@ -180,6 +189,22 @@ function ClubEditPage() {
                   placeholder="0.00"
                   disabled={isSaving}
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="club-start-balance">Startguthaben (€)</Label>
+                <Input
+                  id="club-start-balance"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={startBalance}
+                  onChange={(e) => setStartBalance(e.target.value)}
+                  placeholder="0.00"
+                  disabled={isSaving}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Basis für die Neuberechnung aus Transaktionen.
+                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="club-base-fee">Basisgebühr (€)</Label>
@@ -208,7 +233,7 @@ function ClubEditPage() {
               <p className="text-sm text-muted-foreground">
                 Überschüssige Einzahlungen werden automatisch als Trinkgeld verbucht.
               </p>
-              <div className="flex gap-2 pt-4">
+              <div className="flex flex-wrap gap-2 pt-4">
                 <Button type="submit" disabled={isSaving}>
                   {isSaving ? (
                     <Loader2Icon className="mr-2 size-4 animate-spin" />
@@ -225,6 +250,59 @@ function ClubEditPage() {
                 >
                   Abbrechen
                 </Button>
+                {isOwner && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={isSaving || isRecalculating}
+                    onClick={async () => {
+                      if (!clubId) return;
+                      setIsRecalculating(true);
+                      try {
+                        const token = csrfToken || (await refreshCsrf());
+                        const response = await fetch(
+                          `/api/clubs/${clubId}/recalculate-balance`,
+                          {
+                            method: "POST",
+                            credentials: "include",
+                            headers: { "X-CSRF-Token": token },
+                          }
+                        );
+                        const body = await response.json().catch(() => ({}));
+                        if (!response.ok) {
+                          const message =
+                            (body as { message?: string }).message ||
+                            "Fehler beim Neuberechnen der Club-Balance";
+                          toast.error(message);
+                          return;
+                        }
+                        const updated = body as { balance?: number };
+                        setBalance(
+                          updated.balance != null
+                            ? (updated.balance / 100).toFixed(2)
+                            : "0"
+                        );
+                        await refreshClubs();
+                        setActiveClub(updated as Parameters<typeof setActiveClub>[0]);
+                        toast.success("Club-Balance wurde neu berechnet.");
+                      } catch (error) {
+                        console.error("Recalculate balance:", error);
+                        toast.error(
+                          (error as Error).message || "Etwas ist schiefgelaufen."
+                        );
+                      } finally {
+                        setIsRecalculating(false);
+                      }
+                    }}
+                  >
+                    {isRecalculating ? (
+                      <Loader2Icon className="mr-2 size-4 animate-spin" />
+                    ) : (
+                      <CalculatorIcon className="mr-2 size-4" />
+                    )}
+                    Balance neu berechnen
+                  </Button>
+                )}
               </div>
             </form>
           </CardContent>

@@ -364,3 +364,64 @@ func (h *Handler) HandleDeletePlayer(c fiber.Ctx) error {
 
 	return c.SendStatus(fiber.StatusNoContent)
 }
+
+// HandleRecalculatePlayerBalance recalculates player balance from start_balance + SUM(amount) of all transactions. Allowed for own player or with player-update permission.
+func (h *Handler) HandleRecalculatePlayerBalance(c fiber.Ctx) error {
+	if err := h.ValidateCSRF(c); err != nil {
+		return err
+	}
+
+	ctx, cancel := h.RequestContext()
+	defer cancel()
+
+	u, err := h.UserFromCookie(ctx, c)
+	if err != nil {
+		return fiber.NewError(fiber.StatusUnauthorized, "Nicht angemeldet")
+	}
+
+	clubID := c.Params("clubId")
+	playerID := c.Params("id")
+	if clubID == "" || playerID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "Club-ID und Player-ID sind erforderlich")
+	}
+
+	existingPlayer, err := h.PlayerRepo.GetByID(ctx, playerID)
+	if err != nil {
+		if errors.Is(err, player.ErrNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "Player nicht gefunden")
+		}
+		slog.Error("get player", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+
+	if existingPlayer.ClubID != clubID {
+		return fiber.NewError(fiber.StatusNotFound, "Player nicht gefunden")
+	}
+
+	// Allow: own player OR has player-update permission (includes club owner)
+	isOwnPlayer := existingPlayer.UserID != nil && *existingPlayer.UserID == u.ID
+	hasUpdatePermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypePlayers, role.PermissionTypeUpdate)
+	if err != nil {
+		if errors.Is(err, club.ErrNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
+		}
+		slog.Error("check permission", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+	if !isOwnPlayer && !hasUpdatePermission {
+		return fiber.NewError(fiber.StatusForbidden, "Keine Berechtigung, die Player-Balance neu zu berechnen")
+	}
+
+	if err := h.TransactionRepo.RecalculatePlayerBalance(ctx, playerID); err != nil {
+		slog.Error("recalculate player balance", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+
+	updatedPlayer, err := h.PlayerRepo.GetByID(ctx, playerID)
+	if err != nil {
+		slog.Error("get player after recalc", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+
+	return c.JSON(PlayerResponseFromEntity(updatedPlayer))
+}

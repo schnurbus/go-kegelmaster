@@ -93,9 +93,14 @@ type Querier interface {
 	MarkPenaltyTypeAsReplaced(ctx context.Context, arg MarkPenaltyTypeAsReplacedParams) error
 	RemoveRolePermission(ctx context.Context, arg RemoveRolePermissionParams) error
 	SetPenaltyTypeReplacedBy(ctx context.Context, arg SetPenaltyTypeReplacedByParams) error
+	SumAmountByClub(ctx context.Context, clubID string) (int64, error)
+	// SumAmountByClubCash sums only transaction types that affect club till: deposit, tip, expense. Base_fee and fee do not change club cash.
+	SumAmountByClubCash(ctx context.Context, clubID string) (int64, error)
+	SumAmountByPlayer(ctx context.Context, playerID *string) (int64, error)
 	SumTransactionsByClub(ctx context.Context, clubID string) (interface{}, error)
 	SumTransactionsByPlayer(ctx context.Context, playerID *string) (interface{}, error)
 	UpdateClub(ctx context.Context, arg UpdateClubParams) (Club, error)
+	UpdateClubBalance(ctx context.Context, arg UpdateClubBalanceParams) error
 	UpdateCompetition(ctx context.Context, arg UpdateCompetitionParams) (Competition, error)
 	UpdateGameDay(ctx context.Context, arg UpdateGameDayParams) (GameDay, error)
 	UpdateGameDayFee(ctx context.Context, arg UpdateGameDayFeeParams) (GameDayFee, error)

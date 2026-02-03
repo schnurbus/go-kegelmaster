@@ -93,6 +93,18 @@ SELECT COALESCE(SUM(
 FROM transactions
 WHERE club_id = $1;
 
+-- name: SumAmountByPlayer :one
+SELECT COALESCE(SUM(amount), 0)::bigint as total FROM transactions WHERE player_id = $1;
+
+-- name: SumAmountByClub :one
+SELECT COALESCE(SUM(amount), 0)::bigint as total FROM transactions WHERE club_id = $1;
+
+-- SumAmountByClubCash sums only transaction types that affect club till: deposit, tip, expense. Base_fee and fee do not change club cash.
+-- name: SumAmountByClubCash :one
+SELECT COALESCE(SUM(amount), 0)::bigint as total
+FROM transactions
+WHERE club_id = $1 AND transaction_type IN ('deposit', 'tip', 'expense');
+
 -- name: GetGameDayTransactionSummary :one
 SELECT 
     COALESCE(SUM(CASE WHEN transaction_type = 'base_fee' THEN ABS(amount) ELSE 0 END), 0) as base_fee_total,

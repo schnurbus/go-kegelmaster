@@ -15,6 +15,7 @@ INSERT INTO clubs (
     id,
     name,
     balance,
+    start_balance,
     base_fee,
     auto_tip_enabled,
     user_id,
@@ -28,15 +29,17 @@ INSERT INTO clubs (
     $5,
     $6,
     $7,
-    $8
+    $8,
+    $9
 )
-RETURNING id, name, balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at
+RETURNING id, name, balance, start_balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at
 `
 
 type CreateClubParams struct {
 	ID             string    `json:"id"`
 	Name           string    `json:"name"`
 	Balance        int32     `json:"balance"`
+	StartBalance   int32     `json:"start_balance"`
 	BaseFee        int32     `json:"base_fee"`
 	AutoTipEnabled bool      `json:"auto_tip_enabled"`
 	UserID         string    `json:"user_id"`
@@ -49,6 +52,7 @@ func (q *Queries) CreateClub(ctx context.Context, arg CreateClubParams) (Club, e
 		arg.ID,
 		arg.Name,
 		arg.Balance,
+		arg.StartBalance,
 		arg.BaseFee,
 		arg.AutoTipEnabled,
 		arg.UserID,
@@ -60,6 +64,7 @@ func (q *Queries) CreateClub(ctx context.Context, arg CreateClubParams) (Club, e
 		&i.ID,
 		&i.Name,
 		&i.Balance,
+		&i.StartBalance,
 		&i.BaseFee,
 		&i.AutoTipEnabled,
 		&i.UserID,
@@ -80,7 +85,7 @@ func (q *Queries) DeleteClub(ctx context.Context, id string) error {
 }
 
 const getAllClubs = `-- name: GetAllClubs :many
-SELECT id, name, balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at FROM clubs
+SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at FROM clubs
 ORDER BY created_at DESC
 `
 
@@ -97,6 +102,7 @@ func (q *Queries) GetAllClubs(ctx context.Context) ([]Club, error) {
 			&i.ID,
 			&i.Name,
 			&i.Balance,
+			&i.StartBalance,
 			&i.BaseFee,
 			&i.AutoTipEnabled,
 			&i.UserID,
@@ -117,7 +123,7 @@ func (q *Queries) GetAllClubs(ctx context.Context) ([]Club, error) {
 }
 
 const getClubByID = `-- name: GetClubByID :one
-SELECT id, name, balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at FROM clubs
+SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at FROM clubs
 WHERE id = $1
 `
 
@@ -128,6 +134,7 @@ func (q *Queries) GetClubByID(ctx context.Context, id string) (Club, error) {
 		&i.ID,
 		&i.Name,
 		&i.Balance,
+		&i.StartBalance,
 		&i.BaseFee,
 		&i.AutoTipEnabled,
 		&i.UserID,
@@ -138,7 +145,7 @@ func (q *Queries) GetClubByID(ctx context.Context, id string) (Club, error) {
 }
 
 const getClubsByUserID = `-- name: GetClubsByUserID :many
-SELECT id, name, balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at FROM clubs
+SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at FROM clubs
 WHERE user_id = $1
 ORDER BY created_at DESC
 `
@@ -156,6 +163,7 @@ func (q *Queries) GetClubsByUserID(ctx context.Context, userID string) ([]Club, 
 			&i.ID,
 			&i.Name,
 			&i.Balance,
+			&i.StartBalance,
 			&i.BaseFee,
 			&i.AutoTipEnabled,
 			&i.UserID,
@@ -176,7 +184,7 @@ func (q *Queries) GetClubsByUserID(ctx context.Context, userID string) ([]Club, 
 }
 
 const getClubsForUser = `-- name: GetClubsForUser :many
-SELECT id, name, balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at FROM clubs c
+SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at FROM clubs c
 WHERE c.user_id = $1
    OR EXISTS (
        SELECT 1 FROM players p
@@ -198,6 +206,7 @@ func (q *Queries) GetClubsForUser(ctx context.Context, userID string) ([]Club, e
 			&i.ID,
 			&i.Name,
 			&i.Balance,
+			&i.StartBalance,
 			&i.BaseFee,
 			&i.AutoTipEnabled,
 			&i.UserID,
@@ -222,16 +231,18 @@ UPDATE clubs
 SET
     name = $1,
     balance = $2,
-    base_fee = $3,
-    auto_tip_enabled = $4,
-    updated_at = $5
-WHERE id = $6
-RETURNING id, name, balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at
+    start_balance = $3,
+    base_fee = $4,
+    auto_tip_enabled = $5,
+    updated_at = $6
+WHERE id = $7
+RETURNING id, name, balance, start_balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at
 `
 
 type UpdateClubParams struct {
 	Name           string    `json:"name"`
 	Balance        int32     `json:"balance"`
+	StartBalance   int32     `json:"start_balance"`
 	BaseFee        int32     `json:"base_fee"`
 	AutoTipEnabled bool      `json:"auto_tip_enabled"`
 	UpdatedAt      time.Time `json:"updated_at"`
@@ -242,6 +253,7 @@ func (q *Queries) UpdateClub(ctx context.Context, arg UpdateClubParams) (Club, e
 	row := q.db.QueryRowContext(ctx, updateClub,
 		arg.Name,
 		arg.Balance,
+		arg.StartBalance,
 		arg.BaseFee,
 		arg.AutoTipEnabled,
 		arg.UpdatedAt,
@@ -252,6 +264,7 @@ func (q *Queries) UpdateClub(ctx context.Context, arg UpdateClubParams) (Club, e
 		&i.ID,
 		&i.Name,
 		&i.Balance,
+		&i.StartBalance,
 		&i.BaseFee,
 		&i.AutoTipEnabled,
 		&i.UserID,
@@ -259,4 +272,21 @@ func (q *Queries) UpdateClub(ctx context.Context, arg UpdateClubParams) (Club, e
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const updateClubBalance = `-- name: UpdateClubBalance :exec
+UPDATE clubs
+SET balance = $1, updated_at = $2
+WHERE id = $3
+`
+
+type UpdateClubBalanceParams struct {
+	Balance   int32     `json:"balance"`
+	UpdatedAt time.Time `json:"updated_at"`
+	ID        string    `json:"id"`
+}
+
+func (q *Queries) UpdateClubBalance(ctx context.Context, arg UpdateClubBalanceParams) error {
+	_, err := q.db.ExecContext(ctx, updateClubBalance, arg.Balance, arg.UpdatedAt, arg.ID)
+	return err
 }

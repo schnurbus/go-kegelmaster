@@ -9,6 +9,7 @@ type Club struct {
 	ID             string
 	Name           string
 	Balance        int  // Cent-Betrag
+	StartBalance   int  // Cent-Betrag; Basis für Neuberechnung aus Transaktionen
 	BaseFee        int  // Cent-Betrag
 	AutoTipEnabled bool // Auto-tip feature enabled
 	UserID         string

@@ -27,6 +27,7 @@ func NewRepository(dbConn *sql.DB) *Repository {
 type CreateClubParams struct {
 	Name           string
 	Balance        int
+	StartBalance   int
 	BaseFee        int
 	AutoTipEnabled bool
 	UserID         string
@@ -40,6 +41,7 @@ func (r *Repository) Create(ctx context.Context, params CreateClubParams) (Club,
 		ID:             id,
 		Name:           params.Name,
 		Balance:        int32(params.Balance),
+		StartBalance:   int32(params.StartBalance),
 		BaseFee:        int32(params.BaseFee),
 		AutoTipEnabled: params.AutoTipEnabled,
 		UserID:         params.UserID,
@@ -111,6 +113,7 @@ type UpdateClubParams struct {
 	ID             string
 	Name           string
 	Balance        int
+	StartBalance   int
 	BaseFee        int
 	AutoTipEnabled bool
 }
@@ -122,6 +125,7 @@ func (r *Repository) Update(ctx context.Context, params UpdateClubParams) (Club,
 		ID:             params.ID,
 		Name:           params.Name,
 		Balance:        int32(params.Balance),
+		StartBalance:   int32(params.StartBalance),
 		BaseFee:        int32(params.BaseFee),
 		AutoTipEnabled: params.AutoTipEnabled,
 		UpdatedAt:      now,
@@ -155,12 +159,23 @@ func (r *Repository) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
+// UpdateBalance updates only the balance and updated_at of a club (e.g. after recalculation).
+func (r *Repository) UpdateBalance(ctx context.Context, id string, balance int) error {
+	now := time.Now().UTC()
+	return r.queries.UpdateClubBalance(ctx, db.UpdateClubBalanceParams{
+		Balance:   int32(balance),
+		UpdatedAt: now,
+		ID:        id,
+	})
+}
+
 // dbClubToClub converts a db.Club to a club.Club
 func dbClubToClub(dbClub db.Club) Club {
 	return Club{
 		ID:             dbClub.ID,
 		Name:           dbClub.Name,
 		Balance:        int(dbClub.Balance),
+		StartBalance:   int(dbClub.StartBalance),
 		BaseFee:        int(dbClub.BaseFee),
 		AutoTipEnabled: dbClub.AutoTipEnabled,
 		UserID:         dbClub.UserID,

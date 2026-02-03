@@ -18,11 +18,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertTriangleIcon,
   ArrowLeftIcon,
+  CalculatorIcon,
   EditIcon,
+  Loader2Icon,
   TrashIcon,
   UserIcon,
   WalletIcon,
 } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 
 import type { Player, Role } from "@/types/player";
@@ -32,11 +35,13 @@ function PlayerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { activeClub } = useClub();
+  const { csrfToken, refreshCsrf } = useAuth();
   const [player, setPlayer] = React.useState<Player | null>(null);
   const [roles, setRoles] = React.useState<Role[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
+  const [isRecalculating, setIsRecalculating] = React.useState(false);
 
   const fetchPlayer = React.useCallback(async () => {
     if (!activeClub || !id) return;
@@ -171,7 +176,7 @@ function PlayerDetailPage() {
               <ArrowLeftIcon className="mr-2 size-4" />
               Zurück
             </Button>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button
                 variant="outline"
                 size="sm"
@@ -179,6 +184,51 @@ function PlayerDetailPage() {
               >
                 <EditIcon className="mr-2 size-4" />
                 Bearbeiten
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isRecalculating}
+                onClick={async () => {
+                  if (!activeClub || !player) return;
+                  setIsRecalculating(true);
+                  try {
+                    const token = csrfToken || (await refreshCsrf());
+                    const response = await fetch(
+                      `/api/clubs/${activeClub.id}/players/${player.id}/recalculate-balance`,
+                      {
+                        method: "POST",
+                        credentials: "include",
+                        headers: { "X-CSRF-Token": token },
+                      }
+                    );
+                    const body = await response.json().catch(() => ({}));
+                    if (!response.ok) {
+                      const message =
+                        (body as { message?: string }).message ||
+                        "Fehler beim Neuberechnen der Player-Balance";
+                      toast.error(message);
+                      return;
+                    }
+                    const updated = body as Player;
+                    setPlayer(updated);
+                    toast.success("Player-Balance wurde neu berechnet.");
+                  } catch (error) {
+                    console.error("Recalculate balance:", error);
+                    toast.error(
+                      (error as Error).message || "Etwas ist schiefgelaufen."
+                    );
+                  } finally {
+                    setIsRecalculating(false);
+                  }
+                }}
+              >
+                {isRecalculating ? (
+                  <Loader2Icon className="mr-2 size-4 animate-spin" />
+                ) : (
+                  <CalculatorIcon className="mr-2 size-4" />
+                )}
+                Balance neu berechnen
               </Button>
               <Button
                 variant="outline"

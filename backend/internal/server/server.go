@@ -151,6 +151,7 @@ func (s *Server) registerRoutes() {
 	clubsGroup.Get("/:id", s.handlers.HandleGetClub)
 	clubsGroup.Post("/", s.handlers.HandleCreateClub)
 	clubsGroup.Put("/:id", s.handlers.HandleUpdateClub)
+	clubsGroup.Post("/:id/recalculate-balance", s.handlers.HandleRecalculateClubBalance)
 	clubsGroup.Delete("/:id", s.handlers.HandleDeleteClub)
 
 	// Role endpoints
@@ -168,6 +169,7 @@ func (s *Server) registerRoutes() {
 	clubsGroup.Get("/:clubId/players/:id", s.handlers.HandleGetPlayer)
 	clubsGroup.Post("/:clubId/players", s.handlers.HandleCreatePlayer)
 	clubsGroup.Put("/:clubId/players/:id", s.handlers.HandleUpdatePlayer)
+	clubsGroup.Post("/:clubId/players/:id/recalculate-balance", s.handlers.HandleRecalculatePlayerBalance)
 	clubsGroup.Delete("/:clubId/players/:id", s.handlers.HandleDeletePlayer)
 	clubsGroup.Post("/:clubId/players/:id/invite", s.handlers.HandleInvitePlayer)
 
