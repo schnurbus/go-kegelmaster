@@ -28,6 +28,12 @@ This file contains essential information for agentic coding agents working in th
 - **Flags**: `--club` (Pflicht), `--file` (Pflicht), `--database-url` (optional, sonst `DATABASE_URL`), `--dry-run` (nur anzeigen, keine DB-Änderungen)
 - **CSV**: Semikolon-getrennt; erste Zeile Header: Datum, Name, dann Strafen-/Wettbewerbsnamen; Datenzeilen: DD.MM.YYYY, Spielername, Zahlen. Unbekannte Spieler oder Spalten führen zu Fehlerabbruch. Ausführung ist idempotent.
 
+### CLI Migrate-Old (alte DB → neue App-DB)
+- **Build**: `make migrate-old-build` → binary `bin/migrate-old`
+- **Run**: `./bin/migrate-old --source "postgres://..." --target "postgres://..." [--dry-run]`
+- **Flags**: `--source` (Pflicht, URL der alten PostgreSQL-DB), `--target` (Pflicht, URL der neuen App-DB), `--dry-run` (nur lesen, keine Schreibzugriffe auf die Ziel-DB)
+- **Idempotenz**: Deterministische UUIDs aus alten bigint-IDs; `INSERT ... ON CONFLICT (id) DO NOTHING`. Mehrfaches Ausführen erzeugt keine Duplikate.
+
 ### Frontend Commands
 - **Dev server**: `make frontend-dev` or `cd frontend && npm run dev` (starts Vite dev server)
 - **Build**: `make frontend-build` or `cd frontend && npm run build`
@@ -44,7 +50,8 @@ This file contains essential information for agentic coding agents working in th
 backend/
 ├── cmd/
 │   ├── api/             # Application entry point (main.go)
-│   └── import/          # CLI Import-Tool (Spieltag-CSV)
+│   ├── import/          # CLI Import-Tool (Spieltag-CSV)
+│   └── migrate-old/     # CLI Migration alter DB → neue App-DB
 ├── internal/            # Private application code
 │   ├── auth/            # Authentication service
 │   ├── club/            # Club entity & repository
@@ -52,6 +59,7 @@ backend/
 │   ├── database/        # Database connection
 │   ├── db/              # SQLc generated code (DO NOT EDIT)
 │   ├── gamedayimport/   # CSV parsing, resolve, apply for import CLI
+│   ├── oldmigrate/      # Migration alter DB-Schema → neues Schema (deterministische UUIDs, ON CONFLICT DO NOTHING)
 │   ├── handlers/        # HTTP handlers
 │   ├── permission/      # Permission system
 │   ├── player/          # Player entity & repository

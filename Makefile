@@ -1,6 +1,6 @@
 DATABASE_URL ?= postgres://kegelmaster:kegelmaster@localhost:5432/kegelmaster?sslmode=disable
 
-.PHONY: backend-run backend-test backend-build backend-build-embed build import-build frontend-dev frontend-build compose-up compose-down fmt migrate-up migrate-down sqlc-generate
+.PHONY: backend-run backend-test backend-build backend-build-embed build import-build migrate-old-build frontend-dev frontend-build compose-up compose-down fmt migrate-up migrate-down sqlc-generate
 
 backend-run:
 	@cd backend && go run ./cmd/api
@@ -14,6 +14,10 @@ backend-build:
 # Build CLI import tool (CSV → Spieltage).
 import-build:
 	@mkdir -p bin && cd backend && go build -o ../bin/import ./cmd/import
+
+# Build CLI migrate-old (alte DB → neue App-DB).
+migrate-old-build:
+	@mkdir -p bin && cd backend && go build -o ../bin/migrate-old ./cmd/migrate-old
 
 # Build frontend, copy into backend for embed, then build single binary with embedded frontend.
 build: frontend-build
