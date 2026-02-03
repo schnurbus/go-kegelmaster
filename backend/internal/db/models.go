@@ -69,6 +69,14 @@ type GameDayParticipant struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+type PasswordResetToken struct {
+	ID        string    `json:"id"`
+	UserID    string    `json:"user_id"`
+	Token     string    `json:"token"`
+	ExpiresAt time.Time `json:"expires_at"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 type PenaltyType struct {
 	ID                    string         `json:"id"`
 	ClubID                string         `json:"club_id"`

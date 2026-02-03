@@ -5,10 +5,12 @@ import (
 	"errors"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 
+	"github.com/schnurbus/go-kegelmaster/backend/internal/passwordreset"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/user"
 )
 
@@ -70,7 +72,8 @@ func (h *Handler) HandleRegister(c fiber.Ctx) error {
 		}
 	}
 
-	if err := h.IssueAuthCookie(c, u.ID); err != nil {
+	// New users stay logged in (remember-me style) after register
+	if err := h.IssueAuthCookie(c, u.ID, true); err != nil {
 		slog.Error("issue auth cookie", "error", err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
@@ -79,8 +82,9 @@ func (h *Handler) HandleRegister(c fiber.Ctx) error {
 }
 
 type loginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Email      string `json:"email"`
+	Password   string `json:"password"`
+	RememberMe bool   `json:"remember_me"`
 }
 
 func (h *Handler) HandleLogin(c fiber.Ctx) error {
@@ -113,7 +117,7 @@ func (h *Handler) HandleLogin(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusUnauthorized, "Ungültige Anmeldedaten")
 	}
 
-	if err := h.IssueAuthCookie(c, u.ID); err != nil {
+	if err := h.IssueAuthCookie(c, u.ID, req.RememberMe); err != nil {
 		slog.Error("issue auth cookie", "error", err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
@@ -146,5 +150,106 @@ func (h *Handler) HandleCurrentUser(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusUnauthorized, "Nicht angemeldet")
 	}
 	return c.JSON(UserResponseFromEntity(u))
+}
+
+type forgotPasswordRequest struct {
+	Email string `json:"email"`
+}
+
+func (h *Handler) HandleForgotPassword(c fiber.Ctx) error {
+	var req forgotPasswordRequest
+	if err := json.Unmarshal(c.Body(), &req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Ungültige Anfrage")
+	}
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+	if email == "" || !strings.Contains(email, "@") {
+		return fiber.NewError(fiber.StatusBadRequest, "Gültige E-Mail-Adresse ist erforderlich")
+	}
+
+	ctx, cancel := h.RequestContext()
+	defer cancel()
+
+	u, err := h.UserRepo.GetByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, user.ErrNotFound) {
+			return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
+				"message": "Falls ein Konto mit dieser E-Mail existiert, wurde ein Link zum Zurücksetzen des Passworts gesendet.",
+			})
+		}
+		slog.Error("lookup user for password reset", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+
+	if err := h.PasswordResetRepo.DeleteByUserID(ctx, u.ID); err != nil {
+		slog.Error("delete old password reset tokens", "error", err)
+	}
+	token := uuid.NewString()
+	expiresAt := time.Now().UTC().Add(time.Duration(h.Config.PasswordResetTokenExpiryMin) * time.Minute)
+	if _, err := h.PasswordResetRepo.Create(ctx, u.ID, token, expiresAt); err != nil {
+		slog.Error("create password reset token", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+
+	baseURL := strings.TrimSuffix(h.Config.BaseURL, "/")
+	resetLink := baseURL + "/reset-password?token=" + token
+	if err := h.EmailSvc.SendPasswordResetEmail(u.Email, resetLink); err != nil {
+		slog.Error("send password reset email", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "E-Mail konnte nicht gesendet werden. Bitte später erneut versuchen.")
+	}
+
+	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
+		"message": "Falls ein Konto mit dieser E-Mail existiert, wurde ein Link zum Zurücksetzen des Passworts gesendet.",
+	})
+}
+
+type resetPasswordRequest struct {
+	Token       string `json:"token"`
+	NewPassword string `json:"new_password"`
+}
+
+func (h *Handler) HandleResetPassword(c fiber.Ctx) error {
+	var req resetPasswordRequest
+	if err := json.Unmarshal(c.Body(), &req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Ungültige Anfrage")
+	}
+	token := strings.TrimSpace(req.Token)
+	password := strings.TrimSpace(req.NewPassword)
+	if token == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "Token ist erforderlich")
+	}
+	if len(password) < 8 {
+		return fiber.NewError(fiber.StatusBadRequest, "Passwort muss mindestens 8 Zeichen lang sein")
+	}
+
+	ctx, cancel := h.RequestContext()
+	defer cancel()
+
+	pr, err := h.PasswordResetRepo.GetByToken(ctx, token)
+	if err != nil {
+		if errors.Is(err, passwordreset.ErrNotFound) {
+			return fiber.NewError(fiber.StatusBadRequest, "Link ungültig oder abgelaufen. Bitte fordern Sie einen neuen Link an.")
+		}
+		slog.Error("get password reset token", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+	if time.Now().UTC().After(pr.ExpiresAt) {
+		_ = h.PasswordResetRepo.DeleteByToken(ctx, token)
+		return fiber.NewError(fiber.StatusBadRequest, "Link ungültig oder abgelaufen. Bitte fordern Sie einen neuen Link an.")
+	}
+
+	hash, err := h.AuthSvc.HashPassword(password)
+	if err != nil {
+		slog.Error("hash password", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+	if err := h.UserRepo.UpdatePassword(ctx, pr.UserID, hash); err != nil {
+		slog.Error("update user password", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+	if err := h.PasswordResetRepo.DeleteByToken(ctx, token); err != nil {
+		slog.Error("delete password reset token", "error", err)
+	}
+
+	return c.SendStatus(fiber.StatusNoContent)
 }
 

@@ -16,6 +16,7 @@ import (
 	"github.com/schnurbus/go-kegelmaster/backend/internal/email"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/gameday"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/invitation"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/passwordreset"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/penaltytype"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/permission"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/player"
@@ -45,10 +46,11 @@ func main() {
 	competitionRepo := competition.NewRepository(db)
 	gameDayRepo := gameday.NewRepository(db)
 	transactionRepo := transaction.NewRepository(db, playerRepo, clubRepo, gameDayRepo)
-	authSvc := auth.NewService(cfg.JWTSecret, cfg.TokenTTLMin)
+	authSvc := auth.NewService(cfg.JWTSecret, cfg.TokenTTLMin, cfg.RememberMeDays)
 	permissionCheck := permission.NewChecker(clubRepo, roleRepo, playerRepo)
 	invitationRepo := invitation.NewRepository(db, playerRepo)
 	emailSvc := email.NewService(cfg.ResendAPIKey, cfg.ResendFromEmail)
+	passwordResetRepo := passwordreset.NewRepository(db)
 
 	srv := server.New(cfg, server.Dependencies{
 		UserRepo:        userRepo,
@@ -61,8 +63,9 @@ func main() {
 		TransactionRepo: transactionRepo,
 		AuthService:     authSvc,
 		PermissionCheck: permissionCheck,
-		InvitationRepo:  invitationRepo,
-		EmailService:    emailSvc,
+		InvitationRepo:    invitationRepo,
+		EmailService:      emailSvc,
+		PasswordResetRepo: passwordResetRepo,
 	})
 
 	errCh := make(chan error, 1)

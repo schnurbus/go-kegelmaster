@@ -10,25 +10,35 @@ import (
 
 // Service handles password hashing and JWT issuance.
 type Service struct {
-	secret []byte
-	ttl    time.Duration
-	nowFn  func() time.Time
+	secret         []byte
+	sessionTTL     time.Duration
+	rememberMeTTL  time.Duration
+	nowFn          func() time.Time
 }
 
-func NewService(secret string, ttlMinutes int) *Service {
-	ttl := time.Duration(ttlMinutes) * time.Minute
-	if ttl <= 0 {
-		ttl = 24 * time.Hour
+func NewService(secret string, ttlMinutes int, rememberMeDays int) *Service {
+	sessionTTL := time.Duration(ttlMinutes) * time.Minute
+	if sessionTTL <= 0 {
+		sessionTTL = 24 * time.Hour
+	}
+	rememberMeTTL := time.Duration(rememberMeDays) * 24 * time.Hour
+	if rememberMeDays <= 0 {
+		rememberMeTTL = 30 * 24 * time.Hour
 	}
 	return &Service{
-		secret: []byte(secret),
-		ttl:    ttl,
-		nowFn:  time.Now,
+		secret:        []byte(secret),
+		sessionTTL:    sessionTTL,
+		rememberMeTTL: rememberMeTTL,
+		nowFn:         time.Now,
 	}
 }
 
-func (s *Service) TokenTTL() time.Duration {
-	return s.ttl
+// TokenTTL returns the JWT/cookie TTL for the given remember-me choice.
+func (s *Service) TokenTTL(remember bool) time.Duration {
+	if remember {
+		return s.rememberMeTTL
+	}
+	return s.sessionTTL
 }
 
 func (s *Service) HashPassword(password string) (string, error) {
@@ -48,14 +58,15 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-func (s *Service) GenerateToken(userID string) (string, error) {
+func (s *Service) GenerateToken(userID string, remember bool) (string, error) {
+	ttl := s.TokenTTL(remember)
 	now := s.nowFn()
 	claims := Claims{
 		UserID: userID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userID,
 			IssuedAt:  jwt.NewNumericDate(now),
-			ExpiresAt: jwt.NewNumericDate(now.Add(s.ttl)),
+			ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
 		},
 	}
 

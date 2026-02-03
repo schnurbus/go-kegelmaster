@@ -13,6 +13,7 @@ import (
 	"github.com/schnurbus/go-kegelmaster/backend/internal/config"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/gameday"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/penaltytype"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/passwordreset"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/permission"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/player"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/role"
@@ -47,23 +48,25 @@ func newTestServer(t *testing.T) (*Server, sqlmock.Sqlmock, *auth.Service) {
 	penaltyTypeRepo := penaltytype.NewRepository(db)
 	gameDayRepo := gameday.NewRepository(db)
 	transactionRepo := transaction.NewRepository(db, playerRepo, clubRepo, gameDayRepo)
-	authSvc := auth.NewService("test-secret", 60)
+	authSvc := auth.NewService("test-secret", 60, 30)
 	permissionCheck := permission.NewChecker(clubRepo, roleRepo, playerRepo)
+	passwordResetRepo := passwordreset.NewRepository(db)
 
 	srv := New(config.Config{
 		AppEnv:      "test",
 		HTTPPort:    "0",
 		CORSOrigins: "http://localhost:5173",
 	}, Dependencies{
-		UserRepo:        userRepo,
-		ClubRepo:        clubRepo,
-		RoleRepo:        roleRepo,
-		PlayerRepo:      playerRepo,
-		PenaltyTypeRepo: penaltyTypeRepo,
-		GameDayRepo:     gameDayRepo,
-		TransactionRepo: transactionRepo,
-		AuthService:     authSvc,
-		PermissionCheck: permissionCheck,
+		UserRepo:          userRepo,
+		ClubRepo:          clubRepo,
+		RoleRepo:          roleRepo,
+		PlayerRepo:        playerRepo,
+		PenaltyTypeRepo:   penaltyTypeRepo,
+		GameDayRepo:       gameDayRepo,
+		TransactionRepo:  transactionRepo,
+		AuthService:       authSvc,
+		PermissionCheck:   permissionCheck,
+		PasswordResetRepo: passwordResetRepo,
 	})
 
 	return srv, mock, authSvc

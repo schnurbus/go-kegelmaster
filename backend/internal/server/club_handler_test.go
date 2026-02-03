@@ -23,7 +23,7 @@ func TestCreateClub_Success(t *testing.T) {
 	clubID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -94,7 +94,7 @@ func TestCreateClub_MissingCSRF(t *testing.T) {
 	srv, mock, authSvc := newTestServer(t)
 
 	userID := uuid.NewString()
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -119,7 +119,7 @@ func TestCreateClub_InvalidName(t *testing.T) {
 	srv, mock, authSvc := newTestServer(t)
 
 	userID := uuid.NewString()
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -150,7 +150,7 @@ func TestCreateClub_NegativeBalance(t *testing.T) {
 	srv, mock, authSvc := newTestServer(t)
 
 	userID := uuid.NewString()
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -185,7 +185,7 @@ func TestGetClubs_Success(t *testing.T) {
 	clubID2 := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -249,7 +249,7 @@ func TestGetClub_Success(t *testing.T) {
 	clubID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -295,7 +295,7 @@ func TestGetClub_NotFound(t *testing.T) {
 	clubID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -330,7 +330,7 @@ func TestGetClub_MissingID(t *testing.T) {
 	userID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -363,7 +363,7 @@ func TestUpdateClub_Success(t *testing.T) {
 	clubID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -419,7 +419,7 @@ func TestUpdateClub_NotOwner(t *testing.T) {
 	clubID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(otherUserID)
+	token, err := authSvc.GenerateToken(otherUserID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -457,7 +457,7 @@ func TestUpdateClub_NotFound(t *testing.T) {
 	clubID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -494,7 +494,7 @@ func TestUpdateClub_InvalidRequest(t *testing.T) {
 	clubID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -532,7 +532,7 @@ func TestDeleteClub_Success(t *testing.T) {
 	clubID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -580,7 +580,7 @@ func TestDeleteClub_NotOwner(t *testing.T) {
 	clubID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(otherUserID)
+	token, err := authSvc.GenerateToken(otherUserID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -617,7 +617,7 @@ func TestDeleteClub_NotFound(t *testing.T) {
 	clubID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -671,7 +671,7 @@ func TestCreateClub_DatabaseError(t *testing.T) {
 	userID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -707,7 +707,7 @@ func TestCreateClub_InvalidJSON(t *testing.T) {
 	userID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -739,7 +739,7 @@ func TestGetClubs_DatabaseError(t *testing.T) {
 	userID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -775,7 +775,7 @@ func TestGetClub_DatabaseError(t *testing.T) {
 	clubID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -811,7 +811,7 @@ func TestUpdateClub_DatabaseError(t *testing.T) {
 	clubID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -853,7 +853,7 @@ func TestUpdateClub_InvalidJSON(t *testing.T) {
 	clubID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -891,7 +891,7 @@ func TestUpdateClub_NegativeBaseFee(t *testing.T) {
 	clubID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -929,7 +929,7 @@ func TestUpdateClub_GetByIDError(t *testing.T) {
 	clubID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -966,7 +966,7 @@ func TestDeleteClub_GetByIDError(t *testing.T) {
 	clubID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -1002,7 +1002,7 @@ func TestDeleteClub_DatabaseError(t *testing.T) {
 	clubID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}

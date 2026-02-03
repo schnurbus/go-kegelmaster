@@ -15,9 +15,11 @@ type Config struct {
 	RedisURL        string
 	JWTSecret       string
 	TokenTTLMin     int
+	RememberMeDays  int
 	CORSOrigins     string
-	ResendAPIKey    string
-	ResendFromEmail string
+	ResendAPIKey              string
+	ResendFromEmail           string
+	PasswordResetTokenExpiryMin int
 }
 
 // Load builds a Config from process environment variables, applying defaults
@@ -31,9 +33,11 @@ func Load() Config {
 		RedisURL:        getEnv("REDIS_URL", "redis://localhost:6379/0"),
 		JWTSecret:       getEnv("JWT_SECRET", "dev-secret-change-me"),
 		TokenTTLMin:     getEnvInt("JWT_TTL_MINUTES", 60*24),
+		RememberMeDays:  getEnvInt("REMEMBER_ME_DAYS", 30),
 		CORSOrigins:     getEnv("CORS_ALLOW_ORIGINS", "http://localhost:5173"),
-		ResendAPIKey:    os.Getenv("RESEND_API_KEY"),
-		ResendFromEmail: getEnv("RESEND_FROM_EMAIL", "noreply@example.com"),
+		ResendAPIKey:                os.Getenv("RESEND_API_KEY"),
+		ResendFromEmail:             getEnv("RESEND_FROM_EMAIL", "noreply@example.com"),
+		PasswordResetTokenExpiryMin: getEnvInt("PASSWORD_RESET_TOKEN_EXPIRY_MIN", 60),
 	}
 
 	return cfg

@@ -3,11 +3,24 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const initialState = { email: "", password: "" };
 
 function LoginPage() {
   const [form, setForm] = useState(initialState);
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { login } = useAuth();
@@ -20,7 +33,7 @@ function LoginPage() {
   const acceptInvitation = async (token: string) => {
     try {
       toast.loading("Einladung wird akzeptiert...", { id: "accept-invite-after-login" });
-      
+
       const csrfToken = document.cookie
         .split("; ")
         .find((row) => row.startsWith("csrf_token="))
@@ -42,28 +55,28 @@ function LoginPage() {
 
       if (!response.ok) {
         const errorMessage = responseData.message || "Fehler beim Akzeptieren der Einladung";
-        
+
         if (response.status === 404) {
           throw new Error("Einladung nicht gefunden");
         }
         if (response.status === 410) {
           throw new Error("Einladung ist abgelaufen oder wurde bereits akzeptiert");
         }
-        
+
         throw new Error(errorMessage);
       }
 
       const data = await response.json();
-      toast.success("Einladung erfolgreich akzeptiert!", { 
+      toast.success("Einladung erfolgreich akzeptiert!", {
         id: "accept-invite-after-login",
-        duration: 4000 
+        duration: 4000,
       });
       return data.player_id;
     } catch (error) {
       console.error("Error accepting invitation:", error);
       toast.error(
         error instanceof Error ? error.message : "Fehler beim Akzeptieren der Einladung",
-        { id: "accept-invite-after-login", duration: 6000 }
+        { id: "accept-invite-after-login", duration: 6000 },
       );
       throw error;
     }
@@ -74,9 +87,8 @@ function LoginPage() {
     setError(null);
     setIsSubmitting(true);
     try {
-      await login(form);
+      await login({ ...form, remember_me: rememberMe });
       toast.success("Anmeldung erfolgreich");
-      // If there's an invite token, accept the invitation
       if (inviteToken) {
         try {
           const playerId = await acceptInvitation(inviteToken);
@@ -85,8 +97,8 @@ function LoginPage() {
           console.error("Failed to accept invitation:", inviteError);
           toast.warning(
             "Anmeldung erfolgreich, aber Einladung konnte nicht akzeptiert werden. " +
-            "Sie können die Einladung später erneut versuchen.",
-            { duration: 8000 }
+              "Sie können die Einladung später erneut versuchen.",
+            { duration: 8000 },
           );
           navigate(redirectTo, { replace: true });
         }
@@ -103,51 +115,97 @@ function LoginPage() {
   };
 
   return (
-    <section className="page auth">
-      <div className="auth-card">
-        <h1>Anmelden</h1>
-        <p>Willkommen zurück! Bitte melde dich mit deinem Account an.</p>
-
-        {error && <div className="error-banner">{error}</div>}
-
-        <form className="auth-form" onSubmit={handleSubmit}>
-          <label className="form-group">
-            <span>E-Mail</span>
-            <input
-              type="email"
-              value={form.email}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, email: event.target.value }))
-              }
-              required
-            />
-          </label>
-
-          <label className="form-group">
-            <span>Passwort</span>
-            <input
-              type="password"
-              minLength={8}
-              value={form.password}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, password: event.target.value }))
-              }
-              required
-            />
-          </label>
-
-          <button className="btn primary" disabled={isSubmitting}>
-            {isSubmitting ? "Melde an ..." : "Login"}
-          </button>
-        </form>
-
-        <p className="auth-hint">
-          Kein Account? <Link to="/register">Jetzt registrieren</Link>
-        </p>
+    <div className="min-h-[80vh] flex flex-col justify-center px-4 py-12">
+      <div className="max-w-md mx-auto w-full">
+        <Card className="border-border/50 bg-card/50">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-2xl text-foreground">Anmelden</CardTitle>
+            <CardDescription className="text-muted-foreground">
+              Willkommen zurück! Bitte melde dich mit deinem Account an.
+            </CardDescription>
+          </CardHeader>
+          <form onSubmit={handleSubmit}>
+            <CardContent className="space-y-4">
+              {error && (
+                <div
+                  className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+                  role="alert"
+                >
+                  {error}
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="login-email" className="text-foreground">
+                  E-Mail
+                </Label>
+                <Input
+                  id="login-email"
+                  type="email"
+                  autoComplete="email"
+                  value={form.email}
+                  onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+                  required
+                  className="text-foreground"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="login-password" className="text-foreground">
+                  Passwort
+                </Label>
+                <Input
+                  id="login-password"
+                  type="password"
+                  autoComplete="current-password"
+                  minLength={8}
+                  value={form.password}
+                  onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
+                  required
+                  className="text-foreground"
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="login-remember"
+                  checked={rememberMe}
+                  onCheckedChange={(checked) => setRememberMe(checked === true)}
+                />
+                <Label
+                  htmlFor="login-remember"
+                  className="text-sm font-normal text-muted-foreground cursor-pointer"
+                >
+                  Angemeldet bleiben (30 Tage)
+                </Label>
+              </div>
+              <div className="text-sm">
+                <Link
+                  to="/forgot-password"
+                  className="text-primary hover:underline font-medium"
+                >
+                  Passwort vergessen?
+                </Link>
+              </div>
+            </CardContent>
+            <CardFooter className="flex flex-col gap-4">
+              <Button
+                type="submit"
+                className="w-full rounded-full"
+                size="lg"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Melde an …" : "Login"}
+              </Button>
+              <p className="text-center text-sm text-muted-foreground">
+                Kein Account?{" "}
+                <Link to="/register" className="text-primary hover:underline font-medium">
+                  Jetzt registrieren
+                </Link>
+              </p>
+            </CardFooter>
+          </form>
+        </Card>
       </div>
-    </section>
+    </div>
   );
 }
 
 export default LoginPage;
-

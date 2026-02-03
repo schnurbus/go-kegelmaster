@@ -18,7 +18,7 @@ func TestHandleCreateRole_Success(t *testing.T) {
 	roleID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -74,7 +74,7 @@ func TestHandleCreateRole_NotOwner(t *testing.T) {
 	clubID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -116,7 +116,7 @@ func TestHandleGetRoles_Success(t *testing.T) {
 	roleID2 := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -182,7 +182,7 @@ func TestHandleAddPermission_Success(t *testing.T) {
 	permID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -244,7 +244,7 @@ func TestHandleAddPermission_InvalidEntityType(t *testing.T) {
 	roleID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}

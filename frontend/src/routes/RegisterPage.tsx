@@ -3,6 +3,17 @@ import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const initialState = { email: "", password: "" };
 
@@ -18,7 +29,7 @@ function RegisterPage() {
   const acceptInvitation = async (token: string) => {
     try {
       toast.loading("Einladung wird akzeptiert...", { id: "accept-invite-after-register" });
-      
+
       const csrfToken = document.cookie
         .split("; ")
         .find((row) => row.startsWith("csrf_token="))
@@ -40,28 +51,28 @@ function RegisterPage() {
 
       if (!response.ok) {
         const errorMessage = responseData.message || "Fehler beim Akzeptieren der Einladung";
-        
+
         if (response.status === 404) {
           throw new Error("Einladung nicht gefunden");
         }
         if (response.status === 410) {
           throw new Error("Einladung ist abgelaufen oder wurde bereits akzeptiert");
         }
-        
+
         throw new Error(errorMessage);
       }
 
       const data = await response.json();
-      toast.success("Einladung erfolgreich akzeptiert!", { 
+      toast.success("Einladung erfolgreich akzeptiert!", {
         id: "accept-invite-after-register",
-        duration: 4000 
+        duration: 4000,
       });
       return data.player_id;
     } catch (error) {
       console.error("Error accepting invitation:", error);
       toast.error(
         error instanceof Error ? error.message : "Fehler beim Akzeptieren der Einladung",
-        { id: "accept-invite-after-register", duration: 6000 }
+        { id: "accept-invite-after-register", duration: 6000 },
       );
       throw error;
     }
@@ -74,7 +85,6 @@ function RegisterPage() {
     try {
       await register(form);
       toast.success("Account erstellt");
-      // If there's an invite token, accept the invitation
       if (inviteToken) {
         try {
           const playerId = await acceptInvitation(inviteToken);
@@ -83,8 +93,8 @@ function RegisterPage() {
           console.error("Failed to accept invitation:", inviteError);
           toast.warning(
             "Registrierung erfolgreich, aber Einladung konnte nicht akzeptiert werden. " +
-            "Sie können die Einladung später erneut versuchen.",
-            { duration: 8000 }
+              "Sie können die Einladung später erneut versuchen.",
+            { duration: 8000 },
           );
           navigate("/app", { replace: true });
         }
@@ -101,51 +111,76 @@ function RegisterPage() {
   };
 
   return (
-    <section className="page auth">
-      <div className="auth-card">
-        <h1>Registrieren</h1>
-        <p>Erstelle einen Account, um Kegelabende zu verwalten.</p>
-
-        {error && <div className="error-banner">{error}</div>}
-
-        <form className="auth-form" onSubmit={handleSubmit}>
-          <label className="form-group">
-            <span>E-Mail</span>
-            <input
-              type="email"
-              value={form.email}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, email: event.target.value }))
-              }
-              required
-            />
-          </label>
-
-          <label className="form-group">
-            <span>Passwort</span>
-            <input
-              type="password"
-              minLength={8}
-              value={form.password}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, password: event.target.value }))
-              }
-              required
-            />
-          </label>
-
-          <button className="btn primary" disabled={isSubmitting}>
-            {isSubmitting ? "Registriere ..." : "Account erstellen"}
-          </button>
-        </form>
-
-        <p className="auth-hint">
-          Bereits registriert? <Link to="/login">Zum Login</Link>
-        </p>
+    <div className="min-h-[80vh] flex flex-col justify-center px-4 py-12">
+      <div className="max-w-md mx-auto w-full">
+        <Card className="border-border/50 bg-card/50">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-2xl text-foreground">Registrieren</CardTitle>
+            <CardDescription className="text-muted-foreground">
+              Erstelle einen Account, um Kegelabende zu verwalten.
+            </CardDescription>
+          </CardHeader>
+          <form onSubmit={handleSubmit}>
+            <CardContent className="space-y-4">
+              {error && (
+                <div
+                  className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+                  role="alert"
+                >
+                  {error}
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="register-email" className="text-foreground">
+                  E-Mail
+                </Label>
+                <Input
+                  id="register-email"
+                  type="email"
+                  autoComplete="email"
+                  value={form.email}
+                  onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+                  required
+                  className="text-foreground"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="register-password" className="text-foreground">
+                  Passwort
+                </Label>
+                <Input
+                  id="register-password"
+                  type="password"
+                  autoComplete="new-password"
+                  minLength={8}
+                  value={form.password}
+                  onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
+                  required
+                  className="text-foreground"
+                />
+              </div>
+            </CardContent>
+            <CardFooter className="flex flex-col gap-4">
+              <Button
+                type="submit"
+                className="w-full rounded-full"
+                size="lg"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Registriere …" : "Account erstellen"}
+              </Button>
+              <p className="text-center text-sm text-muted-foreground">
+                Bereits registriert?{" "}
+                <Link to="/login" className="text-primary hover:underline font-medium">
+                  Zum Login
+                </Link>
+              </p>
+            </CardFooter>
+          </form>
+        </Card>
       </div>
-    </section>
+    </div>
   );
 }
 
 export default RegisterPage;
-

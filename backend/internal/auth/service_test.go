@@ -6,7 +6,7 @@ import (
 )
 
 func TestHashAndComparePassword(t *testing.T) {
-	svc := NewService("secret", 60)
+	svc := NewService("secret", 60, 30)
 
 	hash, err := svc.HashPassword("super-secret")
 	if err != nil {
@@ -23,8 +23,8 @@ func TestHashAndComparePassword(t *testing.T) {
 }
 
 func TestGenerateAndParseToken(t *testing.T) {
-	svc := NewService("secret", 60)
-	token, err := svc.GenerateToken("user-123")
+	svc := NewService("secret", 60, 30)
+	token, err := svc.GenerateToken("user-123", true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -40,8 +40,8 @@ func TestGenerateAndParseToken(t *testing.T) {
 }
 
 func TestGenerateTokenUsesTTL(t *testing.T) {
-	svc := NewService("secret", 5) // 5 minutes
-	token, err := svc.GenerateToken("user-ttl")
+	svc := NewService("secret", 5, 30) // 5 minutes session TTL
+	token, err := svc.GenerateToken("user-ttl", false)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
