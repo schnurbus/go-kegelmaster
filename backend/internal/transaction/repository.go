@@ -236,12 +236,13 @@ func (r *Repository) CreateWithAutoTip(ctx context.Context, params CreateTransac
 	if playerEntity.Balance >= 0 {
 		// Player has no debt, entire amount becomes tip
 		tipParams := CreateTransactionParams{
-			ClubID:          params.ClubID,
-			PlayerID:        params.PlayerID,
-			TransactionType: TransactionTypeTip,
-			Amount:          params.Amount,
-			Description:     "Auto-tip (player has no debt)",
-			GameDayID:       params.GameDayID,
+			ClubID:           params.ClubID,
+			PlayerID:         params.PlayerID,
+			TransactionType:  TransactionTypeTip,
+			Amount:           params.Amount,
+			Description:      "Auto-tip (player has no debt)",
+			GameDayID:        params.GameDayID,
+			TransactionDate:  params.TransactionDate,
 		}
 		tipTx, err := r.Create(ctx, tipParams)
 		if err != nil {
@@ -260,12 +261,13 @@ func (r *Repository) CreateWithAutoTip(ctx context.Context, params CreateTransac
 
 		// Create deposit transaction
 		depositParams := CreateTransactionParams{
-			ClubID:          params.ClubID,
-			PlayerID:        params.PlayerID,
-			TransactionType: TransactionTypeDeposit,
-			Amount:          depositAmount,
-			Description:     params.Description,
-			GameDayID:       params.GameDayID,
+			ClubID:           params.ClubID,
+			PlayerID:         params.PlayerID,
+			TransactionType:  TransactionTypeDeposit,
+			Amount:           depositAmount,
+			Description:      params.Description,
+			GameDayID:        params.GameDayID,
+			TransactionDate:  params.TransactionDate,
 		}
 		depositTx, err := r.Create(ctx, depositParams)
 		if err != nil {
@@ -275,12 +277,13 @@ func (r *Repository) CreateWithAutoTip(ctx context.Context, params CreateTransac
 
 		// Create tip transaction
 		tipParams := CreateTransactionParams{
-			ClubID:          params.ClubID,
-			PlayerID:        params.PlayerID,
-			TransactionType: TransactionTypeTip,
-			Amount:          tipAmount,
-			Description:     "Auto-tip from deposit excess",
-			GameDayID:       params.GameDayID,
+			ClubID:           params.ClubID,
+			PlayerID:         params.PlayerID,
+			TransactionType:  TransactionTypeTip,
+			Amount:           tipAmount,
+			Description:      "Auto-tip from deposit excess",
+			GameDayID:        params.GameDayID,
+			TransactionDate:  params.TransactionDate,
 		}
 		tipTx, err := r.Create(ctx, tipParams)
 		if err != nil {

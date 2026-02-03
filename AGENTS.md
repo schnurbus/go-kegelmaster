@@ -212,6 +212,21 @@ func TestRepository_Create(t *testing.T) {
 4. Update PROJECT.md with progress (see .cursor/rules/project-md.mdc)
 5. Test with Docker: `make compose-up`
 
+### Conventional Commits
+
+Use [Conventional Commits](https://www.conventionalcommits.org/) for all commit messages:
+
+- **Format:** `type(scope): description` (lowercase, no period at end of subject)
+- **Types:** `feat` (feature), `fix` (bug fix), `docs`, `style`, `refactor`, `test`, `chore`, `perf`, `ci`
+- **Scope** (optional): affected area, e.g. `transactions`, `auth`, `frontend`
+- **Body** (optional): detailed explanation; separate from subject by blank line
+- **Breaking change:** add `!` after type/scope or footer `BREAKING CHANGE: ...`
+
+Examples:
+- `feat(transactions): allow transaction date for manual transactions`
+- `fix(transactions): require player for tip transactions`
+- `docs: update AGENTS.md with conventional commits`
+
 ## Important Notes
 
 - Never edit files in `backend/internal/db/` (SQLc generated)
