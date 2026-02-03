@@ -53,6 +53,39 @@ import { Badge } from "@/components/ui/badge";
 
 import type { Role } from "@/types/role";
 
+const ROLES_STORAGE_KEY_PREFIX = "kegelmaster_roles_";
+
+type RolesStorage = {
+  pageIndex?: number;
+  pageSize?: number;
+  sorting?: SortingState;
+  baseFeeFilter?: string;
+};
+
+function loadRolesStorage(clubId: string): Partial<RolesStorage> {
+  try {
+    const raw = localStorage.getItem(ROLES_STORAGE_KEY_PREFIX + clubId);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Partial<RolesStorage>;
+    return {
+      pageIndex: typeof parsed.pageIndex === "number" && parsed.pageIndex >= 0 ? parsed.pageIndex : undefined,
+      pageSize: typeof parsed.pageSize === "number" && parsed.pageSize >= 1 ? parsed.pageSize : undefined,
+      sorting: Array.isArray(parsed.sorting) ? parsed.sorting : undefined,
+      baseFeeFilter: typeof parsed.baseFeeFilter === "string" ? parsed.baseFeeFilter : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
+function saveRolesStorage(clubId: string, data: RolesStorage) {
+  try {
+    localStorage.setItem(ROLES_STORAGE_KEY_PREFIX + clubId, JSON.stringify(data));
+  } catch {
+    // ignore
+  }
+}
+
 type RolesDataTableProps = {
   roles: Role[];
   onView: (role: Role) => void;
@@ -60,6 +93,7 @@ type RolesDataTableProps = {
   onDelete: (role: Role) => void;
   onCreate: () => void;
   isLoading?: boolean;
+  clubId?: string;
 };
 
 export function RolesDataTable({
@@ -69,6 +103,7 @@ export function RolesDataTable({
   onDelete,
   onCreate,
   isLoading = false,
+  clubId,
 }: RolesDataTableProps) {
   const navigate = useNavigate();
   const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -82,6 +117,25 @@ export function RolesDataTable({
     pageSize: 10,
   });
   const [baseFeeFilter, setBaseFeeFilter] = React.useState<string>("all");
+
+  React.useEffect(() => {
+    if (!clubId) return;
+    const stored = loadRolesStorage(clubId);
+    if (stored.sorting !== undefined) setSorting(stored.sorting);
+    if (stored.pageIndex !== undefined) setPagination((p) => ({ ...p, pageIndex: stored.pageIndex! }));
+    if (stored.pageSize !== undefined) setPagination((p) => ({ ...p, pageSize: stored.pageSize! }));
+    if (stored.baseFeeFilter !== undefined) setBaseFeeFilter(stored.baseFeeFilter);
+  }, [clubId]);
+
+  React.useEffect(() => {
+    if (!clubId) return;
+    saveRolesStorage(clubId, {
+      pageIndex: pagination.pageIndex,
+      pageSize: pagination.pageSize,
+      sorting,
+      baseFeeFilter,
+    });
+  }, [clubId, pagination.pageIndex, pagination.pageSize, sorting, baseFeeFilter]);
 
   const columns: ColumnDef<Role>[] = [
     {

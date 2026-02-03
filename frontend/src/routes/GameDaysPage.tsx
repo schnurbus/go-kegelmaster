@@ -117,6 +117,7 @@ function GameDaysPage() {
           onDelete={handleDeleteGameDay}
           onCreate={handleCreateGameDay}
           isLoading={isLoading}
+          clubId={activeClub.id}
         />
       </div>
     </AppLayout>

@@ -84,7 +84,7 @@ func (h *Handler) HandleGetClubs(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusUnauthorized, "Nicht angemeldet")
 	}
 
-	clubs, err := h.ClubRepo.GetByUserID(ctx, u.ID)
+	clubs, err := h.ClubRepo.GetForUser(ctx, u.ID)
 	if err != nil {
 		slog.Error("get clubs", "error", err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")

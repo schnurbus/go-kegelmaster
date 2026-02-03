@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { toast } from "sonner"
 import { useAuth } from "@/context/AuthContext"
 import { useClub } from "@/context/ClubContext"
 import {
@@ -108,8 +109,11 @@ export function CreateClubDialog({
       setBaseFee("")
       setAutoTipEnabled(true)
       onOpenChange(false)
+      toast.success("Club erstellt")
     } catch (err) {
-      setError((err as Error).message)
+      const message = (err as Error).message
+      setError(message)
+      toast.error(message)
     } finally {
       setIsSubmitting(false)
     }

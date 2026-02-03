@@ -175,6 +175,48 @@ func (q *Queries) GetClubsByUserID(ctx context.Context, userID string) ([]Club, 
 	return items, nil
 }
 
+const getClubsForUser = `-- name: GetClubsForUser :many
+SELECT id, name, balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at FROM clubs c
+WHERE c.user_id = $1
+   OR EXISTS (
+       SELECT 1 FROM players p
+       WHERE p.club_id = c.id AND p.user_id = $1
+   )
+ORDER BY c.created_at DESC
+`
+
+func (q *Queries) GetClubsForUser(ctx context.Context, userID string) ([]Club, error) {
+	rows, err := q.db.QueryContext(ctx, getClubsForUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Club
+	for rows.Next() {
+		var i Club
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Balance,
+			&i.BaseFee,
+			&i.AutoTipEnabled,
+			&i.UserID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateClub = `-- name: UpdateClub :one
 UPDATE clubs
 SET

@@ -56,12 +56,44 @@ const SCORING_LABELS: Record<ScoringType, string> = {
   both: "Beides",
 };
 
+const COMPETITIONS_STORAGE_KEY_PREFIX = "kegelmaster_competitions_";
+
+type CompetitionsStorage = {
+  pageIndex?: number;
+  pageSize?: number;
+  sorting?: SortingState;
+};
+
+function loadCompetitionsStorage(clubId: string): Partial<CompetitionsStorage> {
+  try {
+    const raw = localStorage.getItem(COMPETITIONS_STORAGE_KEY_PREFIX + clubId);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Partial<CompetitionsStorage>;
+    return {
+      pageIndex: typeof parsed.pageIndex === "number" && parsed.pageIndex >= 0 ? parsed.pageIndex : undefined,
+      pageSize: typeof parsed.pageSize === "number" && parsed.pageSize >= 1 ? parsed.pageSize : undefined,
+      sorting: Array.isArray(parsed.sorting) ? parsed.sorting : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
+function saveCompetitionsStorage(clubId: string, data: CompetitionsStorage) {
+  try {
+    localStorage.setItem(COMPETITIONS_STORAGE_KEY_PREFIX + clubId, JSON.stringify(data));
+  } catch {
+    // ignore
+  }
+}
+
 type CompetitionsDataTableProps = {
   competitions: Competition[];
   onEdit: (competition: Competition) => void;
   onDelete: (competition: Competition) => void;
   onCreate: () => void;
   isLoading?: boolean;
+  clubId?: string;
 };
 
 export function CompetitionsDataTable({
@@ -70,6 +102,7 @@ export function CompetitionsDataTable({
   onDelete,
   onCreate,
   isLoading = false,
+  clubId,
 }: CompetitionsDataTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -81,6 +114,23 @@ export function CompetitionsDataTable({
     pageIndex: 0,
     pageSize: 10,
   });
+
+  React.useEffect(() => {
+    if (!clubId) return;
+    const stored = loadCompetitionsStorage(clubId);
+    if (stored.sorting !== undefined) setSorting(stored.sorting);
+    if (stored.pageIndex !== undefined) setPagination((p) => ({ ...p, pageIndex: stored.pageIndex! }));
+    if (stored.pageSize !== undefined) setPagination((p) => ({ ...p, pageSize: stored.pageSize! }));
+  }, [clubId]);
+
+  React.useEffect(() => {
+    if (!clubId) return;
+    saveCompetitionsStorage(clubId, {
+      pageIndex: pagination.pageIndex,
+      pageSize: pagination.pageSize,
+      sorting,
+    });
+  }, [clubId, pagination.pageIndex, pagination.pageSize, sorting]);
 
   const columns: ColumnDef<Competition>[] = [
     {

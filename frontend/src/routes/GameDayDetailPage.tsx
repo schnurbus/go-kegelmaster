@@ -405,8 +405,8 @@ function GameDayDetailPage() {
         throw new Error("Fehler beim Löschen");
       }
 
+      navigate("/app/gamedays", { replace: true });
       toast.success("Spieltag gelöscht");
-      navigate("/app/gamedays");
     } catch (error: any) {
       console.error("Error deleting game day:", error);
       toast.error(error.message || "Fehler beim Löschen");

@@ -33,6 +33,15 @@ SELECT * FROM clubs
 WHERE user_id = $1
 ORDER BY created_at DESC;
 
+-- name: GetClubsForUser :many
+SELECT * FROM clubs c
+WHERE c.user_id = $1
+   OR EXISTS (
+       SELECT 1 FROM players p
+       WHERE p.club_id = c.id AND p.user_id = $1
+   )
+ORDER BY c.created_at DESC;
+
 -- name: UpdateClub :one
 UPDATE clubs
 SET

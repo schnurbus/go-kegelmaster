@@ -1,4 +1,5 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { toast } from "sonner";
 import "./App.css";
 import { useAuth } from "./context/AuthContext";
 
@@ -29,7 +30,7 @@ function App() {
               <span className="user-chip">{user?.email}</span>
               <button
                 className="link-btn"
-                onClick={() => logout().catch(() => undefined)}
+                onClick={() => logout().catch(() => toast.error("Abmelden fehlgeschlagen"))}
               >
                 Logout
               </button>

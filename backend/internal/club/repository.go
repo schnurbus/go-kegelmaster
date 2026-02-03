@@ -93,6 +93,20 @@ func (r *Repository) GetByUserID(ctx context.Context, userID string) ([]Club, er
 	return clubs, nil
 }
 
+func (r *Repository) GetForUser(ctx context.Context, userID string) ([]Club, error) {
+	dbClubs, err := r.queries.GetClubsForUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	clubs := make([]Club, len(dbClubs))
+	for i, dbClub := range dbClubs {
+		clubs[i] = dbClubToClub(dbClub)
+	}
+
+	return clubs, nil
+}
+
 type UpdateClubParams struct {
 	ID             string
 	Name           string

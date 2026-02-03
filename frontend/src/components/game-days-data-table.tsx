@@ -47,13 +47,48 @@ import {
 import type { GameDaySummary } from "@/types/gameday";
 import { formatCentsToEuro } from "@/types/gameday";
 
+const GAMEDAYS_STORAGE_KEY_PREFIX = "kegelmaster_gamedays_";
+
+type GameDaysStorage = {
+  pageIndex?: number;
+  pageSize?: number;
+  sorting?: SortingState;
+};
+
+function loadGameDaysStorage(clubId: string): Partial<GameDaysStorage> {
+  try {
+    const raw = localStorage.getItem(GAMEDAYS_STORAGE_KEY_PREFIX + clubId);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Partial<GameDaysStorage>;
+    return {
+      pageIndex: typeof parsed.pageIndex === "number" && parsed.pageIndex >= 0 ? parsed.pageIndex : undefined,
+      pageSize: typeof parsed.pageSize === "number" && parsed.pageSize >= 1 ? parsed.pageSize : undefined,
+      sorting: Array.isArray(parsed.sorting) ? parsed.sorting : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
+function saveGameDaysStorage(clubId: string, data: GameDaysStorage) {
+  try {
+    localStorage.setItem(GAMEDAYS_STORAGE_KEY_PREFIX + clubId, JSON.stringify(data));
+  } catch {
+    // ignore
+  }
+}
+
 type GameDaysDataTableProps = {
   gameDays: GameDaySummary[];
   onView: (gameDay: GameDaySummary) => void;
   onDelete: (gameDay: GameDaySummary) => void;
   onCreate: () => void;
   isLoading?: boolean;
+  clubId?: string;
 };
+
+const DEFAULT_SORTING: SortingState = [{ id: "date", desc: true }];
+const DEFAULT_PAGINATION = { pageIndex: 0, pageSize: 10 };
 
 export function GameDaysDataTable({
   gameDays,
@@ -61,14 +96,27 @@ export function GameDaysDataTable({
   onDelete,
   onCreate,
   isLoading = false,
+  clubId,
 }: GameDaysDataTableProps) {
-  const [sorting, setSorting] = React.useState<SortingState>([
-    { id: "date", desc: true }, // Default: newest first
-  ]);
-  const [pagination, setPagination] = React.useState({
-    pageIndex: 0,
-    pageSize: 10,
-  });
+  const [sorting, setSorting] = React.useState<SortingState>(DEFAULT_SORTING);
+  const [pagination, setPagination] = React.useState(DEFAULT_PAGINATION);
+
+  React.useEffect(() => {
+    if (!clubId) return;
+    const stored = loadGameDaysStorage(clubId);
+    if (stored.sorting !== undefined) setSorting(stored.sorting);
+    if (stored.pageIndex !== undefined) setPagination((p) => ({ ...p, pageIndex: stored.pageIndex! }));
+    if (stored.pageSize !== undefined) setPagination((p) => ({ ...p, pageSize: stored.pageSize! }));
+  }, [clubId]);
+
+  React.useEffect(() => {
+    if (!clubId) return;
+    saveGameDaysStorage(clubId, {
+      pageIndex: pagination.pageIndex,
+      pageSize: pagination.pageSize,
+      sorting,
+    });
+  }, [clubId, pagination.pageIndex, pagination.pageSize, sorting]);
 
   const columns: ColumnDef<GameDaySummary>[] = [
     {

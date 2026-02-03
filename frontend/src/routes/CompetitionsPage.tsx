@@ -102,6 +102,7 @@ function CompetitionsPage() {
           onDelete={handleDelete}
           onCreate={handleCreate}
           isLoading={isLoading}
+          clubId={activeClub.id}
         />
 
         <CompetitionDialog
