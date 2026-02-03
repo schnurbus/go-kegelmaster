@@ -23,6 +23,7 @@ type Club = {
   balance: number
   base_fee: number
   auto_tip_enabled: boolean
+  couples_mode_enabled: boolean
   user_id: string
   created_at: string
   updated_at: string
@@ -45,6 +46,7 @@ export function CreateClubDialog({
   const [balance, setBalance] = React.useState("")
   const [baseFee, setBaseFee] = React.useState("")
   const [autoTipEnabled, setAutoTipEnabled] = React.useState(true)
+  const [couplesModeEnabled, setCouplesModeEnabled] = React.useState(false)
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
@@ -88,6 +90,7 @@ export function CreateClubDialog({
           balance: balanceCents,
           base_fee: baseFeeCents,
           auto_tip_enabled: autoTipEnabled,
+          couples_mode_enabled: couplesModeEnabled,
         }),
       })
 
@@ -108,6 +111,7 @@ export function CreateClubDialog({
       setBalance("")
       setBaseFee("")
       setAutoTipEnabled(true)
+      setCouplesModeEnabled(false)
       onOpenChange(false)
       toast.success("Club erstellt")
     } catch (err) {
@@ -184,6 +188,23 @@ export function CreateClubDialog({
             <p className="text-sm text-muted-foreground -mt-2 ml-6">
               Überschüssige Einzahlungen werden automatisch als Trinkgeld verbucht.
               Spieler können kein positives Guthaben haben.
+            </p>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="couplesModeEnabled"
+                checked={couplesModeEnabled}
+                onCheckedChange={(checked) => setCouplesModeEnabled(checked === true)}
+                disabled={isSubmitting}
+              />
+              <Label
+                htmlFor="couplesModeEnabled"
+                className="text-sm font-normal cursor-pointer"
+              >
+                Paar-Modus aktivieren
+              </Label>
+            </div>
+            <p className="text-sm text-muted-foreground -mt-2 ml-6">
+              Bei Einzahlungen können mehrere Spieler ausgewählt werden; der Betrag wird gleichmäßig verteilt.
             </p>
             {error && (
               <div className="text-sm text-destructive">{error}</div>

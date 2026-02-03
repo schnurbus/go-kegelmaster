@@ -25,12 +25,13 @@ func NewRepository(dbConn *sql.DB) *Repository {
 }
 
 type CreateClubParams struct {
-	Name           string
-	Balance        int
-	StartBalance   int
-	BaseFee        int
-	AutoTipEnabled bool
-	UserID         string
+	Name               string
+	Balance            int
+	StartBalance       int
+	BaseFee            int
+	AutoTipEnabled     bool
+	CouplesModeEnabled bool
+	UserID             string
 }
 
 func (r *Repository) Create(ctx context.Context, params CreateClubParams) (Club, error) {
@@ -38,15 +39,16 @@ func (r *Repository) Create(ctx context.Context, params CreateClubParams) (Club,
 	id := uuid.NewString()
 
 	dbClub, err := r.queries.CreateClub(ctx, db.CreateClubParams{
-		ID:             id,
-		Name:           params.Name,
-		Balance:        int32(params.Balance),
-		StartBalance:   int32(params.StartBalance),
-		BaseFee:        int32(params.BaseFee),
-		AutoTipEnabled: params.AutoTipEnabled,
-		UserID:         params.UserID,
-		CreatedAt:      now,
-		UpdatedAt:      now,
+		ID:                 id,
+		Name:               params.Name,
+		Balance:            int32(params.Balance),
+		StartBalance:       int32(params.StartBalance),
+		BaseFee:            int32(params.BaseFee),
+		AutoTipEnabled:     params.AutoTipEnabled,
+		CouplesModeEnabled: params.CouplesModeEnabled,
+		UserID:             params.UserID,
+		CreatedAt:          now,
+		UpdatedAt:          now,
 	})
 	if err != nil {
 		return Club{}, err
@@ -110,25 +112,27 @@ func (r *Repository) GetForUser(ctx context.Context, userID string) ([]Club, err
 }
 
 type UpdateClubParams struct {
-	ID             string
-	Name           string
-	Balance        int
-	StartBalance   int
-	BaseFee        int
-	AutoTipEnabled bool
+	ID                 string
+	Name               string
+	Balance            int
+	StartBalance       int
+	BaseFee            int
+	AutoTipEnabled     bool
+	CouplesModeEnabled bool
 }
 
 func (r *Repository) Update(ctx context.Context, params UpdateClubParams) (Club, error) {
 	now := time.Now().UTC()
 
 	dbClub, err := r.queries.UpdateClub(ctx, db.UpdateClubParams{
-		ID:             params.ID,
-		Name:           params.Name,
-		Balance:        int32(params.Balance),
-		StartBalance:   int32(params.StartBalance),
-		BaseFee:        int32(params.BaseFee),
-		AutoTipEnabled: params.AutoTipEnabled,
-		UpdatedAt:      now,
+		ID:                 params.ID,
+		Name:               params.Name,
+		Balance:            int32(params.Balance),
+		StartBalance:       int32(params.StartBalance),
+		BaseFee:            int32(params.BaseFee),
+		AutoTipEnabled:     params.AutoTipEnabled,
+		CouplesModeEnabled: params.CouplesModeEnabled,
+		UpdatedAt:          now,
 	})
 	if errors.Is(err, sql.ErrNoRows) {
 		return Club{}, ErrNotFound
@@ -172,14 +176,15 @@ func (r *Repository) UpdateBalance(ctx context.Context, id string, balance int) 
 // dbClubToClub converts a db.Club to a club.Club
 func dbClubToClub(dbClub db.Club) Club {
 	return Club{
-		ID:             dbClub.ID,
-		Name:           dbClub.Name,
-		Balance:        int(dbClub.Balance),
-		StartBalance:   int(dbClub.StartBalance),
-		BaseFee:        int(dbClub.BaseFee),
-		AutoTipEnabled: dbClub.AutoTipEnabled,
-		UserID:         dbClub.UserID,
-		CreatedAt:      dbClub.CreatedAt,
-		UpdatedAt:      dbClub.UpdatedAt,
+		ID:                 dbClub.ID,
+		Name:               dbClub.Name,
+		Balance:            int(dbClub.Balance),
+		StartBalance:       int(dbClub.StartBalance),
+		BaseFee:            int(dbClub.BaseFee),
+		AutoTipEnabled:     dbClub.AutoTipEnabled,
+		CouplesModeEnabled: dbClub.CouplesModeEnabled,
+		UserID:             dbClub.UserID,
+		CreatedAt:          dbClub.CreatedAt,
+		UpdatedAt:          dbClub.UpdatedAt,
 	}
 }

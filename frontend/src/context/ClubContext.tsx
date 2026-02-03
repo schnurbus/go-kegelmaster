@@ -15,6 +15,7 @@ type Club = {
   start_balance?: number;
   base_fee: number;
   auto_tip_enabled: boolean;
+  couples_mode_enabled: boolean;
   user_id: string;
   created_at: string;
   updated_at: string;

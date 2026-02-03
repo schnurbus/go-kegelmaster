@@ -579,6 +579,20 @@ func (q *Queries) SumAmountByPlayer(ctx context.Context, playerID *string) (int6
 	return total, err
 }
 
+const sumPlayerBalanceDelta = `-- name: SumPlayerBalanceDelta :one
+SELECT COALESCE(SUM(amount), 0)::bigint as total
+FROM transactions
+WHERE player_id = $1 AND transaction_type IN ('base_fee', 'fee', 'deposit')
+`
+
+// SumPlayerBalanceDelta sums only transaction types that affect player balance: base_fee, fee, deposit. Tip does not change player balance.
+func (q *Queries) SumPlayerBalanceDelta(ctx context.Context, playerID *string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, sumPlayerBalanceDelta, playerID)
+	var total int64
+	err := row.Scan(&total)
+	return total, err
+}
+
 const sumTransactionsByClub = `-- name: SumTransactionsByClub :one
 SELECT COALESCE(SUM(
     CASE 

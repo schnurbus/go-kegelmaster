@@ -18,6 +18,7 @@ INSERT INTO clubs (
     start_balance,
     base_fee,
     auto_tip_enabled,
+    couples_mode_enabled,
     user_id,
     created_at,
     updated_at
@@ -30,21 +31,23 @@ INSERT INTO clubs (
     $6,
     $7,
     $8,
-    $9
+    $9,
+    $10
 )
-RETURNING id, name, balance, start_balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at
+RETURNING id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at
 `
 
 type CreateClubParams struct {
-	ID             string    `json:"id"`
-	Name           string    `json:"name"`
-	Balance        int32     `json:"balance"`
-	StartBalance   int32     `json:"start_balance"`
-	BaseFee        int32     `json:"base_fee"`
-	AutoTipEnabled bool      `json:"auto_tip_enabled"`
-	UserID         string    `json:"user_id"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ID                 string    `json:"id"`
+	Name               string    `json:"name"`
+	Balance            int32     `json:"balance"`
+	StartBalance       int32     `json:"start_balance"`
+	BaseFee            int32     `json:"base_fee"`
+	AutoTipEnabled     bool      `json:"auto_tip_enabled"`
+	CouplesModeEnabled bool      `json:"couples_mode_enabled"`
+	UserID             string    `json:"user_id"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
 }
 
 func (q *Queries) CreateClub(ctx context.Context, arg CreateClubParams) (Club, error) {
@@ -55,6 +58,7 @@ func (q *Queries) CreateClub(ctx context.Context, arg CreateClubParams) (Club, e
 		arg.StartBalance,
 		arg.BaseFee,
 		arg.AutoTipEnabled,
+		arg.CouplesModeEnabled,
 		arg.UserID,
 		arg.CreatedAt,
 		arg.UpdatedAt,
@@ -67,6 +71,7 @@ func (q *Queries) CreateClub(ctx context.Context, arg CreateClubParams) (Club, e
 		&i.StartBalance,
 		&i.BaseFee,
 		&i.AutoTipEnabled,
+		&i.CouplesModeEnabled,
 		&i.UserID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -85,7 +90,7 @@ func (q *Queries) DeleteClub(ctx context.Context, id string) error {
 }
 
 const getAllClubs = `-- name: GetAllClubs :many
-SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at FROM clubs
+SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at FROM clubs
 ORDER BY created_at DESC
 `
 
@@ -105,6 +110,7 @@ func (q *Queries) GetAllClubs(ctx context.Context) ([]Club, error) {
 			&i.StartBalance,
 			&i.BaseFee,
 			&i.AutoTipEnabled,
+			&i.CouplesModeEnabled,
 			&i.UserID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -123,7 +129,7 @@ func (q *Queries) GetAllClubs(ctx context.Context) ([]Club, error) {
 }
 
 const getClubByID = `-- name: GetClubByID :one
-SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at FROM clubs
+SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at FROM clubs
 WHERE id = $1
 `
 
@@ -137,6 +143,7 @@ func (q *Queries) GetClubByID(ctx context.Context, id string) (Club, error) {
 		&i.StartBalance,
 		&i.BaseFee,
 		&i.AutoTipEnabled,
+		&i.CouplesModeEnabled,
 		&i.UserID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -145,7 +152,7 @@ func (q *Queries) GetClubByID(ctx context.Context, id string) (Club, error) {
 }
 
 const getClubsByUserID = `-- name: GetClubsByUserID :many
-SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at FROM clubs
+SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at FROM clubs
 WHERE user_id = $1
 ORDER BY created_at DESC
 `
@@ -166,6 +173,7 @@ func (q *Queries) GetClubsByUserID(ctx context.Context, userID string) ([]Club, 
 			&i.StartBalance,
 			&i.BaseFee,
 			&i.AutoTipEnabled,
+			&i.CouplesModeEnabled,
 			&i.UserID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -184,7 +192,7 @@ func (q *Queries) GetClubsByUserID(ctx context.Context, userID string) ([]Club, 
 }
 
 const getClubsForUser = `-- name: GetClubsForUser :many
-SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at FROM clubs c
+SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at FROM clubs c
 WHERE c.user_id = $1
    OR EXISTS (
        SELECT 1 FROM players p
@@ -209,6 +217,7 @@ func (q *Queries) GetClubsForUser(ctx context.Context, userID string) ([]Club, e
 			&i.StartBalance,
 			&i.BaseFee,
 			&i.AutoTipEnabled,
+			&i.CouplesModeEnabled,
 			&i.UserID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -234,19 +243,21 @@ SET
     start_balance = $3,
     base_fee = $4,
     auto_tip_enabled = $5,
-    updated_at = $6
-WHERE id = $7
-RETURNING id, name, balance, start_balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at
+    couples_mode_enabled = $6,
+    updated_at = $7
+WHERE id = $8
+RETURNING id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at
 `
 
 type UpdateClubParams struct {
-	Name           string    `json:"name"`
-	Balance        int32     `json:"balance"`
-	StartBalance   int32     `json:"start_balance"`
-	BaseFee        int32     `json:"base_fee"`
-	AutoTipEnabled bool      `json:"auto_tip_enabled"`
-	UpdatedAt      time.Time `json:"updated_at"`
-	ID             string    `json:"id"`
+	Name               string    `json:"name"`
+	Balance            int32     `json:"balance"`
+	StartBalance       int32     `json:"start_balance"`
+	BaseFee            int32     `json:"base_fee"`
+	AutoTipEnabled     bool      `json:"auto_tip_enabled"`
+	CouplesModeEnabled bool      `json:"couples_mode_enabled"`
+	UpdatedAt          time.Time `json:"updated_at"`
+	ID                 string    `json:"id"`
 }
 
 func (q *Queries) UpdateClub(ctx context.Context, arg UpdateClubParams) (Club, error) {
@@ -256,6 +267,7 @@ func (q *Queries) UpdateClub(ctx context.Context, arg UpdateClubParams) (Club, e
 		arg.StartBalance,
 		arg.BaseFee,
 		arg.AutoTipEnabled,
+		arg.CouplesModeEnabled,
 		arg.UpdatedAt,
 		arg.ID,
 	)
@@ -267,6 +279,7 @@ func (q *Queries) UpdateClub(ctx context.Context, arg UpdateClubParams) (Club, e
 		&i.StartBalance,
 		&i.BaseFee,
 		&i.AutoTipEnabled,
+		&i.CouplesModeEnabled,
 		&i.UserID,
 		&i.CreatedAt,
 		&i.UpdatedAt,

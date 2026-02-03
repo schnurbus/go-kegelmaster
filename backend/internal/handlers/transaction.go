@@ -119,11 +119,12 @@ func (h *Handler) HandleGetTransaction(c fiber.Ctx) error {
 }
 
 type createTransactionRequest struct {
-	PlayerID        *string `json:"player_id,omitempty"`
-	TransactionType string  `json:"transaction_type"`
-	Amount          int     `json:"amount"`
-	Description     string  `json:"description,omitempty"`
-	TransactionDate *string `json:"transaction_date,omitempty"` // YYYY-MM-DD, optional
+	PlayerID        *string  `json:"player_id,omitempty"`
+	PlayerIDs       []string `json:"player_ids,omitempty"` // Paar-Modus: mehrere Spieler bei Einzahlung
+	TransactionType string   `json:"transaction_type"`
+	Amount          int      `json:"amount"`
+	Description     string   `json:"description,omitempty"`
+	TransactionDate *string  `json:"transaction_date,omitempty"` // YYYY-MM-DD, optional
 }
 
 func (r createTransactionRequest) validate() error {
@@ -143,14 +144,16 @@ func (r createTransactionRequest) validate() error {
 		return errors.New("Betrag muss positiv sein")
 	}
 
-	// Description is mandatory
-	if strings.TrimSpace(r.Description) == "" {
-		return errors.New("Beschreibung ist erforderlich")
-	}
-
-	// Deposits and tips require a player
-	if (txType == transaction.TransactionTypeDeposit || txType == transaction.TransactionTypeTip) && r.PlayerID == nil {
-		return errors.New("Einzahlungen und Trinkgeld benötigen einen Spieler")
+	// Deposits and tips require a player (single or multiple for deposit in couples mode)
+	if txType == transaction.TransactionTypeDeposit || txType == transaction.TransactionTypeTip {
+		hasSingle := r.PlayerID != nil
+		hasMultiple := len(r.PlayerIDs) >= 2
+		if !hasSingle && !hasMultiple {
+			return errors.New("Einzahlungen und Trinkgeld benötigen einen Spieler (oder mindestens zwei bei Paar-Modus)")
+		}
+		if txType == transaction.TransactionTypeTip && hasMultiple {
+			return errors.New("Trinkgeld erlaubt nur einen Spieler")
+		}
 	}
 
 	// If transaction_date is set, must be valid YYYY-MM-DD
@@ -202,45 +205,52 @@ func (h *Handler) HandleCreateTransaction(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 
-	// Get club to check auto-tip setting
+	// Get club to check auto-tip and couples-mode setting
 	clubEntity, err := h.ClubRepo.GetByID(ctx, clubID)
 	if err != nil {
 		slog.Error("get club", "error", err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
-	// Create transaction(s) - may create 2 if auto-tip splits deposit
 	txType := transaction.TransactionType(req.TransactionType)
 	txDate := time.Now().UTC().Truncate(24 * time.Hour)
 	if req.TransactionDate != nil && strings.TrimSpace(*req.TransactionDate) != "" {
 		if parsed, err := time.Parse("2006-01-02", *req.TransactionDate); err == nil {
-			// Noon UTC so calendar day is preserved when stored as DATE
 			txDate = time.Date(parsed.Year(), parsed.Month(), parsed.Day(), 12, 0, 0, 0, time.UTC)
 		}
 	}
-	params := transaction.CreateTransactionParams{
-		ClubID:           clubID,
-		PlayerID:         req.PlayerID,
-		TransactionType:  txType,
-		Amount:           req.Amount,
-		Description:      strings.TrimSpace(req.Description),
-		TransactionDate:  txDate,
-	}
-
-	// Convert expense amounts to negative (user enters positive, backend stores negative)
-	if txType == transaction.TransactionTypeExpense {
-		params.Amount = -params.Amount
-	}
 
 	var transactions []transaction.Transaction
-	if txType == transaction.TransactionTypeDeposit {
-		// Use auto-tip logic for deposits
-		transactions, err = h.TransactionRepo.CreateWithAutoTip(ctx, params, clubEntity.AutoTipEnabled)
+	if txType == transaction.TransactionTypeDeposit && clubEntity.CouplesModeEnabled && len(req.PlayerIDs) >= 2 {
+		// Paar-Modus: Einzahlung auf mehrere Spieler verteilen
+		transactions, err = h.TransactionRepo.CreateDepositCouplesMode(ctx, clubID, req.PlayerIDs, req.Amount, strings.TrimSpace(req.Description), txDate, clubEntity.AutoTipEnabled)
 	} else {
-		// Regular creation for tips and expenses
-		tx, err := h.TransactionRepo.Create(ctx, params)
-		if err == nil {
-			transactions = []transaction.Transaction{*tx}
+		// Single player or non-couples: require player_id for deposit/tip
+		if (txType == transaction.TransactionTypeDeposit || txType == transaction.TransactionTypeTip) && req.PlayerID == nil {
+			return fiber.NewError(fiber.StatusBadRequest, "Bitte einen Spieler auswählen (oder bei Paar-Modus mindestens zwei)")
+		}
+		if txType == transaction.TransactionTypeDeposit && len(req.PlayerIDs) >= 2 && !clubEntity.CouplesModeEnabled {
+			return fiber.NewError(fiber.StatusBadRequest, "Paar-Modus ist für diesen Club nicht aktiviert")
+		}
+		params := transaction.CreateTransactionParams{
+			ClubID:           clubID,
+			PlayerID:         req.PlayerID,
+			TransactionType:  txType,
+			Amount:           req.Amount,
+			Description:      strings.TrimSpace(req.Description),
+			TransactionDate:  txDate,
+		}
+		if txType == transaction.TransactionTypeExpense {
+			params.Amount = -params.Amount
+		}
+		if txType == transaction.TransactionTypeDeposit {
+			transactions, err = h.TransactionRepo.CreateWithAutoTip(ctx, params, clubEntity.AutoTipEnabled)
+		} else {
+			var tx *transaction.Transaction
+			tx, err = h.TransactionRepo.Create(ctx, params)
+			if err == nil {
+				transactions = []transaction.Transaction{*tx}
+			}
 		}
 	}
 

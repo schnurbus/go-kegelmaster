@@ -96,6 +96,12 @@ WHERE club_id = $1;
 -- name: SumAmountByPlayer :one
 SELECT COALESCE(SUM(amount), 0)::bigint as total FROM transactions WHERE player_id = $1;
 
+-- SumPlayerBalanceDelta sums only transaction types that affect player balance: base_fee, fee, deposit. Tip does not change player balance.
+-- name: SumPlayerBalanceDelta :one
+SELECT COALESCE(SUM(amount), 0)::bigint as total
+FROM transactions
+WHERE player_id = $1 AND transaction_type IN ('base_fee', 'fee', 'deposit');
+
 -- name: SumAmountByClub :one
 SELECT COALESCE(SUM(amount), 0)::bigint as total FROM transactions WHERE club_id = $1;
 

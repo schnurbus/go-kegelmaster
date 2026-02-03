@@ -27,6 +27,7 @@ function ClubEditPage() {
   const [startBalance, setStartBalance] = React.useState("");
   const [baseFee, setBaseFee] = React.useState("");
   const [autoTipEnabled, setAutoTipEnabled] = React.useState(true);
+  const [couplesModeEnabled, setCouplesModeEnabled] = React.useState(false);
   const [clubUserId, setClubUserId] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isSaving, setIsSaving] = React.useState(false);
@@ -55,6 +56,7 @@ function ClubEditPage() {
       setStartBalance(data.start_balance != null ? (data.start_balance / 100).toFixed(2) : "0");
       setBaseFee(data.base_fee != null ? (data.base_fee / 100).toFixed(2) : "0");
       setAutoTipEnabled(data.auto_tip_enabled ?? true);
+      setCouplesModeEnabled(data.couples_mode_enabled ?? false);
       setClubUserId(data.user_id ?? null);
     } catch (error) {
       console.error("Error fetching club:", error);
@@ -106,6 +108,7 @@ function ClubEditPage() {
           start_balance: startBalanceCents,
           base_fee: baseFeeCents,
           auto_tip_enabled: autoTipEnabled,
+          couples_mode_enabled: couplesModeEnabled,
         }),
       });
 
@@ -232,6 +235,20 @@ function ClubEditPage() {
               </div>
               <p className="text-sm text-muted-foreground">
                 Überschüssige Einzahlungen werden automatisch als Trinkgeld verbucht.
+              </p>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="club-couples-mode"
+                  checked={couplesModeEnabled}
+                  onCheckedChange={(checked) => setCouplesModeEnabled(checked === true)}
+                  disabled={isSaving}
+                />
+                <Label htmlFor="club-couples-mode" className="text-sm font-normal cursor-pointer">
+                  Paar-Modus aktivieren
+                </Label>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Bei Einzahlungen können mehrere Spieler ausgewählt werden; der Betrag wird gleichmäßig verteilt.
               </p>
               <div className="flex flex-wrap gap-2 pt-4">
                 <Button type="submit" disabled={isSaving}>

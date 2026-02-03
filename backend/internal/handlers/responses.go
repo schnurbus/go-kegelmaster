@@ -30,28 +30,30 @@ func UserResponseFromEntity(u user.User) UserResponse {
 }
 
 type ClubResponse struct {
-	ID             string    `json:"id"`
-	Name           string    `json:"name"`
-	Balance        int       `json:"balance"`
-	StartBalance   int       `json:"start_balance"`
-	BaseFee        int       `json:"base_fee"`
-	AutoTipEnabled bool      `json:"auto_tip_enabled"`
-	UserID         string    `json:"user_id"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ID                 string    `json:"id"`
+	Name               string    `json:"name"`
+	Balance            int       `json:"balance"`
+	StartBalance       int       `json:"start_balance"`
+	BaseFee            int       `json:"base_fee"`
+	AutoTipEnabled     bool      `json:"auto_tip_enabled"`
+	CouplesModeEnabled bool      `json:"couples_mode_enabled"`
+	UserID             string    `json:"user_id"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
 }
 
 func ClubResponseFromEntity(c club.Club) ClubResponse {
 	return ClubResponse{
-		ID:             c.ID,
-		Name:           c.Name,
-		Balance:        c.Balance,
-		StartBalance:   c.StartBalance,
-		BaseFee:        c.BaseFee,
-		AutoTipEnabled: c.AutoTipEnabled,
-		UserID:         c.UserID,
-		CreatedAt:      c.CreatedAt,
-		UpdatedAt:      c.UpdatedAt,
+		ID:                 c.ID,
+		Name:               c.Name,
+		Balance:            c.Balance,
+		StartBalance:       c.StartBalance,
+		BaseFee:            c.BaseFee,
+		AutoTipEnabled:     c.AutoTipEnabled,
+		CouplesModeEnabled: c.CouplesModeEnabled,
+		UserID:             c.UserID,
+		CreatedAt:          c.CreatedAt,
+		UpdatedAt:          c.UpdatedAt,
 	}
 }
 

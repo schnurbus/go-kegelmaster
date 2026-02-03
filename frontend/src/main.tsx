@@ -23,6 +23,7 @@ import RequireAuth from "./components/RequireAuth.tsx";
 import { AuthProvider } from "./context/AuthContext.tsx";
 import { ClubProvider } from "./context/ClubContext.tsx";
 import { ThemeProvider } from "./components/theme-provider.tsx";
+import { Toaster } from "./components/ui/sonner.tsx";
 import "./index.css";
 
 const router = createBrowserRouter([
@@ -61,6 +62,7 @@ createRoot(document.getElementById("root")!).render(
       <AuthProvider>
         <ClubProvider>
           <RouterProvider router={router} />
+          <Toaster richColors position="top-center" />
         </ClubProvider>
       </AuthProvider>
     </ThemeProvider>
