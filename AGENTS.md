@@ -170,6 +170,10 @@ func TestRepository_Create(t *testing.T) {
 - `JWT_SECRET`: JWT signing secret
 - `JWT_TTL`: Token time-to-live
 
+### Security / Production
+- **JWT_SECRET:** In Production zwingend setzen (kein Default „dev-secret-change-me“ verwenden). Fehlt das Secret, beendet sich die App beim Start.
+- **PUBLIC_BASE_URL:** Muss auf die vertrauenswürdige App-Origin zeigen (z. B. Frontend-URL). Wird u. a. für Passwort-Reset-Links in E-Mails verwendet. Bei Deployment prüfen, dass keine fremde/Phishing-Domain konfiguriert ist.
+
 ### Config Structure
 - Configuration in `internal/config/`
 - Use struct tags for env var mapping

@@ -29,6 +29,11 @@ import (
 func main() {
 	cfg := config.Load()
 
+	if cfg.AppEnv == "production" && (cfg.JWTSecret == "" || cfg.JWTSecret == "dev-secret-change-me") {
+		slog.Error("JWT_SECRET must be set in production")
+		os.Exit(1)
+	}
+
 	slog.Info("starting backend service", "env", cfg.AppEnv, "port", cfg.HTTPPort)
 
 	db, err := database.New(cfg.DatabaseURL)

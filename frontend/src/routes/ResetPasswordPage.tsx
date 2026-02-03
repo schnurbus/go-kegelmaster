@@ -139,6 +139,7 @@ function ResetPasswordPage() {
                   type="password"
                   autoComplete="new-password"
                   minLength={8}
+                  maxLength={128}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -154,6 +155,7 @@ function ResetPasswordPage() {
                   type="password"
                   autoComplete="new-password"
                   minLength={8}
+                  maxLength={128}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required

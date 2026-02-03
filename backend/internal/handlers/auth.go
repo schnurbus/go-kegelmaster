@@ -14,6 +14,8 @@ import (
 	"github.com/schnurbus/go-kegelmaster/backend/internal/user"
 )
 
+const maxPasswordLength = 128
+
 type registerRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
@@ -28,6 +30,9 @@ func (r registerRequest) validate() error {
 	}
 	if len(password) < 8 {
 		return errors.New("Passwort muss mindestens 8 Zeichen lang sein")
+	}
+	if len(password) > maxPasswordLength {
+		return errors.New("Passwort darf höchstens 128 Zeichen haben")
 	}
 	return nil
 }
@@ -99,6 +104,9 @@ func (h *Handler) HandleLogin(c fiber.Ctx) error {
 
 	if strings.TrimSpace(req.Email) == "" || strings.TrimSpace(req.Password) == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "E-Mail und Passwort werden benötigt")
+	}
+	if len(strings.TrimSpace(req.Password)) > maxPasswordLength {
+		return fiber.NewError(fiber.StatusBadRequest, "Passwort darf höchstens 128 Zeichen haben")
 	}
 
 	ctx, cancel := h.RequestContext()
@@ -219,6 +227,9 @@ func (h *Handler) HandleResetPassword(c fiber.Ctx) error {
 	}
 	if len(password) < 8 {
 		return fiber.NewError(fiber.StatusBadRequest, "Passwort muss mindestens 8 Zeichen lang sein")
+	}
+	if len(password) > maxPasswordLength {
+		return fiber.NewError(fiber.StatusBadRequest, "Passwort darf höchstens 128 Zeichen haben")
 	}
 
 	ctx, cancel := h.RequestContext()

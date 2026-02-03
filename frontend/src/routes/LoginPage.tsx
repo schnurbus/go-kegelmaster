@@ -157,6 +157,7 @@ function LoginPage() {
                   type="password"
                   autoComplete="current-password"
                   minLength={8}
+                  maxLength={128}
                   value={form.password}
                   onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
                   required
