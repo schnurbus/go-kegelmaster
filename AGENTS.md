@@ -33,6 +33,7 @@ This file contains essential information for agentic coding agents working in th
 - **Build**: `make frontend-build` or `cd frontend && npm run build`
 - **Lint**: `cd frontend && npm run lint` (ESLint for TypeScript/React)
 - **Preview**: `cd frontend && npm run preview` (preview production build)
+- **E2E (Playwright)**: `cd frontend && npm run e2e` (Backend + Frontend müssen laufen; BASE_URL optional, Default localhost:5173)
 
 ### Docker Commands
 - **Start all services**: `make compose-up` (PostgreSQL + backend + frontend)
