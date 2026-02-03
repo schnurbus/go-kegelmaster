@@ -48,8 +48,9 @@ func (h *Handler) UserFromCookie(ctx context.Context, c fiber.Ctx) (user.User, e
 }
 
 // IssueAuthCookie sets the authentication cookie for the user.
-func (h *Handler) IssueAuthCookie(c fiber.Ctx, userID string) error {
-	token, err := h.AuthSvc.GenerateToken(userID)
+// When rememberMe is false, the cookie has no Expires (session cookie); when true, it lasts RememberMeDays.
+func (h *Handler) IssueAuthCookie(c fiber.Ctx, userID string, rememberMe bool) error {
+	token, err := h.AuthSvc.GenerateToken(userID, rememberMe)
 	if err != nil {
 		return err
 	}
@@ -59,15 +60,19 @@ func (h *Handler) IssueAuthCookie(c fiber.Ctx, userID string) error {
 		sameSite = fiber.CookieSameSiteStrictMode
 	}
 
-	c.Cookie(&fiber.Cookie{
+	cookie := &fiber.Cookie{
 		Name:     authCookieName,
 		Value:    token,
 		HTTPOnly: true,
 		Secure:   h.Config.AppEnv == "production",
-		Expires:  time.Now().Add(h.AuthSvc.TokenTTL()),
 		SameSite: sameSite,
 		Path:     "/",
-	})
+	}
+	if rememberMe {
+		cookie.Expires = time.Now().Add(h.AuthSvc.TokenTTL(true))
+	}
+	// when !rememberMe, Expires is zero → session cookie (browser discards on close)
+	c.Cookie(cookie)
 
 	h.SetCSRFCookie(c, uuid.NewString())
 	return nil

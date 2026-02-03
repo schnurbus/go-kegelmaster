@@ -2,12 +2,15 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/cors"
+	"github.com/gofiber/fiber/v3/middleware/limiter"
 
 	"github.com/schnurbus/go-kegelmaster/backend/internal/auth"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
@@ -17,6 +20,7 @@ import (
 	"github.com/schnurbus/go-kegelmaster/backend/internal/gameday"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/handlers"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/invitation"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/passwordreset"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/penaltytype"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/permission"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/player"
@@ -37,8 +41,9 @@ type Dependencies struct {
 	TransactionRepo *transaction.Repository
 	AuthService     *auth.Service
 	PermissionCheck *permission.Checker
-	InvitationRepo  *invitation.Repository
-	EmailService    *email.Service
+	InvitationRepo    *invitation.Repository
+	EmailService      *email.Service
+	PasswordResetRepo *passwordreset.Repository
 }
 
 // Server wraps the Fiber application and its dependencies.
@@ -72,7 +77,16 @@ func New(cfg config.Config, deps Dependencies) *Server {
 		panic("game day repository dependency is required")
 	}
 
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		ErrorHandler: func(c fiber.Ctx, err error) error {
+			code := fiber.StatusInternalServerError
+			var e *fiber.Error
+			if errors.As(err, &e) {
+				code = e.Code
+			}
+			return c.Status(code).JSON(fiber.Map{"message": err.Error()})
+		},
+	})
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:     splitAndTrim(cfg.CORSOrigins),
 		AllowHeaders:     []string{"Content-Type", "X-CSRF-Token"},
@@ -90,8 +104,9 @@ func New(cfg config.Config, deps Dependencies) *Server {
 		TransactionRepo: deps.TransactionRepo,
 		AuthService:     deps.AuthService,
 		PermissionCheck: deps.PermissionCheck,
-		InvitationRepo:  deps.InvitationRepo,
-		EmailService:    deps.EmailService,
+		InvitationRepo:    deps.InvitationRepo,
+		EmailService:      deps.EmailService,
+		PasswordResetRepo: deps.PasswordResetRepo,
 	})
 
 	server := &Server{
@@ -125,6 +140,11 @@ func (s *Server) registerRoutes() {
 	authGroup.Post("/register", s.handlers.HandleRegister)
 	authGroup.Post("/login", s.handlers.HandleLogin)
 	authGroup.Post("/logout", s.handlers.HandleLogout)
+	authGroup.Post("/forgot-password", limiter.New(limiter.Config{
+		Max:        5,
+		Expiration: 15 * time.Minute,
+	}), s.handlers.HandleForgotPassword)
+	authGroup.Post("/reset-password", s.handlers.HandleResetPassword)
 
 	clubsGroup := api.Group("/clubs")
 	clubsGroup.Get("/", s.handlers.HandleGetClubs)

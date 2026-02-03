@@ -25,6 +25,7 @@ type Querier interface {
 	CreateGameDayFee(ctx context.Context, arg CreateGameDayFeeParams) (GameDayFee, error)
 	// ==================== PARTICIPANTS ====================
 	CreateGameDayParticipant(ctx context.Context, arg CreateGameDayParticipantParams) (GameDayParticipant, error)
+	CreatePasswordResetToken(ctx context.Context, arg CreatePasswordResetTokenParams) (PasswordResetToken, error)
 	CreatePenaltyType(ctx context.Context, arg CreatePenaltyTypeParams) (PenaltyType, error)
 	CreatePlayer(ctx context.Context, arg CreatePlayerParams) (Player, error)
 	CreatePlayerInvitation(ctx context.Context, arg CreatePlayerInvitationParams) (PlayerInvitation, error)
@@ -43,6 +44,8 @@ type Querier interface {
 	DeleteGameDayFee(ctx context.Context, id string) error
 	DeleteGameDayFeeByParticipantAndType(ctx context.Context, arg DeleteGameDayFeeByParticipantAndTypeParams) error
 	DeleteGameDayParticipant(ctx context.Context, arg DeleteGameDayParticipantParams) error
+	DeletePasswordResetToken(ctx context.Context, token string) error
+	DeletePasswordResetTokensByUserID(ctx context.Context, userID string) error
 	DeletePenaltyType(ctx context.Context, arg DeletePenaltyTypeParams) error
 	DeletePlayer(ctx context.Context, id string) error
 	DeleteRole(ctx context.Context, id string) error
@@ -66,6 +69,7 @@ type Querier interface {
 	GetMaxCompetitionDisplayOrderByClubID(ctx context.Context, clubID string) (int32, error)
 	GetMaxDisplayOrderByClubID(ctx context.Context, clubID string) (interface{}, error)
 	GetParticipantByGameDayAndPlayer(ctx context.Context, arg GetParticipantByGameDayAndPlayerParams) (GameDayParticipant, error)
+	GetPasswordResetTokenByToken(ctx context.Context, token string) (PasswordResetToken, error)
 	GetPenaltyTypeByID(ctx context.Context, id string) (PenaltyType, error)
 	GetPenaltyTypesByClubID(ctx context.Context, clubID string) ([]PenaltyType, error)
 	GetPlayerByID(ctx context.Context, id string) (Player, error)
@@ -100,6 +104,7 @@ type Querier interface {
 	UpdatePlayerBalance(ctx context.Context, arg UpdatePlayerBalanceParams) error
 	UpdateRole(ctx context.Context, arg UpdateRoleParams) (Role, error)
 	UpdateTransaction(ctx context.Context, arg UpdateTransactionParams) (Transaction, error)
+	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error
 	UpsertGameDayCompetitionValue(ctx context.Context, arg UpsertGameDayCompetitionValueParams) (GameDayCompetitionValue, error)
 	UpsertGameDayFee(ctx context.Context, arg UpsertGameDayFeeParams) (GameDayFee, error)
 }

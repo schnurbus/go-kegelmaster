@@ -30,6 +30,7 @@ type AuthContextValue = {
 type AuthCredentials = {
   email: string;
   password: string;
+  remember_me?: boolean;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -191,6 +192,12 @@ async function extractError(resp: Response) {
     }
     return data?.error ?? data?.message ?? resp.statusText;
   } catch {
+    try {
+      const text = await resp.text();
+      if (text.trim()) return text;
+    } catch {
+      // ignore
+    }
     return resp.statusText;
   }
 }

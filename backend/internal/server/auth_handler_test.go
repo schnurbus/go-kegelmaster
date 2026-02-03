@@ -298,7 +298,7 @@ func TestCurrentUser_Success(t *testing.T) {
 	email := "me@example.com"
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}

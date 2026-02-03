@@ -76,6 +76,13 @@ func (r *Repository) GetByID(ctx context.Context, id string) (User, error) {
 	return dbUserToUser(dbUser), nil
 }
 
+func (r *Repository) UpdatePassword(ctx context.Context, userID string, passwordHash string) error {
+	return r.queries.UpdateUserPassword(ctx, db.UpdateUserPasswordParams{
+		ID:           userID,
+		PasswordHash: passwordHash,
+	})
+}
+
 // dbUserToUser converts a db.User to a user.User
 func dbUserToUser(dbUser db.User) User {
 	return User{

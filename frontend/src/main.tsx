@@ -17,6 +17,8 @@ import GameDayDetailPage from "./routes/GameDayDetailPage.tsx";
 import TransactionsPage from "./routes/TransactionsPage.tsx";
 import ClubEditPage from "./routes/ClubEditPage.tsx";
 import InvitationPage from "./routes/InvitationPage.tsx";
+import ForgotPasswordPage from "./routes/ForgotPasswordPage.tsx";
+import ResetPasswordPage from "./routes/ResetPasswordPage.tsx";
 import RequireAuth from "./components/RequireAuth.tsx";
 import { AuthProvider } from "./context/AuthContext.tsx";
 import { ClubProvider } from "./context/ClubContext.tsx";
@@ -30,6 +32,8 @@ const router = createBrowserRouter([
       { index: true, element: <LandingPage /> },
       { path: "/login", element: <LoginPage /> },
       { path: "/register", element: <RegisterPage /> },
+      { path: "/forgot-password", element: <ForgotPasswordPage /> },
+      { path: "/reset-password", element: <ResetPasswordPage /> },
       { path: "/invite/:token", element: <InvitationPage /> },
       {
         element: <RequireAuth />,

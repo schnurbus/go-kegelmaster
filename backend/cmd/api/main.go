@@ -16,6 +16,7 @@ import (
 	"github.com/schnurbus/go-kegelmaster/backend/internal/email"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/gameday"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/invitation"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/passwordreset"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/penaltytype"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/permission"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/player"
@@ -27,6 +28,11 @@ import (
 
 func main() {
 	cfg := config.Load()
+
+	if cfg.AppEnv == "production" && (cfg.JWTSecret == "" || cfg.JWTSecret == "dev-secret-change-me") {
+		slog.Error("JWT_SECRET must be set in production")
+		os.Exit(1)
+	}
 
 	slog.Info("starting backend service", "env", cfg.AppEnv, "port", cfg.HTTPPort)
 
@@ -45,10 +51,11 @@ func main() {
 	competitionRepo := competition.NewRepository(db)
 	gameDayRepo := gameday.NewRepository(db)
 	transactionRepo := transaction.NewRepository(db, playerRepo, clubRepo, gameDayRepo)
-	authSvc := auth.NewService(cfg.JWTSecret, cfg.TokenTTLMin)
+	authSvc := auth.NewService(cfg.JWTSecret, cfg.TokenTTLMin, cfg.RememberMeDays)
 	permissionCheck := permission.NewChecker(clubRepo, roleRepo, playerRepo)
 	invitationRepo := invitation.NewRepository(db, playerRepo)
 	emailSvc := email.NewService(cfg.ResendAPIKey, cfg.ResendFromEmail)
+	passwordResetRepo := passwordreset.NewRepository(db)
 
 	srv := server.New(cfg, server.Dependencies{
 		UserRepo:        userRepo,
@@ -61,8 +68,9 @@ func main() {
 		TransactionRepo: transactionRepo,
 		AuthService:     authSvc,
 		PermissionCheck: permissionCheck,
-		InvitationRepo:  invitationRepo,
-		EmailService:    emailSvc,
+		InvitationRepo:    invitationRepo,
+		EmailService:      emailSvc,
+		PasswordResetRepo: passwordResetRepo,
 	})
 
 	errCh := make(chan error, 1)

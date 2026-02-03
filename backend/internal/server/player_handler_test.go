@@ -20,7 +20,7 @@ func TestHandleCreatePlayer_Success(t *testing.T) {
 	roleID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -78,7 +78,7 @@ func TestHandleCreatePlayer_WithUserID(t *testing.T) {
 	roleID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -134,7 +134,7 @@ func TestHandleCreatePlayer_NotOwnerNoPermission(t *testing.T) {
 	clubID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -180,7 +180,7 @@ func TestHandleCreatePlayer_MissingName(t *testing.T) {
 	roleID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -220,7 +220,7 @@ func TestHandleCreatePlayer_MissingRole(t *testing.T) {
 	clubID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -262,7 +262,7 @@ func TestHandleGetPlayers_Success(t *testing.T) {
 	playerID2 := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -318,7 +318,7 @@ func TestHandleGetPlayers_NotOwnerNoPermission(t *testing.T) {
 	clubID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -363,7 +363,7 @@ func TestHandleGetPlayer_Success(t *testing.T) {
 	playerID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -419,7 +419,7 @@ func TestHandleGetPlayer_NotOwnerNoPermission(t *testing.T) {
 	playerID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -465,7 +465,7 @@ func TestHandleGetPlayer_WrongClub(t *testing.T) {
 	playerID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -512,7 +512,7 @@ func TestHandleUpdatePlayer_Success(t *testing.T) {
 	roleID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -575,7 +575,7 @@ func TestHandleUpdatePlayer_MissingRole(t *testing.T) {
 	roleID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -623,7 +623,7 @@ func TestHandleUpdatePlayer_NotOwnerNoPermission(t *testing.T) {
 	playerID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -670,7 +670,7 @@ func TestHandleUpdatePlayer_WrongClub(t *testing.T) {
 	playerID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -717,7 +717,7 @@ func TestHandleDeletePlayer_Success(t *testing.T) {
 	playerID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -775,7 +775,7 @@ func TestHandleDeletePlayer_NotOwnerNoPermission(t *testing.T) {
 	playerID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -821,7 +821,7 @@ func TestHandleDeletePlayer_WrongClub(t *testing.T) {
 	playerID := uuid.NewString()
 	now := time.Now().UTC()
 
-	token, err := authSvc.GenerateToken(userID)
+	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}

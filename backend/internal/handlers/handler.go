@@ -8,6 +8,7 @@ import (
 	"github.com/schnurbus/go-kegelmaster/backend/internal/email"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/gameday"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/invitation"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/passwordreset"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/penaltytype"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/permission"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/player"
@@ -31,6 +32,7 @@ type Handler struct {
 	PermissionChecker *permission.Checker
 	InvitationRepo    *invitation.Repository
 	EmailSvc          *email.Service
+	PasswordResetRepo *passwordreset.Repository
 }
 
 // NewHandler creates a new handler instance with the given dependencies.
@@ -49,6 +51,7 @@ func NewHandler(cfg config.Config, deps Dependencies) *Handler {
 		PermissionChecker: deps.PermissionCheck,
 		InvitationRepo:    deps.InvitationRepo,
 		EmailSvc:          deps.EmailService,
+		PasswordResetRepo: deps.PasswordResetRepo,
 	}
 }
 
@@ -66,4 +69,5 @@ type Dependencies struct {
 	PermissionCheck *permission.Checker
 	InvitationRepo  *invitation.Repository
 	EmailService    *email.Service
+	PasswordResetRepo *passwordreset.Repository
 }
