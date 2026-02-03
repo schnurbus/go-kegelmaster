@@ -15,6 +15,7 @@ import CompetitionsPage from "./routes/CompetitionsPage.tsx";
 import GameDaysPage from "./routes/GameDaysPage.tsx";
 import GameDayDetailPage from "./routes/GameDayDetailPage.tsx";
 import TransactionsPage from "./routes/TransactionsPage.tsx";
+import ClubEditPage from "./routes/ClubEditPage.tsx";
 import InvitationPage from "./routes/InvitationPage.tsx";
 import RequireAuth from "./components/RequireAuth.tsx";
 import { AuthProvider } from "./context/AuthContext.tsx";
@@ -43,6 +44,7 @@ const router = createBrowserRouter([
           { path: "/app/gamedays", element: <GameDaysPage /> },
           { path: "/app/gamedays/:id", element: <GameDayDetailPage /> },
           { path: "/app/transactions", element: <TransactionsPage /> },
+          { path: "/app/club/:clubId", element: <ClubEditPage /> },
         ],
       },
     ],

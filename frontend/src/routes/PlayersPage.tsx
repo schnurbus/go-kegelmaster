@@ -162,6 +162,7 @@ function PlayersPage() {
             onDelete={handleDelete}
             onCreate={handleCreate}
             isLoading={isLoading}
+            clubId={activeClub?.id}
           />
         </div>
       </div>

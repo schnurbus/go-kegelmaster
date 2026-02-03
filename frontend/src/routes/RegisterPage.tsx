@@ -73,7 +73,7 @@ function RegisterPage() {
     setIsSubmitting(true);
     try {
       await register(form);
-      
+      toast.success("Account erstellt");
       // If there's an invite token, accept the invitation
       if (inviteToken) {
         try {
@@ -92,7 +92,9 @@ function RegisterPage() {
         navigate("/app", { replace: true });
       }
     } catch (err) {
-      setError((err as Error).message);
+      const message = (err as Error).message;
+      setError(message);
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }

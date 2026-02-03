@@ -25,55 +25,58 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 
+import { Link } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
+import { useClub } from "@/context/ClubContext"
 
 function useDashboardData() {
   const { user } = useAuth()
-  
+  const { activeClub } = useClub()
+
+  const navMain = [
+    {
+      title: "Dashboard",
+      url: "/app",
+      icon: LayoutDashboardIcon,
+    },
+    {
+      title: "Statistiken",
+      url: "#",
+      icon: BarChartIcon,
+    },
+    {
+      title: "Spieltage",
+      url: "/app/gamedays",
+      icon: CalendarIcon,
+    },
+    {
+      title: "Spieler",
+      url: "/app/players",
+      icon: UsersIcon,
+    },
+    {
+      title: "Transaktionen",
+      url: "/app/transactions",
+      icon: ReceiptIcon,
+    },
+  ]
+
   return {
     user: {
       name: user?.email?.split("@")[0] || "User",
       email: user?.email || "",
       avatar: "",
     },
-    navMain: [
-      {
-        title: "Dashboard",
-        url: "/app",
-        icon: LayoutDashboardIcon,
-      },
-      {
-        title: "Statistiken",
-        url: "#",
-        icon: BarChartIcon,
-      },
-      {
-        title: "Spieltage",
-        url: "/app/gamedays",
-        icon: CalendarIcon,
-      },
-      // {
-      //   title: "Klubs",
-      //   url: "#",
-      //   icon: FolderIcon,
-      // },
-      {
-        title: "Spieler",
-        url: "/app/players",
-        icon: UsersIcon,
-      },
-      {
-        title: "Transaktionen",
-        url: "/app/transactions",
-        icon: ReceiptIcon,
-      },
-    ],
+    navMain,
+    activeClub,
     navClouds: [
       {
         title: "Capture",
@@ -197,6 +200,22 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
+        {data.activeClub && (
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton tooltip="Club bearbeiten" asChild>
+                    <Link to={`/app/club/${data.activeClub.id}`}>
+                      <SettingsIcon />
+                      <span>Club bearbeiten</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
         <NavSecondary items={data.management} />
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>

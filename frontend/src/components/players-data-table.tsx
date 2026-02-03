@@ -55,6 +55,41 @@ import { Badge } from "@/components/ui/badge";
 import type { Player, Role } from "@/types/player";
 import { formatCentsToEuro } from "@/types/player";
 
+const PLAYERS_STORAGE_KEY_PREFIX = "kegelmaster_players_";
+
+type PlayersStorage = {
+  pageIndex?: number;
+  pageSize?: number;
+  sorting?: SortingState;
+  roleFilter?: string;
+  balanceFilter?: string;
+};
+
+function loadPlayersStorage(clubId: string): Partial<PlayersStorage> {
+  try {
+    const raw = localStorage.getItem(PLAYERS_STORAGE_KEY_PREFIX + clubId);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Partial<PlayersStorage>;
+    return {
+      pageIndex: typeof parsed.pageIndex === "number" && parsed.pageIndex >= 0 ? parsed.pageIndex : undefined,
+      pageSize: typeof parsed.pageSize === "number" && parsed.pageSize >= 1 ? parsed.pageSize : undefined,
+      sorting: Array.isArray(parsed.sorting) ? parsed.sorting : undefined,
+      roleFilter: typeof parsed.roleFilter === "string" ? parsed.roleFilter : undefined,
+      balanceFilter: typeof parsed.balanceFilter === "string" ? parsed.balanceFilter : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
+function savePlayersStorage(clubId: string, data: PlayersStorage) {
+  try {
+    localStorage.setItem(PLAYERS_STORAGE_KEY_PREFIX + clubId, JSON.stringify(data));
+  } catch {
+    // ignore
+  }
+}
+
 type PlayersDataTableProps = {
   players: Player[];
   roles: Role[];
@@ -63,6 +98,7 @@ type PlayersDataTableProps = {
   onDelete: (player: Player) => void;
   onCreate: () => void;
   isLoading?: boolean;
+  clubId?: string;
 };
 
 export function PlayersDataTable({
@@ -73,9 +109,12 @@ export function PlayersDataTable({
   onDelete,
   onCreate,
   isLoading = false,
+  clubId,
 }: PlayersDataTableProps) {
   const navigate = useNavigate();
-  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [sorting, setSorting] = React.useState<SortingState>([
+    { id: "name", desc: false },
+  ]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   );
@@ -87,6 +126,27 @@ export function PlayersDataTable({
   });
   const [roleFilter, setRoleFilter] = React.useState<string>("all");
   const [balanceFilter, setBalanceFilter] = React.useState<string>("all");
+
+  React.useEffect(() => {
+    if (!clubId) return;
+    const stored = loadPlayersStorage(clubId);
+    if (stored.sorting !== undefined) setSorting(stored.sorting);
+    if (stored.pageIndex !== undefined) setPagination((p) => ({ ...p, pageIndex: stored.pageIndex! }));
+    if (stored.pageSize !== undefined) setPagination((p) => ({ ...p, pageSize: stored.pageSize! }));
+    if (stored.roleFilter !== undefined) setRoleFilter(stored.roleFilter);
+    if (stored.balanceFilter !== undefined) setBalanceFilter(stored.balanceFilter);
+  }, [clubId]);
+
+  React.useEffect(() => {
+    if (!clubId) return;
+    savePlayersStorage(clubId, {
+      pageIndex: pagination.pageIndex,
+      pageSize: pagination.pageSize,
+      sorting,
+      roleFilter,
+      balanceFilter,
+    });
+  }, [clubId, pagination.pageIndex, pagination.pageSize, sorting, roleFilter, balanceFilter]);
 
   // Helper function to get role name
   const getRoleName = (roleId: string | null) => {

@@ -271,6 +271,87 @@ func TestRepository_GetByUserID_Empty(t *testing.T) {
 	}
 }
 
+func TestRepository_GetForUser(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewRepository(db)
+
+	userID := uuid.NewString()
+	clubID1 := uuid.NewString()
+	otherUserID := uuid.NewString()
+	clubID2 := uuid.NewString()
+	now := time.Now().UTC()
+
+	// User is owner of club 1; user has linked player in club 2 (owned by other user)
+	mock.ExpectQuery(`SELECT id, name, balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at FROM clubs c`).
+		WithArgs(userID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "base_fee", "auto_tip_enabled", "user_id", "created_at", "updated_at"}).
+			AddRow(clubID1, "Club A", 1000, 500, true, userID, now, now).
+			AddRow(clubID2, "Club B", 2000, 600, true, otherUserID, now.Add(time.Hour), now.Add(time.Hour)))
+
+	ctx := context.Background()
+	clubs, err := repo.GetForUser(ctx, userID)
+
+	if err != nil {
+		t.Fatalf("get clubs for user: %v", err)
+	}
+
+	if len(clubs) != 2 {
+		t.Fatalf("expected 2 clubs, got %d", len(clubs))
+	}
+	if clubs[0].ID != clubID1 {
+		t.Fatalf("expected first club id %s, got %s", clubID1, clubs[0].ID)
+	}
+	if clubs[0].UserID != userID {
+		t.Fatalf("expected first club owner %s, got %s", userID, clubs[0].UserID)
+	}
+	if clubs[1].ID != clubID2 {
+		t.Fatalf("expected second club id %s, got %s", clubID2, clubs[1].ID)
+	}
+	if clubs[1].UserID != otherUserID {
+		t.Fatalf("expected second club owner %s, got %s", otherUserID, clubs[1].UserID)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestRepository_GetForUser_Empty(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewRepository(db)
+
+	userID := uuid.NewString()
+
+	mock.ExpectQuery(`SELECT id, name, balance, base_fee, auto_tip_enabled, user_id, created_at, updated_at FROM clubs c`).
+		WithArgs(userID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "base_fee", "auto_tip_enabled", "user_id", "created_at", "updated_at"}))
+
+	ctx := context.Background()
+	clubs, err := repo.GetForUser(ctx, userID)
+
+	if err != nil {
+		t.Fatalf("get clubs for user: %v", err)
+	}
+
+	if len(clubs) != 0 {
+		t.Fatalf("expected 0 clubs, got %d", len(clubs))
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
 func TestRepository_Update(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {

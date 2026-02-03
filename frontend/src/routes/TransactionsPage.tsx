@@ -49,6 +49,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 
 import type {
   Transaction,
@@ -61,6 +62,40 @@ import {
 } from "@/types/transaction";
 import { formatCentsToEuro } from "@/types/player";
 
+const PAGE_SIZE_OPTIONS = [10, 25, 50] as const;
+const TRANSACTIONS_STORAGE_KEY_PREFIX = "kegelmaster_transactions_";
+
+type TransactionsStorage = {
+  typeFilter?: string;
+  playerFilter?: string;
+  pageSize?: number;
+  descriptionFilter?: string;
+};
+
+function loadTransactionsStorage(clubId: string): Partial<TransactionsStorage> {
+  try {
+    const raw = localStorage.getItem(TRANSACTIONS_STORAGE_KEY_PREFIX + clubId);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Partial<TransactionsStorage>;
+    return {
+      typeFilter: typeof parsed.typeFilter === "string" ? parsed.typeFilter : undefined,
+      playerFilter: typeof parsed.playerFilter === "string" ? parsed.playerFilter : undefined,
+      pageSize: typeof parsed.pageSize === "number" && PAGE_SIZE_OPTIONS.includes(parsed.pageSize as (typeof PAGE_SIZE_OPTIONS)[number]) ? parsed.pageSize : undefined,
+      descriptionFilter: typeof parsed.descriptionFilter === "string" ? parsed.descriptionFilter : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
+function saveTransactionsStorage(clubId: string, data: TransactionsStorage) {
+  try {
+    localStorage.setItem(TRANSACTIONS_STORAGE_KEY_PREFIX + clubId, JSON.stringify(data));
+  } catch {
+    // ignore
+  }
+}
+
 function TransactionsPage() {
   const navigate = useNavigate();
   const { activeClub } = useClub();
@@ -70,6 +105,9 @@ function TransactionsPage() {
   const [currentPage, setCurrentPage] = React.useState(1);
   const [totalPages, setTotalPages] = React.useState(1);
   const [total, setTotal] = React.useState(0);
+  const [pageSize, setPageSize] = React.useState(25);
+  const [playerFilter, setPlayerFilter] = React.useState<string>("all");
+  const [players, setPlayers] = React.useState<{ id: string; name: string }[]>([]);
 
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -78,6 +116,58 @@ function TransactionsPage() {
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
   const [typeFilter, setTypeFilter] = React.useState<string>("all");
+  const skipNextPersist = React.useRef(false);
+
+  // Load persisted state when club is set
+  React.useEffect(() => {
+    if (!activeClub) return;
+    const stored = loadTransactionsStorage(activeClub.id);
+    if (stored.typeFilter !== undefined) setTypeFilter(stored.typeFilter);
+    if (stored.playerFilter !== undefined) setPlayerFilter(stored.playerFilter);
+    if (stored.pageSize !== undefined) setPageSize(stored.pageSize);
+    if (stored.descriptionFilter !== undefined) {
+      setColumnFilters((prev) => {
+        const next = prev.filter((f) => f.id !== "description");
+        next.push({ id: "description", value: stored.descriptionFilter });
+        return next;
+      });
+    }
+    skipNextPersist.current = true;
+  }, [activeClub?.id]);
+
+  // Persist when filters or pageSize change (skip once after load from storage)
+  React.useEffect(() => {
+    if (!activeClub) return;
+    if (skipNextPersist.current) {
+      skipNextPersist.current = false;
+      return;
+    }
+    const descriptionValue = columnFilters.find((f) => f.id === "description")?.value as string | undefined;
+    saveTransactionsStorage(activeClub.id, {
+      typeFilter,
+      playerFilter,
+      pageSize,
+      descriptionFilter: descriptionValue ?? undefined,
+    });
+  }, [activeClub?.id, typeFilter, playerFilter, pageSize, columnFilters]);
+
+  const fetchPlayers = React.useCallback(async () => {
+    if (!activeClub) return;
+    try {
+      const response = await fetch(`/api/clubs/${activeClub.id}/players`, {
+        credentials: "include",
+      });
+      if (!response.ok) return;
+      const data: { id: string; name: string }[] = await response.json();
+      setPlayers(data);
+    } catch {
+      setPlayers([]);
+    }
+  }, [activeClub]);
+
+  React.useEffect(() => {
+    if (activeClub) fetchPlayers();
+  }, [activeClub, fetchPlayers]);
 
   const fetchTransactions = React.useCallback(
     async (page: number = 1) => {
@@ -85,12 +175,14 @@ function TransactionsPage() {
 
       setIsLoading(true);
       try {
-        const response = await fetch(
-          `/api/clubs/${activeClub.id}/transactions?page=${page}&limit=50`,
-          {
-            credentials: "include",
-          }
-        );
+        const limit = pageSize;
+        const url =
+          playerFilter === "all"
+            ? `/api/clubs/${activeClub.id}/transactions?page=${page}&limit=${limit}`
+            : `/api/clubs/${activeClub.id}/players/${playerFilter}/transactions?page=${page}&limit=${limit}`;
+        const response = await fetch(url, {
+          credentials: "include",
+        });
 
         if (!response.ok) {
           throw new Error("Fehler beim Laden der Transaktionen");
@@ -109,14 +201,14 @@ function TransactionsPage() {
         setIsLoading(false);
       }
     },
-    [activeClub]
+    [activeClub, pageSize, playerFilter]
   );
 
   React.useEffect(() => {
     if (activeClub) {
       fetchTransactions(1);
     }
-  }, [activeClub, fetchTransactions]);
+  }, [activeClub, playerFilter, pageSize, fetchTransactions]);
 
   const handleDelete = async (transaction: Transaction) => {
     if (!activeClub) return;
@@ -353,7 +445,7 @@ function TransactionsPage() {
           <div className="flex flex-col gap-4">
             {/* Header with filters */}
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex flex-1 items-center gap-2">
+              <div className="flex flex-1 flex-wrap items-center gap-2">
                 <Input
                   placeholder="Beschreibung durchsuchen..."
                   value={
@@ -378,6 +470,19 @@ function TransactionsPage() {
                     <SelectItem value="deposit">Einzahlung</SelectItem>
                     <SelectItem value="tip">Trinkgeld</SelectItem>
                     <SelectItem value="expense">Ausgabe</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={playerFilter} onValueChange={setPlayerFilter}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="Alle Spieler" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle Spieler</SelectItem>
+                    {players.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -449,9 +554,31 @@ function TransactionsPage() {
             </div>
 
             {/* Pagination */}
-            <div className="flex items-center justify-between px-4">
-              <div className="text-sm text-muted-foreground">
-                Gesamt: {total} Transaktionen
+            <div className="flex flex-wrap items-center justify-between gap-4 px-4">
+              <div className="flex items-center gap-4">
+                <div className="text-sm text-muted-foreground">
+                  Gesamt: {total} Transaktionen
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="rows-per-page" className="text-sm whitespace-nowrap">
+                    Zeilen pro Seite
+                  </Label>
+                  <Select
+                    value={String(pageSize)}
+                    onValueChange={(v) => setPageSize(Number(v) as (typeof PAGE_SIZE_OPTIONS)[number])}
+                  >
+                    <SelectTrigger id="rows-per-page" className="w-[70px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent side="top">
+                      {PAGE_SIZE_OPTIONS.map((size) => (
+                        <SelectItem key={size} value={String(size)}>
+                          {size}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div className="flex items-center gap-8">
                 <div className="flex items-center justify-center text-sm font-medium">

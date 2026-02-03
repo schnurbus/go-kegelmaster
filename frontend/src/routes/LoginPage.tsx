@@ -75,7 +75,7 @@ function LoginPage() {
     setIsSubmitting(true);
     try {
       await login(form);
-      
+      toast.success("Anmeldung erfolgreich");
       // If there's an invite token, accept the invitation
       if (inviteToken) {
         try {
@@ -94,7 +94,9 @@ function LoginPage() {
         navigate(redirectTo, { replace: true });
       }
     } catch (err) {
-      setError((err as Error).message);
+      const message = (err as Error).message;
+      setError(message);
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }

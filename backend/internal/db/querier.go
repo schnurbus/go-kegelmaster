@@ -50,6 +50,7 @@ type Querier interface {
 	GetAllClubs(ctx context.Context) ([]Club, error)
 	GetClubByID(ctx context.Context, id string) (Club, error)
 	GetClubsByUserID(ctx context.Context, userID string) ([]Club, error)
+	GetClubsForUser(ctx context.Context, userID string) ([]Club, error)
 	GetCompetitionByID(ctx context.Context, id string) (Competition, error)
 	GetCompetitionsByClubID(ctx context.Context, clubID string) ([]Competition, error)
 	GetGameDayByID(ctx context.Context, id string) (GameDay, error)
