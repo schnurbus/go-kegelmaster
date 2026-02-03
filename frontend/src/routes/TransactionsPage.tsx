@@ -176,10 +176,14 @@ function TransactionsPage() {
       setIsLoading(true);
       try {
         const limit = pageSize;
-        const url =
+        const base =
           playerFilter === "all"
             ? `/api/clubs/${activeClub.id}/transactions?page=${page}&limit=${limit}`
             : `/api/clubs/${activeClub.id}/players/${playerFilter}/transactions?page=${page}&limit=${limit}`;
+        const url =
+          playerFilter === "all" && typeFilter !== "all"
+            ? `${base}&type=${encodeURIComponent(typeFilter)}`
+            : base;
         const response = await fetch(url, {
           credentials: "include",
         });
@@ -201,14 +205,15 @@ function TransactionsPage() {
         setIsLoading(false);
       }
     },
-    [activeClub, pageSize, playerFilter]
+    [activeClub, pageSize, playerFilter, typeFilter]
   );
 
   React.useEffect(() => {
     if (activeClub) {
+      setCurrentPage(1);
       fetchTransactions(1);
     }
-  }, [activeClub, playerFilter, pageSize, fetchTransactions]);
+  }, [activeClub, playerFilter, pageSize, typeFilter, fetchTransactions]);
 
   const handleDelete = async (transaction: Transaction) => {
     if (!activeClub) return;
@@ -413,7 +418,7 @@ function TransactionsPage() {
     pageCount: totalPages,
   });
 
-  // Apply type filter
+  // Apply type filter (keeps table state in sync; server already filters when typeFilter !== "all")
   React.useEffect(() => {
     if (typeFilter === "all") {
       table.getColumn("transaction_type")?.setFilterValue(undefined);

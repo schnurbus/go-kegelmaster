@@ -327,6 +327,38 @@ func (r *Repository) List(ctx context.Context, params ListTransactionsParams) (*
 
 	offset := (params.Page - 1) * params.Limit
 
+	if params.TransactionType != nil {
+		// Filter by transaction type (server-side for correct pagination)
+		total, err := r.queries.CountTransactionsByType(ctx, db.CountTransactionsByTypeParams{
+			ClubID:          params.ClubID,
+			TransactionType: string(*params.TransactionType),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to count transactions by type: %w", err)
+		}
+		dbTxs, err := r.queries.ListTransactionsByType(ctx, db.ListTransactionsByTypeParams{
+			ClubID:          params.ClubID,
+			TransactionType: string(*params.TransactionType),
+			Limit:           int32(params.Limit),
+			Offset:          int32(offset),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to list transactions by type: %w", err)
+		}
+		transactions := make([]Transaction, len(dbTxs))
+		for i, dbTx := range dbTxs {
+			transactions[i] = *dbListTypeRowToTransaction(dbTx)
+		}
+		totalPages := int(math.Ceil(float64(total) / float64(params.Limit)))
+		return &PaginatedTransactions{
+			Data:       transactions,
+			Page:       params.Page,
+			Limit:      params.Limit,
+			Total:      total,
+			TotalPages: totalPages,
+		}, nil
+	}
+
 	// Get total count
 	total, err := r.queries.CountTransactionsByClub(ctx, params.ClubID)
 	if err != nil {
@@ -720,6 +752,27 @@ func dbListClubRowToTransaction(dbTx db.ListTransactionsByClubRow) *Transaction 
 }
 
 func dbListPlayerRowToTransaction(dbTx db.ListTransactionsByPlayerRow) *Transaction {
+	return &Transaction{
+		ID:                  dbTx.ID,
+		ClubID:              dbTx.ClubID,
+		PlayerID:            dbTx.PlayerID,
+		TransactionType:     TransactionType(dbTx.TransactionType),
+		Amount:              int(dbTx.Amount),
+		Description:         dbTx.Description.String,
+		GameDayFeeID:        dbTx.GameDayFeeID,
+		GameDayID:           dbTx.GameDayID,
+		PlayerBalanceBefore: fromNullInt32(dbTx.PlayerBalanceBefore),
+		PlayerBalanceAfter:  fromNullInt32(dbTx.PlayerBalanceAfter),
+		ClubBalanceBefore:   int(dbTx.ClubBalanceBefore),
+		ClubBalanceAfter:    int(dbTx.ClubBalanceAfter),
+		TransactionDate:     dbTx.TransactionDate,
+		CreatedAt:           dbTx.CreatedAt,
+		UpdatedAt:           dbTx.UpdatedAt,
+		PlayerName:          fromNullString(dbTx.PlayerName),
+	}
+}
+
+func dbListTypeRowToTransaction(dbTx db.ListTransactionsByTypeRow) *Transaction {
 	return &Transaction{
 		ID:                  dbTx.ID,
 		ClubID:              dbTx.ClubID,
