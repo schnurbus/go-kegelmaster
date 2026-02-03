@@ -42,6 +42,7 @@ func (h *Handler) HandleListTransactions(c fiber.Ctx) error {
 	// Parse query parameters
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "50"))
+	typeFilter := c.Query("type", "")
 
 	if page < 1 {
 		page = 1
@@ -50,12 +51,20 @@ func (h *Handler) HandleListTransactions(c fiber.Ctx) error {
 		limit = 50
 	}
 
-	// Get transactions
-	result, err := h.TransactionRepo.List(ctx, transaction.ListTransactionsParams{
+	listParams := transaction.ListTransactionsParams{
 		ClubID: clubID,
 		Page:   page,
 		Limit:  limit,
-	})
+	}
+	if typeFilter != "" {
+		t := transaction.TransactionType(typeFilter)
+		if t.IsValid() {
+			listParams.TransactionType = &t
+		}
+	}
+
+	// Get transactions
+	result, err := h.TransactionRepo.List(ctx, listParams)
 	if err != nil {
 		slog.Error("list transactions", "error", err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
