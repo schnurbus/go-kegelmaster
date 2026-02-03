@@ -3,6 +3,7 @@ INSERT INTO clubs (
     id,
     name,
     balance,
+    start_balance,
     base_fee,
     auto_tip_enabled,
     user_id,
@@ -16,7 +17,8 @@ INSERT INTO clubs (
     $5,
     $6,
     $7,
-    $8
+    $8,
+    $9
 )
 RETURNING *;
 
@@ -47,11 +49,17 @@ UPDATE clubs
 SET
     name = $1,
     balance = $2,
-    base_fee = $3,
-    auto_tip_enabled = $4,
-    updated_at = $5
-WHERE id = $6
+    start_balance = $3,
+    base_fee = $4,
+    auto_tip_enabled = $5,
+    updated_at = $6
+WHERE id = $7
 RETURNING *;
+
+-- name: UpdateClubBalance :exec
+UPDATE clubs
+SET balance = $1, updated_at = $2
+WHERE id = $3;
 
 -- name: DeleteClub :exec
 DELETE FROM clubs

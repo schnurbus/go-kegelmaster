@@ -13,6 +13,7 @@ type Club struct {
 	ID             string    `json:"id"`
 	Name           string    `json:"name"`
 	Balance        int32     `json:"balance"`
+	StartBalance   int32     `json:"start_balance"`
 	BaseFee        int32     `json:"base_fee"`
 	AutoTipEnabled bool      `json:"auto_tip_enabled"`
 	UserID         string    `json:"user_id"`

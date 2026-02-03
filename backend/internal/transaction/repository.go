@@ -180,6 +180,7 @@ func (r *Repository) Create(ctx context.Context, params CreateTransactionParams)
 			ID:             clubEntity.ID,
 			Name:           clubEntity.Name,
 			Balance:        int32(clubBalanceAfter),
+			StartBalance:   int32(clubEntity.StartBalance),
 			BaseFee:        int32(clubEntity.BaseFee),
 			AutoTipEnabled: clubEntity.AutoTipEnabled,
 			UpdatedAt:      now,
@@ -552,6 +553,7 @@ func (r *Repository) Delete(ctx context.Context, id string) error {
 		ID:             clubEntity.ID,
 		Name:           clubEntity.Name,
 		Balance:        int32(newClubBalance),
+		StartBalance:   int32(clubEntity.StartBalance),
 		BaseFee:        int32(clubEntity.BaseFee),
 		AutoTipEnabled: clubEntity.AutoTipEnabled,
 		UpdatedAt:      time.Now(),
@@ -596,6 +598,39 @@ func (r *Repository) GetGameDaySummary(ctx context.Context, gameDayID string) (*
 		BaseFeeCount: summary.BaseFeeCount,
 		FeeCount:     summary.FeeCount,
 	}, nil
+}
+
+// RecalculatePlayerBalance recomputes the player balance from start_balance + SUM(amount) of all transactions for that player and updates the player row.
+func (r *Repository) RecalculatePlayerBalance(ctx context.Context, playerID string) error {
+	playerEntity, err := r.playerRepo.GetByID(ctx, playerID)
+	if err != nil {
+		return fmt.Errorf("failed to get player: %w", err)
+	}
+	sum, err := r.queries.SumAmountByPlayer(ctx, &playerID)
+	if err != nil {
+		return fmt.Errorf("failed to sum transactions: %w", err)
+	}
+	newBalance := playerEntity.StartBalance + int(sum)
+	now := time.Now()
+	return r.queries.UpdatePlayerBalance(ctx, db.UpdatePlayerBalanceParams{
+		ID:        playerID,
+		Balance:   int32(newBalance),
+		UpdatedAt: now,
+	})
+}
+
+// RecalculateClubBalance recomputes the club balance from start_balance + SUM(amount) of transactions that affect the till (deposit, tip, expense). Base_fee and fee do not change club cash.
+func (r *Repository) RecalculateClubBalance(ctx context.Context, clubID string) error {
+	clubEntity, err := r.clubRepo.GetByID(ctx, clubID)
+	if err != nil {
+		return fmt.Errorf("failed to get club: %w", err)
+	}
+	sum, err := r.queries.SumAmountByClubCash(ctx, clubID)
+	if err != nil {
+		return fmt.Errorf("failed to sum transactions: %w", err)
+	}
+	newBalance := clubEntity.StartBalance + int(sum)
+	return r.clubRepo.UpdateBalance(ctx, clubID, newBalance)
 }
 
 // Helper functions

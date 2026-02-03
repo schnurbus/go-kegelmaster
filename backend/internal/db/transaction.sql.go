@@ -543,6 +543,42 @@ func (q *Queries) ListTransactionsByType(ctx context.Context, arg ListTransactio
 	return items, nil
 }
 
+const sumAmountByClub = `-- name: SumAmountByClub :one
+SELECT COALESCE(SUM(amount), 0)::bigint as total FROM transactions WHERE club_id = $1
+`
+
+func (q *Queries) SumAmountByClub(ctx context.Context, clubID string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, sumAmountByClub, clubID)
+	var total int64
+	err := row.Scan(&total)
+	return total, err
+}
+
+const sumAmountByClubCash = `-- name: SumAmountByClubCash :one
+SELECT COALESCE(SUM(amount), 0)::bigint as total
+FROM transactions
+WHERE club_id = $1 AND transaction_type IN ('deposit', 'tip', 'expense')
+`
+
+// SumAmountByClubCash sums only transaction types that affect club till: deposit, tip, expense. Base_fee and fee do not change club cash.
+func (q *Queries) SumAmountByClubCash(ctx context.Context, clubID string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, sumAmountByClubCash, clubID)
+	var total int64
+	err := row.Scan(&total)
+	return total, err
+}
+
+const sumAmountByPlayer = `-- name: SumAmountByPlayer :one
+SELECT COALESCE(SUM(amount), 0)::bigint as total FROM transactions WHERE player_id = $1
+`
+
+func (q *Queries) SumAmountByPlayer(ctx context.Context, playerID *string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, sumAmountByPlayer, playerID)
+	var total int64
+	err := row.Scan(&total)
+	return total, err
+}
+
 const sumTransactionsByClub = `-- name: SumTransactionsByClub :one
 SELECT COALESCE(SUM(
     CASE 

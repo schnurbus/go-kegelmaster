@@ -14,6 +14,7 @@ import (
 type createClubRequest struct {
 	Name           string `json:"name"`
 	Balance        int    `json:"balance"`
+	StartBalance   int    `json:"start_balance"`
 	BaseFee        int    `json:"base_fee"`
 	AutoTipEnabled *bool  `json:"auto_tip_enabled,omitempty"` // Optional, defaults to true
 }
@@ -63,6 +64,7 @@ func (h *Handler) HandleCreateClub(c fiber.Ctx) error {
 	clubEntity, err := h.ClubRepo.Create(ctx, club.CreateClubParams{
 		Name:           strings.TrimSpace(req.Name),
 		Balance:        req.Balance,
+		StartBalance:   req.StartBalance,
 		BaseFee:        req.BaseFee,
 		AutoTipEnabled: autoTipEnabled,
 		UserID:         u.ID,
@@ -121,6 +123,7 @@ func (h *Handler) HandleGetClub(c fiber.Ctx) error {
 type updateClubRequest struct {
 	Name           string `json:"name"`
 	Balance        int    `json:"balance"`
+	StartBalance   int    `json:"start_balance"`
 	BaseFee        int    `json:"base_fee"`
 	AutoTipEnabled bool   `json:"auto_tip_enabled"`
 }
@@ -185,6 +188,7 @@ func (h *Handler) HandleUpdateClub(c fiber.Ctx) error {
 		ID:             clubID,
 		Name:           strings.TrimSpace(req.Name),
 		Balance:        req.Balance,
+		StartBalance:   req.StartBalance,
 		BaseFee:        req.BaseFee,
 		AutoTipEnabled: req.AutoTipEnabled,
 	})
@@ -241,4 +245,50 @@ func (h *Handler) HandleDeleteClub(c fiber.Ctx) error {
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// HandleRecalculateClubBalance recalculates club balance from start_balance + SUM(amount) of all transactions. Only club owner may call.
+func (h *Handler) HandleRecalculateClubBalance(c fiber.Ctx) error {
+	if err := h.ValidateCSRF(c); err != nil {
+		return err
+	}
+
+	ctx, cancel := h.RequestContext()
+	defer cancel()
+
+	u, err := h.UserFromCookie(ctx, c)
+	if err != nil {
+		return fiber.NewError(fiber.StatusUnauthorized, "Nicht angemeldet")
+	}
+
+	clubID := c.Params("id")
+	if clubID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "Club-ID ist erforderlich")
+	}
+
+	existingClub, err := h.ClubRepo.GetByID(ctx, clubID)
+	if err != nil {
+		if errors.Is(err, club.ErrNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
+		}
+		slog.Error("get club", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+
+	if existingClub.UserID != u.ID {
+		return fiber.NewError(fiber.StatusForbidden, "Nur der Owner darf die Club-Balance neu berechnen")
+	}
+
+	if err := h.TransactionRepo.RecalculateClubBalance(ctx, clubID); err != nil {
+		slog.Error("recalculate club balance", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+
+	updatedClub, err := h.ClubRepo.GetByID(ctx, clubID)
+	if err != nil {
+		slog.Error("get club after recalc", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+
+	return c.JSON(ClubResponseFromEntity(updatedClub))
 }

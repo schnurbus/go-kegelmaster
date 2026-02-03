@@ -33,6 +33,7 @@ type ClubResponse struct {
 	ID             string    `json:"id"`
 	Name           string    `json:"name"`
 	Balance        int       `json:"balance"`
+	StartBalance   int       `json:"start_balance"`
 	BaseFee        int       `json:"base_fee"`
 	AutoTipEnabled bool      `json:"auto_tip_enabled"`
 	UserID         string    `json:"user_id"`
@@ -45,6 +46,7 @@ func ClubResponseFromEntity(c club.Club) ClubResponse {
 		ID:             c.ID,
 		Name:           c.Name,
 		Balance:        c.Balance,
+		StartBalance:   c.StartBalance,
 		BaseFee:        c.BaseFee,
 		AutoTipEnabled: c.AutoTipEnabled,
 		UserID:         c.UserID,
@@ -297,9 +299,9 @@ type FeeResponse struct {
 	PenaltyTypeName        string  `json:"penalty_type_name"`
 	PenaltyTypeDescription string  `json:"penalty_type_description"`
 	PenaltyTypePrice       int     `json:"penalty_type_price"`
-	Count                  int     `json:"count"`           // stored value (scaled when quantity_scale > 1)
-	QuantityScale          int     `json:"quantity_scale"`   // 1 or 100
-	Quantity               float64 `json:"quantity"`         // display: count / quantity_scale
+	Count                  int     `json:"count"`          // stored value (scaled when quantity_scale > 1)
+	QuantityScale          int     `json:"quantity_scale"` // 1 or 100
+	Quantity               float64 `json:"quantity"`       // display: count / quantity_scale
 	CreatedAt              string  `json:"created_at"`
 	UpdatedAt              string  `json:"updated_at"`
 }
@@ -361,8 +363,8 @@ func CompetitionValuesResponseFromEntities(cvs []gameday.GameDayCompetitionValue
 }
 
 type ParticipantWithFeesResponse struct {
-	Participant      ParticipantResponse         `json:"participant"`
-	Fees             []FeeResponse               `json:"fees"`
+	Participant       ParticipantResponse        `json:"participant"`
+	Fees              []FeeResponse              `json:"fees"`
 	CompetitionValues []CompetitionValueResponse `json:"competition_values"`
 }
 
@@ -375,8 +377,8 @@ func GameDayDetailResponseFromEntity(detail gameday.GameDayDetail) GameDayDetail
 	participants := make([]ParticipantWithFeesResponse, len(detail.Participants))
 	for i, pwf := range detail.Participants {
 		participants[i] = ParticipantWithFeesResponse{
-			Participant:      ParticipantResponseFromEntity(pwf.Participant),
-			Fees:             FeesResponseFromEntities(pwf.Fees),
+			Participant:       ParticipantResponseFromEntity(pwf.Participant),
+			Fees:              FeesResponseFromEntities(pwf.Fees),
 			CompetitionValues: CompetitionValuesResponseFromEntities(pwf.CompetitionValues),
 		}
 	}

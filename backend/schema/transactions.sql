@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS clubs (
     id UUID PRIMARY KEY,
     name TEXT NOT NULL,
     balance INTEGER NOT NULL DEFAULT 0,
+    start_balance INTEGER NOT NULL DEFAULT 0,
     base_fee INTEGER NOT NULL DEFAULT 0,
     auto_tip_enabled BOOLEAN NOT NULL DEFAULT true,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
