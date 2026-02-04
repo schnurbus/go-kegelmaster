@@ -125,6 +125,8 @@ func dbPlayerToPlayer(dbPlayer db.Player) Player {
 	}
 }
 
+// UpdatePlayerParams holds fields for updating a player.
+// Inactive: nil = keep existing value (avoids flipping inactive→active on partial updates).
 type UpdatePlayerParams struct {
 	ID           string
 	Name         string
@@ -133,11 +135,25 @@ type UpdatePlayerParams struct {
 	UserID       *string
 	RoleID       *string
 	Gender       *string
-	Inactive     bool
+	Inactive     *bool // nil = do not change; non-nil = set to value
 }
 
 func (r *Repository) Update(ctx context.Context, params UpdatePlayerParams) (Player, error) {
 	now := time.Now().UTC()
+
+	inactive := false
+	if params.Inactive != nil {
+		inactive = *params.Inactive
+	} else {
+		existing, err := r.queries.GetPlayerByID(ctx, params.ID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return Player{}, ErrNotFound
+			}
+			return Player{}, err
+		}
+		inactive = existing.Inactive
+	}
 
 	var gender sql.NullString
 	if params.Gender != nil && *params.Gender != "" {
@@ -151,7 +167,7 @@ func (r *Repository) Update(ctx context.Context, params UpdatePlayerParams) (Pla
 		UserID:       params.UserID,
 		RoleID:       params.RoleID,
 		Gender:       gender,
-		Inactive:     params.Inactive,
+		Inactive:     inactive,
 		UpdatedAt:    now,
 	})
 	if errors.Is(err, sql.ErrNoRows) {

@@ -396,7 +396,7 @@ func (h *Handler) HandleUpdatePlayer(c fiber.Ctx) error {
 		UserID:       userID,
 		RoleID:       roleID,
 		Gender:       req.Gender,
-		Inactive:     inactive,
+		Inactive:     &inactive,
 	})
 	if err != nil {
 		if errors.Is(err, player.ErrNotFound) {

@@ -292,6 +292,7 @@ func TestRepository_Update(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "created_at", "updated_at"}).
 			AddRow(playerID, clubID, userID, roleID, "Updated Player", 2000, 600, nil, false, now, now.Add(time.Hour)))
 
+	inactive := false
 	ctx := context.Background()
 	player, err := repo.Update(ctx, UpdatePlayerParams{
 		ID:           playerID,
@@ -300,7 +301,7 @@ func TestRepository_Update(t *testing.T) {
 		StartBalance: 600,
 		UserID:       &userID,
 		RoleID:       &roleID,
-		Inactive:     false,
+		Inactive:     &inactive,
 	})
 
 	if err != nil {
@@ -336,8 +337,9 @@ func TestRepository_Update_NotFound(t *testing.T) {
 
 	playerID := uuid.NewString()
 
-	mock.ExpectQuery(`UPDATE players`).
-		WithArgs("Updated Player", 2000, 600, nil, nil, sqlmock.AnyArg(), false, sqlmock.AnyArg(), playerID).
+	// When Inactive is nil, Update loads existing player first; GetPlayerByID returns NotFound
+	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, created_at, updated_at FROM players`).
+		WithArgs(playerID).
 		WillReturnError(sql.ErrNoRows)
 
 	ctx := context.Background()
@@ -348,6 +350,7 @@ func TestRepository_Update_NotFound(t *testing.T) {
 		StartBalance: 600,
 		UserID:       nil,
 		RoleID:       nil,
+		Inactive:     nil, // nil triggers load-existing; player not found
 	})
 
 	if err == nil {
@@ -357,6 +360,54 @@ func TestRepository_Update_NotFound(t *testing.T) {
 		t.Fatalf("expected ErrNotFound, got %v", err)
 	}
 
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestRepository_Update_PreservesInactiveWhenNil(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewRepository(db)
+
+	playerID := uuid.NewString()
+	clubID := uuid.NewString()
+	userID := uuid.NewString()
+	roleID := uuid.NewString()
+	now := time.Now().UTC()
+
+	// When Inactive is nil, Update loads existing player first (existing has Inactive=true)
+	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, created_at, updated_at FROM players`).
+		WithArgs(playerID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "created_at", "updated_at"}).
+			AddRow(playerID, clubID, userID, roleID, "Old Name", 1000, 500, nil, true, now, now))
+
+	// UPDATE is called with inactive=true (preserved from existing)
+	mock.ExpectQuery(`UPDATE players`).
+		WithArgs("Updated Player", 2000, 600, &userID, &roleID, sqlmock.AnyArg(), true, sqlmock.AnyArg(), playerID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "created_at", "updated_at"}).
+			AddRow(playerID, clubID, userID, roleID, "Updated Player", 2000, 600, nil, true, now, now.Add(time.Hour)))
+
+	ctx := context.Background()
+	player, err := repo.Update(ctx, UpdatePlayerParams{
+		ID:           playerID,
+		Name:         "Updated Player",
+		Balance:      2000,
+		StartBalance: 600,
+		UserID:       &userID,
+		RoleID:       &roleID,
+		Inactive:     nil, // do not change; existing inactive=true must be preserved
+	})
+	if err != nil {
+		t.Fatalf("update player: %v", err)
+	}
+	if !player.Inactive {
+		t.Fatalf("expected Inactive=true (preserved), got false")
+	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)
 	}
