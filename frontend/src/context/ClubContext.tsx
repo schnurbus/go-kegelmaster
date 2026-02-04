@@ -7,6 +7,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { useAuth } from "./AuthContext.tsx";
 
 type Club = {
   id: string;
@@ -35,6 +36,7 @@ const ClubContext = createContext<ClubContextValue | undefined>(undefined);
 const ACTIVE_CLUB_STORAGE_KEY = "kegelmaster-active-club-id";
 
 export function ClubProvider({ children }: { children: ReactNode }) {
+  const { status: authStatus } = useAuth();
   const [clubs, setClubs] = useState<Club[]>([]);
   const [activeClub, setActiveClubState] = useState<Club | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -94,10 +96,17 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Initiales Laden der Clubs
+  // Clubs laden nur wenn User authentifiziert; bei Logout Clubs leeren
   useEffect(() => {
-    refreshClubs();
-  }, [refreshClubs]);
+    if (authStatus === "authenticated") {
+      refreshClubs();
+    } else if (authStatus === "unauthenticated") {
+      setClubs([]);
+      setActiveClubState(null);
+      setIsLoading(false);
+      localStorage.removeItem(ACTIVE_CLUB_STORAGE_KEY);
+    }
+  }, [authStatus, refreshClubs]);
 
   const value = useMemo(
     () => ({
