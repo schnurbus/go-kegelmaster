@@ -532,6 +532,11 @@ func TestDeleteClub_Success(t *testing.T) {
 	clubID := uuid.NewString()
 	now := time.Now().UTC()
 
+	passwordHash, err := authSvc.HashPassword("password123")
+	if err != nil {
+		t.Fatalf("hash password: %v", err)
+	}
+
 	token, err := authSvc.GenerateToken(userID, true)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
@@ -540,7 +545,7 @@ func TestDeleteClub_Success(t *testing.T) {
 	mock.ExpectQuery(`SELECT id, email, password_hash`).
 		WithArgs(userID).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
-			AddRow(userID, "user@example.com", "hash", now, now))
+			AddRow(userID, "user@example.com", passwordHash, now, now))
 
 	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
 		WithArgs(clubID).
@@ -557,7 +562,7 @@ func TestDeleteClub_Success(t *testing.T) {
 		WithArgs(clubID).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
-	req := mustJSONRequest(t, http.MethodDelete, "/api/clubs/"+clubID, "")
+	req := mustJSONRequest(t, http.MethodDelete, "/api/clubs/"+clubID, `{"password":"password123"}`)
 	req.AddCookie(&http.Cookie{Name: authCookieName, Value: token})
 
 	resp := doRequest(t, srv, req)
@@ -595,7 +600,7 @@ func TestDeleteClub_NotOwner(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
 			AddRow(clubID, "Test Club", 1000, 0, 500, true, false, ownerID, now, now))
 
-	req := mustJSONRequest(t, http.MethodDelete, "/api/clubs/"+clubID, "")
+	req := mustJSONRequest(t, http.MethodDelete, "/api/clubs/"+clubID, `{"password":"any"}`)
 	req.AddCookie(&http.Cookie{Name: authCookieName, Value: token})
 
 	resp := doRequest(t, srv, req)
@@ -603,6 +608,80 @@ func TestDeleteClub_NotOwner(t *testing.T) {
 
 	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("expected 403, got %d", resp.StatusCode)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestDeleteClub_MissingPassword(t *testing.T) {
+	srv, mock, authSvc := newTestServer(t)
+
+	userID := uuid.NewString()
+	clubID := uuid.NewString()
+	now := time.Now().UTC()
+
+	token, err := authSvc.GenerateToken(userID, true)
+	if err != nil {
+		t.Fatalf("generate token: %v", err)
+	}
+
+	mock.ExpectQuery(`SELECT id, email, password_hash`).
+		WithArgs(userID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
+			AddRow(userID, "user@example.com", "hash", now, now))
+
+	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
+		WithArgs(clubID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
+			AddRow(clubID, "Test Club", 1000, 0, 500, true, false, userID, now, now))
+
+	req := mustJSONRequest(t, http.MethodDelete, "/api/clubs/"+clubID, `{}`)
+	req.AddCookie(&http.Cookie{Name: authCookieName, Value: token})
+
+	resp := doRequest(t, srv, req)
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", resp.StatusCode)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestDeleteClub_InvalidPassword(t *testing.T) {
+	srv, mock, authSvc := newTestServer(t)
+
+	userID := uuid.NewString()
+	clubID := uuid.NewString()
+	now := time.Now().UTC()
+
+	token, err := authSvc.GenerateToken(userID, true)
+	if err != nil {
+		t.Fatalf("generate token: %v", err)
+	}
+
+	mock.ExpectQuery(`SELECT id, email, password_hash`).
+		WithArgs(userID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
+			AddRow(userID, "user@example.com", "hash", now, now))
+
+	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
+		WithArgs(clubID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
+			AddRow(clubID, "Test Club", 1000, 0, 500, true, false, userID, now, now))
+
+	req := mustJSONRequest(t, http.MethodDelete, "/api/clubs/"+clubID, `{"password":"wrongpassword"}`)
+	req.AddCookie(&http.Cookie{Name: authCookieName, Value: token})
+
+	resp := doRequest(t, srv, req)
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", resp.StatusCode)
 	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -631,7 +710,7 @@ func TestDeleteClub_NotFound(t *testing.T) {
 		WithArgs(clubID).
 		WillReturnError(sql.ErrNoRows)
 
-	req := mustJSONRequest(t, http.MethodDelete, "/api/clubs/"+clubID, "")
+	req := mustJSONRequest(t, http.MethodDelete, "/api/clubs/"+clubID, `{"password":"any"}`)
 	req.AddCookie(&http.Cookie{Name: authCookieName, Value: token})
 
 	resp := doRequest(t, srv, req)
@@ -980,7 +1059,7 @@ func TestDeleteClub_GetByIDError(t *testing.T) {
 		WithArgs(clubID).
 		WillReturnError(sql.ErrConnDone)
 
-	req := mustJSONRequest(t, http.MethodDelete, "/api/clubs/"+clubID, "")
+	req := mustJSONRequest(t, http.MethodDelete, "/api/clubs/"+clubID, `{"password":"any"}`)
 	req.AddCookie(&http.Cookie{Name: authCookieName, Value: token})
 
 	resp := doRequest(t, srv, req)
@@ -1007,10 +1086,15 @@ func TestDeleteClub_DatabaseError(t *testing.T) {
 		t.Fatalf("generate token: %v", err)
 	}
 
+	passwordHash, err := authSvc.HashPassword("password123")
+	if err != nil {
+		t.Fatalf("hash password: %v", err)
+	}
+
 	mock.ExpectQuery(`SELECT id, email, password_hash`).
 		WithArgs(userID).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
-			AddRow(userID, "user@example.com", "hash", now, now))
+			AddRow(userID, "user@example.com", passwordHash, now, now))
 
 	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
 		WithArgs(clubID).
@@ -1022,7 +1106,7 @@ func TestDeleteClub_DatabaseError(t *testing.T) {
 		WithArgs(clubID).
 		WillReturnError(sql.ErrConnDone)
 
-	req := mustJSONRequest(t, http.MethodDelete, "/api/clubs/"+clubID, "")
+	req := mustJSONRequest(t, http.MethodDelete, "/api/clubs/"+clubID, `{"password":"password123"}`)
 	req.AddCookie(&http.Cookie{Name: authCookieName, Value: token})
 
 	resp := doRequest(t, srv, req)
@@ -1030,6 +1114,240 @@ func TestDeleteClub_DatabaseError(t *testing.T) {
 
 	if resp.StatusCode != http.StatusInternalServerError {
 		t.Fatalf("expected 500, got %d", resp.StatusCode)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestTransferClubOwner_Success(t *testing.T) {
+	srv, mock, authSvc := newTestServer(t)
+
+	ownerID := uuid.NewString()
+	newOwnerID := uuid.NewString()
+	clubID := uuid.NewString()
+	now := time.Now().UTC()
+
+	passwordHash, err := authSvc.HashPassword("password123")
+	if err != nil {
+		t.Fatalf("hash password: %v", err)
+	}
+
+	token, err := authSvc.GenerateToken(ownerID, true)
+	if err != nil {
+		t.Fatalf("generate token: %v", err)
+	}
+
+	mock.ExpectQuery(`SELECT id, email, password_hash`).
+		WithArgs(ownerID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
+			AddRow(ownerID, "owner@example.com", passwordHash, now, now))
+
+	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
+		WithArgs(clubID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
+			AddRow(clubID, "Test Club", 1000, 0, 500, true, false, ownerID, now, now))
+
+	mock.ExpectQuery(`SELECT id, email, password_hash, created_at, updated_at FROM users`).
+		WithArgs("newowner@example.com").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
+			AddRow(newOwnerID, "newowner@example.com", "hash", now, now))
+
+	mock.ExpectQuery(`UPDATE clubs`).
+		WithArgs(newOwnerID, sqlmock.AnyArg(), clubID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
+			AddRow(clubID, "Test Club", 1000, 0, 500, true, false, newOwnerID, now, now))
+
+	body := `{"new_owner_email":"newowner@example.com","password":"password123"}`
+	req := mustJSONRequest(t, http.MethodPost, "/api/clubs/"+clubID+"/transfer-owner", body)
+	req.AddCookie(&http.Cookie{Name: authCookieName, Value: token})
+
+	resp := doRequest(t, srv, req)
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", resp.StatusCode)
+	}
+
+	var payload handlers.ClubResponse
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if payload.UserID != newOwnerID {
+		t.Fatalf("expected user_id %s, got %s", newOwnerID, payload.UserID)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestTransferClubOwner_NotOwner(t *testing.T) {
+	srv, mock, authSvc := newTestServer(t)
+
+	ownerID := uuid.NewString()
+	otherUserID := uuid.NewString()
+	clubID := uuid.NewString()
+	now := time.Now().UTC()
+
+	token, err := authSvc.GenerateToken(otherUserID, true)
+	if err != nil {
+		t.Fatalf("generate token: %v", err)
+	}
+
+	mock.ExpectQuery(`SELECT id, email, password_hash`).
+		WithArgs(otherUserID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
+			AddRow(otherUserID, "other@example.com", "hash", now, now))
+
+	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
+		WithArgs(clubID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
+			AddRow(clubID, "Test Club", 1000, 0, 500, true, false, ownerID, now, now))
+
+	body := `{"new_owner_email":"someone@example.com","password":"any"}`
+	req := mustJSONRequest(t, http.MethodPost, "/api/clubs/"+clubID+"/transfer-owner", body)
+	req.AddCookie(&http.Cookie{Name: authCookieName, Value: token})
+
+	resp := doRequest(t, srv, req)
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d", resp.StatusCode)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestTransferClubOwner_InvalidPassword(t *testing.T) {
+	srv, mock, authSvc := newTestServer(t)
+
+	ownerID := uuid.NewString()
+	clubID := uuid.NewString()
+	now := time.Now().UTC()
+
+	token, err := authSvc.GenerateToken(ownerID, true)
+	if err != nil {
+		t.Fatalf("generate token: %v", err)
+	}
+
+	mock.ExpectQuery(`SELECT id, email, password_hash`).
+		WithArgs(ownerID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
+			AddRow(ownerID, "owner@example.com", "hash", now, now))
+
+	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
+		WithArgs(clubID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
+			AddRow(clubID, "Test Club", 1000, 0, 500, true, false, ownerID, now, now))
+
+	body := `{"new_owner_email":"other@example.com","password":"wrongpassword"}`
+	req := mustJSONRequest(t, http.MethodPost, "/api/clubs/"+clubID+"/transfer-owner", body)
+	req.AddCookie(&http.Cookie{Name: authCookieName, Value: token})
+
+	resp := doRequest(t, srv, req)
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", resp.StatusCode)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestTransferClubOwner_NewUserNotFound(t *testing.T) {
+	srv, mock, authSvc := newTestServer(t)
+
+	ownerID := uuid.NewString()
+	clubID := uuid.NewString()
+	now := time.Now().UTC()
+
+	passwordHash, err := authSvc.HashPassword("password123")
+	if err != nil {
+		t.Fatalf("hash password: %v", err)
+	}
+
+	token, err := authSvc.GenerateToken(ownerID, true)
+	if err != nil {
+		t.Fatalf("generate token: %v", err)
+	}
+
+	mock.ExpectQuery(`SELECT id, email, password_hash`).
+		WithArgs(ownerID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
+			AddRow(ownerID, "owner@example.com", passwordHash, now, now))
+
+	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
+		WithArgs(clubID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
+			AddRow(clubID, "Test Club", 1000, 0, 500, true, false, ownerID, now, now))
+
+	mock.ExpectQuery(`SELECT id, email, password_hash, created_at, updated_at FROM users`).
+		WithArgs("nonexistent@example.com").
+		WillReturnError(sql.ErrNoRows)
+
+	body := `{"new_owner_email":"nonexistent@example.com","password":"password123"}`
+	req := mustJSONRequest(t, http.MethodPost, "/api/clubs/"+clubID+"/transfer-owner", body)
+	req.AddCookie(&http.Cookie{Name: authCookieName, Value: token})
+
+	resp := doRequest(t, srv, req)
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", resp.StatusCode)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestTransferClubOwner_SameUser(t *testing.T) {
+	srv, mock, authSvc := newTestServer(t)
+
+	ownerID := uuid.NewString()
+	clubID := uuid.NewString()
+	now := time.Now().UTC()
+
+	passwordHash, err := authSvc.HashPassword("password123")
+	if err != nil {
+		t.Fatalf("hash password: %v", err)
+	}
+
+	token, err := authSvc.GenerateToken(ownerID, true)
+	if err != nil {
+		t.Fatalf("generate token: %v", err)
+	}
+
+	mock.ExpectQuery(`SELECT id, email, password_hash`).
+		WithArgs(ownerID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
+			AddRow(ownerID, "owner@example.com", passwordHash, now, now))
+
+	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
+		WithArgs(clubID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
+			AddRow(clubID, "Test Club", 1000, 0, 500, true, false, ownerID, now, now))
+
+	mock.ExpectQuery(`SELECT id, email, password_hash, created_at, updated_at FROM users`).
+		WithArgs("owner@example.com").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
+			AddRow(ownerID, "owner@example.com", "hash", now, now))
+
+	body := `{"new_owner_email":"owner@example.com","password":"password123"}`
+	req := mustJSONRequest(t, http.MethodPost, "/api/clubs/"+clubID+"/transfer-owner", body)
+	req.AddCookie(&http.Cookie{Name: authCookieName, Value: token})
+
+	resp := doRequest(t, srv, req)
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", resp.StatusCode)
 	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {

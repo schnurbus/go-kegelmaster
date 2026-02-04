@@ -9,6 +9,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/user"
 )
 
 type createClubRequest struct {
@@ -211,6 +212,10 @@ func (h *Handler) HandleUpdateClub(c fiber.Ctx) error {
 	return c.JSON(ClubResponseFromEntity(updatedClub))
 }
 
+type deleteClubRequest struct {
+	Password string `json:"password"`
+}
+
 func (h *Handler) HandleDeleteClub(c fiber.Ctx) error {
 	if err := h.ValidateCSRF(c); err != nil {
 		return err
@@ -244,6 +249,22 @@ func (h *Handler) HandleDeleteClub(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusForbidden, "Nur der Owner darf diesen Club löschen")
 	}
 
+	var req deleteClubRequest
+	if err := json.Unmarshal(c.Body(), &req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Ungültige Anfrage")
+	}
+	pw := strings.TrimSpace(req.Password)
+	if pw == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "Passwort zur Bestätigung ist erforderlich")
+	}
+	if len(pw) > maxPasswordLength {
+		return fiber.NewError(fiber.StatusBadRequest, "Passwort darf höchstens 128 Zeichen haben")
+	}
+
+	if err := h.AuthSvc.ComparePassword(u.PasswordHash, pw); err != nil {
+		return fiber.NewError(fiber.StatusUnauthorized, "Ungültiges Passwort")
+	}
+
 	if err := h.ClubRepo.Delete(ctx, clubID); err != nil {
 		if errors.Is(err, club.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
@@ -253,6 +274,95 @@ func (h *Handler) HandleDeleteClub(c fiber.Ctx) error {
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
+}
+
+type transferClubOwnerRequest struct {
+	NewOwnerEmail string `json:"new_owner_email"`
+	Password      string `json:"password"`
+}
+
+func (r transferClubOwnerRequest) validate() error {
+	email := strings.TrimSpace(strings.ToLower(r.NewOwnerEmail))
+	if email == "" || !strings.Contains(email, "@") {
+		return errors.New("Gültige E-Mail-Adresse des neuen Eigentümers ist erforderlich")
+	}
+	pw := strings.TrimSpace(r.Password)
+	if pw == "" {
+		return errors.New("Passwort zur Bestätigung ist erforderlich")
+	}
+	if len(pw) > maxPasswordLength {
+		return errors.New("Passwort darf höchstens 128 Zeichen haben")
+	}
+	return nil
+}
+
+func (h *Handler) HandleTransferClubOwner(c fiber.Ctx) error {
+	if err := h.ValidateCSRF(c); err != nil {
+		return err
+	}
+
+	ctx, cancel := h.RequestContext()
+	defer cancel()
+
+	u, err := h.UserFromCookie(ctx, c)
+	if err != nil {
+		return fiber.NewError(fiber.StatusUnauthorized, "Nicht angemeldet")
+	}
+
+	clubID := c.Params("id")
+	if clubID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "Club-ID ist erforderlich")
+	}
+
+	existingClub, err := h.ClubRepo.GetByID(ctx, clubID)
+	if err != nil {
+		if errors.Is(err, club.ErrNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
+		}
+		slog.Error("get club", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+
+	if existingClub.UserID != u.ID {
+		return fiber.NewError(fiber.StatusForbidden, "Nur der Owner darf den Eigentümer wechseln")
+	}
+
+	var req transferClubOwnerRequest
+	if err := json.Unmarshal(c.Body(), &req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Ungültige Anfrage")
+	}
+	if err := req.validate(); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+
+	if err := h.AuthSvc.ComparePassword(u.PasswordHash, strings.TrimSpace(req.Password)); err != nil {
+		return fiber.NewError(fiber.StatusUnauthorized, "Ungültiges Passwort")
+	}
+
+	newOwnerEmail := strings.ToLower(strings.TrimSpace(req.NewOwnerEmail))
+	newOwner, err := h.UserRepo.GetByEmail(ctx, newOwnerEmail)
+	if err != nil {
+		if errors.Is(err, user.ErrNotFound) {
+			return fiber.NewError(fiber.StatusBadRequest, "User mit dieser E-Mail existiert nicht")
+		}
+		slog.Error("get user by email", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+
+	if newOwner.ID == u.ID {
+		return fiber.NewError(fiber.StatusBadRequest, "Der neue Eigentümer muss ein anderer User sein")
+	}
+
+	updatedClub, err := h.ClubRepo.UpdateOwner(ctx, clubID, newOwner.ID)
+	if err != nil {
+		if errors.Is(err, club.ErrNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
+		}
+		slog.Error("update club owner", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+
+	return c.JSON(ClubResponseFromEntity(updatedClub))
 }
 
 // HandleRecalculateClubBalance recalculates club balance from start_balance + SUM(amount) of all transactions. Only club owner may call.

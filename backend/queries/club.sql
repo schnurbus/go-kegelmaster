@@ -64,6 +64,12 @@ UPDATE clubs
 SET balance = $1, updated_at = $2
 WHERE id = $3;
 
+-- name: UpdateClubOwner :one
+UPDATE clubs
+SET user_id = $1, updated_at = $2
+WHERE id = $3
+RETURNING *;
+
 -- name: DeleteClub :exec
 DELETE FROM clubs
 WHERE id = $1;

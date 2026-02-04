@@ -152,6 +152,7 @@ func (s *Server) registerRoutes() {
 	clubsGroup.Post("/", s.handlers.HandleCreateClub)
 	clubsGroup.Put("/:id", s.handlers.HandleUpdateClub)
 	clubsGroup.Post("/:id/recalculate-balance", s.handlers.HandleRecalculateClubBalance)
+	clubsGroup.Post("/:id/transfer-owner", s.handlers.HandleTransferClubOwner)
 	clubsGroup.Delete("/:id", s.handlers.HandleDeleteClub)
 
 	// Role endpoints

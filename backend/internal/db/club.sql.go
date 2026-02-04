@@ -303,3 +303,34 @@ func (q *Queries) UpdateClubBalance(ctx context.Context, arg UpdateClubBalancePa
 	_, err := q.db.ExecContext(ctx, updateClubBalance, arg.Balance, arg.UpdatedAt, arg.ID)
 	return err
 }
+
+const updateClubOwner = `-- name: UpdateClubOwner :one
+UPDATE clubs
+SET user_id = $1, updated_at = $2
+WHERE id = $3
+RETURNING id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at
+`
+
+type UpdateClubOwnerParams struct {
+	UserID    string    `json:"user_id"`
+	UpdatedAt time.Time `json:"updated_at"`
+	ID        string    `json:"id"`
+}
+
+func (q *Queries) UpdateClubOwner(ctx context.Context, arg UpdateClubOwnerParams) (Club, error) {
+	row := q.db.QueryRowContext(ctx, updateClubOwner, arg.UserID, arg.UpdatedAt, arg.ID)
+	var i Club
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Balance,
+		&i.StartBalance,
+		&i.BaseFee,
+		&i.AutoTipEnabled,
+		&i.CouplesModeEnabled,
+		&i.UserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
