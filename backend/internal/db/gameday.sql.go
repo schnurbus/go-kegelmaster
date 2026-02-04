@@ -499,7 +499,7 @@ func (q *Queries) GetGameDayFeesByParticipant(ctx context.Context, gameDayPartic
 }
 
 const getGameDayParticipants = `-- name: GetGameDayParticipants :many
-SELECT gdp.id, gdp.game_day_id, gdp.player_id, gdp.created_at, p.name as player_name
+SELECT gdp.id, gdp.game_day_id, gdp.player_id, gdp.created_at, p.name as player_name, p.gender as player_gender
 FROM game_day_participants gdp
 JOIN players p ON p.id = gdp.player_id
 WHERE gdp.game_day_id = $1
@@ -507,11 +507,12 @@ ORDER BY gdp.created_at ASC
 `
 
 type GetGameDayParticipantsRow struct {
-	ID         string    `json:"id"`
-	GameDayID  string    `json:"game_day_id"`
-	PlayerID   string    `json:"player_id"`
-	CreatedAt  time.Time `json:"created_at"`
-	PlayerName string    `json:"player_name"`
+	ID           string         `json:"id"`
+	GameDayID    string         `json:"game_day_id"`
+	PlayerID     string         `json:"player_id"`
+	CreatedAt    time.Time      `json:"created_at"`
+	PlayerName   string         `json:"player_name"`
+	PlayerGender sql.NullString `json:"player_gender"`
 }
 
 func (q *Queries) GetGameDayParticipants(ctx context.Context, gameDayID string) ([]GetGameDayParticipantsRow, error) {
@@ -529,6 +530,7 @@ func (q *Queries) GetGameDayParticipants(ctx context.Context, gameDayID string) 
 			&i.PlayerID,
 			&i.CreatedAt,
 			&i.PlayerName,
+			&i.PlayerGender,
 		); err != nil {
 			return nil, err
 		}
@@ -670,6 +672,117 @@ func (q *Queries) GetParticipantByGameDayAndPlayer(ctx context.Context, arg GetP
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const getPlayerCompetitionHistoryByClubAndPlayer = `-- name: GetPlayerCompetitionHistoryByClubAndPlayer :many
+
+SELECT gd.id as game_day_id, gd.date, gdcv.competition_id, c.name as competition_name, gdcv.value
+FROM game_days gd
+JOIN game_day_participants gdp ON gdp.game_day_id = gd.id AND gdp.player_id = $2
+JOIN game_day_competition_values gdcv ON gdcv.game_day_participant_id = gdp.id
+JOIN competitions c ON c.id = gdcv.competition_id
+WHERE gd.club_id = $1 AND gd.date >= $3
+ORDER BY gd.date ASC, c.display_order ASC, c.name ASC
+`
+
+type GetPlayerCompetitionHistoryByClubAndPlayerParams struct {
+	ClubID   string    `json:"club_id"`
+	PlayerID string    `json:"player_id"`
+	Date     time.Time `json:"date"`
+}
+
+type GetPlayerCompetitionHistoryByClubAndPlayerRow struct {
+	GameDayID       string    `json:"game_day_id"`
+	Date            time.Time `json:"date"`
+	CompetitionID   string    `json:"competition_id"`
+	CompetitionName string    `json:"competition_name"`
+	Value           int32     `json:"value"`
+}
+
+// ==================== PLAYER COMPETITION HISTORY (DASHBOARD) ====================
+func (q *Queries) GetPlayerCompetitionHistoryByClubAndPlayer(ctx context.Context, arg GetPlayerCompetitionHistoryByClubAndPlayerParams) ([]GetPlayerCompetitionHistoryByClubAndPlayerRow, error) {
+	rows, err := q.db.QueryContext(ctx, getPlayerCompetitionHistoryByClubAndPlayer, arg.ClubID, arg.PlayerID, arg.Date)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetPlayerCompetitionHistoryByClubAndPlayerRow
+	for rows.Next() {
+		var i GetPlayerCompetitionHistoryByClubAndPlayerRow
+		if err := rows.Scan(
+			&i.GameDayID,
+			&i.Date,
+			&i.CompetitionID,
+			&i.CompetitionName,
+			&i.Value,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getPlayerPenaltyHistoryByClubAndPlayer = `-- name: GetPlayerPenaltyHistoryByClubAndPlayer :many
+
+SELECT gd.id as game_day_id, gd.date, gdf.penalty_type_id, gdf.penalty_type_name, gdf.count, gdf.quantity_scale
+FROM game_days gd
+JOIN game_day_participants gdp ON gdp.game_day_id = gd.id AND gdp.player_id = $2
+LEFT JOIN game_day_fees gdf ON gdf.game_day_participant_id = gdp.id
+WHERE gd.club_id = $1 AND gd.date >= $3
+ORDER BY gd.date ASC, gdf.penalty_type_name ASC
+`
+
+type GetPlayerPenaltyHistoryByClubAndPlayerParams struct {
+	ClubID   string    `json:"club_id"`
+	PlayerID string    `json:"player_id"`
+	Date     time.Time `json:"date"`
+}
+
+type GetPlayerPenaltyHistoryByClubAndPlayerRow struct {
+	GameDayID       string         `json:"game_day_id"`
+	Date            time.Time      `json:"date"`
+	PenaltyTypeID   *string        `json:"penalty_type_id"`
+	PenaltyTypeName sql.NullString `json:"penalty_type_name"`
+	Count           sql.NullInt32  `json:"count"`
+	QuantityScale   sql.NullInt32  `json:"quantity_scale"`
+}
+
+// ==================== PLAYER PENALTY HISTORY (DASHBOARD) ====================
+func (q *Queries) GetPlayerPenaltyHistoryByClubAndPlayer(ctx context.Context, arg GetPlayerPenaltyHistoryByClubAndPlayerParams) ([]GetPlayerPenaltyHistoryByClubAndPlayerRow, error) {
+	rows, err := q.db.QueryContext(ctx, getPlayerPenaltyHistoryByClubAndPlayer, arg.ClubID, arg.PlayerID, arg.Date)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetPlayerPenaltyHistoryByClubAndPlayerRow
+	for rows.Next() {
+		var i GetPlayerPenaltyHistoryByClubAndPlayerRow
+		if err := rows.Scan(
+			&i.GameDayID,
+			&i.Date,
+			&i.PenaltyTypeID,
+			&i.PenaltyTypeName,
+			&i.Count,
+			&i.QuantityScale,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const updateGameDay = `-- name: UpdateGameDay :one

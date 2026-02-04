@@ -1,19 +1,28 @@
 import { AppLayout } from "@/components/AppLayout";
-import { ChartAreaInteractive } from "@/components/chart-area-interactive";
-import { DataTable } from "@/components/data-table";
+import {
+  DashboardLastGameDayResults,
+  DashboardWinnersLosers,
+} from "@/components/dashboard-competition-cards";
+import { useDashboardCompetitionData } from "@/hooks/use-dashboard-competition-data";
+import { DashboardCompetitionChart } from "@/components/dashboard-competition-chart";
+import { DashboardPenaltyChart } from "@/components/dashboard-penalty-chart";
+import { DashboardTransactionTable } from "@/components/dashboard-transaction-table";
 import { SectionCards } from "@/components/section-cards";
 
-import dashboardData from "@/app/dashboard/data.json";
-
 function DashboardPage() {
+  const competitionData = useDashboardCompetitionData();
+
   return (
     <AppLayout title="Dashboard">
       <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-        <SectionCards />
-        <div className="px-4 lg:px-6">
-          <ChartAreaInteractive />
+        <div className="*:data-[slot=card]:shadow-xs @xl/main:grid-cols-2 @5xl/main:grid-cols-4 grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card lg:px-6">
+          <SectionCards />
+          <DashboardLastGameDayResults data={competitionData} />
+          <DashboardWinnersLosers data={competitionData} />
         </div>
-        <DataTable data={dashboardData} />
+        <DashboardPenaltyChart />
+        <DashboardCompetitionChart />
+        <DashboardTransactionTable />
       </div>
     </AppLayout>
   );

@@ -277,20 +277,22 @@ func GameDaySummariesResponseFromEntities(summaries []gameday.GameDaySummary) []
 }
 
 type ParticipantResponse struct {
-	ID         string `json:"id"`
-	GameDayID  string `json:"game_day_id"`
-	PlayerID   string `json:"player_id"`
-	PlayerName string `json:"player_name,omitempty"`
-	CreatedAt  string `json:"created_at"`
+	ID           string  `json:"id"`
+	GameDayID    string  `json:"game_day_id"`
+	PlayerID     string  `json:"player_id"`
+	PlayerName   string  `json:"player_name,omitempty"`
+	PlayerGender *string `json:"player_gender,omitempty"` // male, female, or omitted for nil
+	CreatedAt    string  `json:"created_at"`
 }
 
 func ParticipantResponseFromEntity(p gameday.GameDayParticipant) ParticipantResponse {
 	return ParticipantResponse{
-		ID:         p.ID,
-		GameDayID:  p.GameDayID,
-		PlayerID:   p.PlayerID,
-		PlayerName: p.PlayerName,
-		CreatedAt:  p.CreatedAt.Format(time.RFC3339),
+		ID:           p.ID,
+		GameDayID:    p.GameDayID,
+		PlayerID:     p.PlayerID,
+		PlayerName:   p.PlayerName,
+		PlayerGender: p.PlayerGender,
+		CreatedAt:    p.CreatedAt.Format(time.RFC3339),
 	}
 }
 
@@ -474,4 +476,78 @@ func GameDayTransactionSummaryResponseFromEntity(s *transaction.GameDayTransacti
 		PenaltyFeeCount: s.FeeCount,
 		Total:           s.BaseFeeTotal + s.FeeTotal,
 	}
+}
+
+// Penalty history (dashboard chart)
+type PenaltyHistoryPenaltyResponse struct {
+	PenaltyTypeID   string  `json:"penalty_type_id"`
+	PenaltyTypeName string  `json:"penalty_type_name"`
+	Quantity        float64 `json:"quantity"`
+}
+
+type PenaltyHistoryDayResponse struct {
+	GameDayID string                          `json:"game_day_id"`
+	Date      string                          `json:"date"` // YYYY-MM-DD
+	Penalties []PenaltyHistoryPenaltyResponse `json:"penalties"`
+}
+
+func PenaltyHistoryDayResponseFromEntity(d gameday.PenaltyHistoryDay) PenaltyHistoryDayResponse {
+	penalties := make([]PenaltyHistoryPenaltyResponse, len(d.Penalties))
+	for i, p := range d.Penalties {
+		penalties[i] = PenaltyHistoryPenaltyResponse{
+			PenaltyTypeID:   p.PenaltyTypeID,
+			PenaltyTypeName: p.PenaltyTypeName,
+			Quantity:        p.Quantity,
+		}
+	}
+	return PenaltyHistoryDayResponse{
+		GameDayID: d.GameDayID,
+		Date:      d.Date.Format("2006-01-02"),
+		Penalties: penalties,
+	}
+}
+
+func PenaltyHistoryResponseFromEntities(days []gameday.PenaltyHistoryDay) []PenaltyHistoryDayResponse {
+	result := make([]PenaltyHistoryDayResponse, len(days))
+	for i, d := range days {
+		result[i] = PenaltyHistoryDayResponseFromEntity(d)
+	}
+	return result
+}
+
+// Competition history (dashboard chart)
+type CompetitionHistoryValueResponse struct {
+	CompetitionID   string `json:"competition_id"`
+	CompetitionName string `json:"competition_name"`
+	Value           int    `json:"value"`
+}
+
+type CompetitionHistoryDayResponse struct {
+	GameDayID string                            `json:"game_day_id"`
+	Date      string                            `json:"date"` // YYYY-MM-DD
+	Values    []CompetitionHistoryValueResponse `json:"values"`
+}
+
+func CompetitionHistoryDayResponseFromEntity(d gameday.CompetitionHistoryDay) CompetitionHistoryDayResponse {
+	values := make([]CompetitionHistoryValueResponse, len(d.Values))
+	for i, v := range d.Values {
+		values[i] = CompetitionHistoryValueResponse{
+			CompetitionID:   v.CompetitionID,
+			CompetitionName: v.CompetitionName,
+			Value:           v.Value,
+		}
+	}
+	return CompetitionHistoryDayResponse{
+		GameDayID: d.GameDayID,
+		Date:      d.Date.Format("2006-01-02"),
+		Values:    values,
+	}
+}
+
+func CompetitionHistoryResponseFromEntities(days []gameday.CompetitionHistoryDay) []CompetitionHistoryDayResponse {
+	result := make([]CompetitionHistoryDayResponse, len(days))
+	for i, d := range days {
+		result[i] = CompetitionHistoryDayResponseFromEntity(d)
+	}
+	return result
 }

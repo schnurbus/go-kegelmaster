@@ -378,6 +378,90 @@ func (r *Repository) GetGameDayWithDetails(ctx context.Context, gameDayID string
 	}, nil
 }
 
+// GetPlayerPenaltyHistory returns penalty counts per game day for a player (for dashboard chart).
+// Only game days where the player participated are included. since limits to game days on or after that date.
+func (r *Repository) GetPlayerPenaltyHistory(ctx context.Context, clubID, playerID string, since time.Time) ([]PenaltyHistoryDay, error) {
+	rows, err := r.queries.GetPlayerPenaltyHistoryByClubAndPlayer(ctx, db.GetPlayerPenaltyHistoryByClubAndPlayerParams{
+		ClubID:   clubID,
+		PlayerID: playerID,
+		Date:     since,
+	})
+	if err != nil {
+		return nil, err
+	}
+	// Group by game_day_id
+	byDay := make(map[string]*PenaltyHistoryDay)
+	for _, row := range rows {
+		day, ok := byDay[row.GameDayID]
+		if !ok {
+			day = &PenaltyHistoryDay{GameDayID: row.GameDayID, Date: row.Date, Penalties: nil}
+			byDay[row.GameDayID] = day
+		}
+		if row.PenaltyTypeID != nil && row.PenaltyTypeName.Valid {
+			scale := 1
+			if row.QuantityScale.Valid && row.QuantityScale.Int32 > 0 {
+				scale = int(row.QuantityScale.Int32)
+			}
+			qty := float64(0)
+			if row.Count.Valid {
+				qty = float64(row.Count.Int32) / float64(scale)
+			}
+			day.Penalties = append(day.Penalties, PenaltyHistoryPenalty{
+				PenaltyTypeID:   *row.PenaltyTypeID,
+				PenaltyTypeName: row.PenaltyTypeName.String,
+				Quantity:        qty,
+			})
+		}
+	}
+	// Preserve order by date (rows are ordered by gd.date ASC)
+	ordered := make([]PenaltyHistoryDay, 0, len(byDay))
+	seen := make(map[string]struct{})
+	for _, row := range rows {
+		if _, ok := seen[row.GameDayID]; ok {
+			continue
+		}
+		seen[row.GameDayID] = struct{}{}
+		ordered = append(ordered, *byDay[row.GameDayID])
+	}
+	return ordered, nil
+}
+
+// GetPlayerCompetitionHistory returns competition values per game day for a player (for dashboard chart).
+// Only game days where the player participated and had competition values are included.
+func (r *Repository) GetPlayerCompetitionHistory(ctx context.Context, clubID, playerID string, since time.Time) ([]CompetitionHistoryDay, error) {
+	rows, err := r.queries.GetPlayerCompetitionHistoryByClubAndPlayer(ctx, db.GetPlayerCompetitionHistoryByClubAndPlayerParams{
+		ClubID:   clubID,
+		PlayerID: playerID,
+		Date:     since,
+	})
+	if err != nil {
+		return nil, err
+	}
+	byDay := make(map[string]*CompetitionHistoryDay)
+	for _, row := range rows {
+		day, ok := byDay[row.GameDayID]
+		if !ok {
+			day = &CompetitionHistoryDay{GameDayID: row.GameDayID, Date: row.Date, Values: nil}
+			byDay[row.GameDayID] = day
+		}
+		day.Values = append(day.Values, CompetitionHistoryValue{
+			CompetitionID:   row.CompetitionID,
+			CompetitionName: row.CompetitionName,
+			Value:           int(row.Value),
+		})
+	}
+	ordered := make([]CompetitionHistoryDay, 0, len(byDay))
+	seen := make(map[string]struct{})
+	for _, row := range rows {
+		if _, ok := seen[row.GameDayID]; ok {
+			continue
+		}
+		seen[row.GameDayID] = struct{}{}
+		ordered = append(ordered, *byDay[row.GameDayID])
+	}
+	return ordered, nil
+}
+
 // ==================== CONVERTERS ====================
 
 func dbGameDayToGameDay(dbGD db.GameDay) GameDay {
@@ -406,12 +490,17 @@ func dbParticipantToParticipant(dbP db.GameDayParticipant) GameDayParticipant {
 }
 
 func dbParticipantWithNameToParticipant(dbP db.GetGameDayParticipantsRow) GameDayParticipant {
+	var playerGender *string
+	if dbP.PlayerGender.Valid {
+		playerGender = &dbP.PlayerGender.String
+	}
 	return GameDayParticipant{
-		ID:         dbP.ID,
-		GameDayID:  dbP.GameDayID,
-		PlayerID:   dbP.PlayerID,
-		PlayerName: dbP.PlayerName,
-		CreatedAt:  dbP.CreatedAt,
+		ID:           dbP.ID,
+		GameDayID:    dbP.GameDayID,
+		PlayerID:     dbP.PlayerID,
+		PlayerName:   dbP.PlayerName,
+		PlayerGender: playerGender,
+		CreatedAt:    dbP.CreatedAt,
 	}
 }
 
