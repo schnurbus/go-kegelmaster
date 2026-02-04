@@ -169,8 +169,16 @@ export function PlayersDataTable({
       cell: ({ row }) => {
         const roleId = row.original.role_id;
         const roleName = getRoleName(roleId);
+        const inactive = row.original.inactive;
         return (
-          <Badge variant={roleId ? "outline" : "secondary"}>{roleName}</Badge>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant={roleId ? "outline" : "secondary"}>{roleName}</Badge>
+            {inactive && (
+              <Badge variant="secondary" title="Zahlt keine Grundgebühr">
+                Inaktiv
+              </Badge>
+            )}
+          </div>
         );
       },
       filterFn: (row, _id, value) => {

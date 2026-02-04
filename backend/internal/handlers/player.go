@@ -20,7 +20,8 @@ type createPlayerRequest struct {
 	StartBalance int     `json:"start_balance"`
 	UserID       *string `json:"user_id"`
 	RoleID       *string `json:"role_id"`
-	Gender       *string `json:"gender"` // male, female, or nil
+	Gender       *string `json:"gender"`   // male, female, or nil
+	Inactive     *bool   `json:"inactive"` // optional, default false
 }
 
 func (r createPlayerRequest) validate() error {
@@ -74,6 +75,10 @@ func (h *Handler) HandleCreatePlayer(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 
+	inactive := false
+	if req.Inactive != nil {
+		inactive = *req.Inactive
+	}
 	playerEntity, err := h.PlayerRepo.Create(ctx, player.CreatePlayerParams{
 		ClubID:       clubID,
 		Name:         strings.TrimSpace(req.Name),
@@ -82,6 +87,7 @@ func (h *Handler) HandleCreatePlayer(c fiber.Ctx) error {
 		UserID:       req.UserID,
 		RoleID:       req.RoleID,
 		Gender:       req.Gender,
+		Inactive:     inactive,
 	})
 	if err != nil {
 		slog.Error("create player", "error", err)
@@ -298,7 +304,8 @@ type updatePlayerRequest struct {
 	StartBalance int     `json:"start_balance"`
 	UserID       *string `json:"user_id"`
 	RoleID       *string `json:"role_id"`
-	Gender       *string `json:"gender"` // male, female, or nil
+	Gender       *string `json:"gender"`   // male, female, or nil
+	Inactive     *bool   `json:"inactive"` // optional, keep existing if nil
 }
 
 func (r updatePlayerRequest) validate() error {
@@ -376,6 +383,10 @@ func (h *Handler) HandleUpdatePlayer(c fiber.Ctx) error {
 	if roleID == nil || *roleID == "" {
 		roleID = existingPlayer.RoleID
 	}
+	inactive := existingPlayer.Inactive
+	if req.Inactive != nil {
+		inactive = *req.Inactive
+	}
 
 	updatedPlayer, err := h.PlayerRepo.Update(ctx, player.UpdatePlayerParams{
 		ID:           playerID,
@@ -385,6 +396,7 @@ func (h *Handler) HandleUpdatePlayer(c fiber.Ctx) error {
 		UserID:       userID,
 		RoleID:       roleID,
 		Gender:       req.Gender,
+		Inactive:     inactive,
 	})
 	if err != nil {
 		if errors.Is(err, player.ErrNotFound) {

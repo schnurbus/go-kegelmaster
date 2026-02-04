@@ -32,6 +32,7 @@ type CreatePlayerParams struct {
 	Balance      int
 	StartBalance int
 	Gender       *string
+	Inactive     bool
 }
 
 func (r *Repository) Create(ctx context.Context, params CreatePlayerParams) (Player, error) {
@@ -51,6 +52,7 @@ func (r *Repository) Create(ctx context.Context, params CreatePlayerParams) (Pla
 		Balance:      int32(params.Balance),
 		StartBalance: int32(params.StartBalance),
 		Gender:       gender,
+		Inactive:     params.Inactive,
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	})
@@ -117,6 +119,7 @@ func dbPlayerToPlayer(dbPlayer db.Player) Player {
 		Balance:      int(dbPlayer.Balance),
 		StartBalance: int(dbPlayer.StartBalance),
 		Gender:       gender,
+		Inactive:     dbPlayer.Inactive,
 		CreatedAt:    dbPlayer.CreatedAt,
 		UpdatedAt:    dbPlayer.UpdatedAt,
 	}
@@ -130,6 +133,7 @@ type UpdatePlayerParams struct {
 	UserID       *string
 	RoleID       *string
 	Gender       *string
+	Inactive     bool
 }
 
 func (r *Repository) Update(ctx context.Context, params UpdatePlayerParams) (Player, error) {
@@ -147,6 +151,7 @@ func (r *Repository) Update(ctx context.Context, params UpdatePlayerParams) (Pla
 		UserID:       params.UserID,
 		RoleID:       params.RoleID,
 		Gender:       gender,
+		Inactive:     params.Inactive,
 		UpdatedAt:    now,
 	})
 	if errors.Is(err, sql.ErrNoRows) {

@@ -39,9 +39,9 @@ func TestHandleCreatePlayer_Success(t *testing.T) {
 
 	// Mock player creation
 	mock.ExpectQuery(`INSERT INTO players`).
-		WithArgs(sqlmock.AnyArg(), clubID, nil, &roleID, "Test Player", 1000, 500, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "created_at", "updated_at"}).
-			AddRow(playerID, clubID, nil, roleID, "Test Player", 1000, 500, nil, now, now))
+		WithArgs(sqlmock.AnyArg(), clubID, nil, &roleID, "Test Player", 1000, 500, sqlmock.AnyArg(), false, sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "created_at", "updated_at"}).
+			AddRow(playerID, clubID, nil, roleID, "Test Player", 1000, 500, nil, false, now, now))
 
 	body := `{"name":"Test Player","balance":1000,"start_balance":500,"role_id":"` + roleID + `"}`
 	req := mustJSONRequest(t, http.MethodPost, "/api/clubs/"+clubID+"/players", body)
@@ -97,9 +97,9 @@ func TestHandleCreatePlayer_WithUserID(t *testing.T) {
 
 	// Mock player creation
 	mock.ExpectQuery(`INSERT INTO players`).
-		WithArgs(sqlmock.AnyArg(), clubID, &playerUserID, &roleID, "Test Player", 1000, 500, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "created_at", "updated_at"}).
-			AddRow(playerID, clubID, playerUserID, roleID, "Test Player", 1000, 500, nil, now, now))
+		WithArgs(sqlmock.AnyArg(), clubID, &playerUserID, &roleID, "Test Player", 1000, 500, sqlmock.AnyArg(), false, sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "created_at", "updated_at"}).
+			AddRow(playerID, clubID, playerUserID, roleID, "Test Player", 1000, 500, nil, false, now, now))
 
 	body := `{"name":"Test Player","balance":1000,"start_balance":500,"user_id":"` + playerUserID + `","role_id":"` + roleID + `"}`
 	req := mustJSONRequest(t, http.MethodPost, "/api/clubs/"+clubID+"/players", body)
@@ -152,7 +152,7 @@ func TestHandleCreatePlayer_NotOwnerNoPermission(t *testing.T) {
 			AddRow(clubID, "Test Club", 0, 0, 0, true, false, otherUserID, now, now))
 
 	// Permission check: user has no player in this club
-	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, created_at, updated_at FROM players`).
+	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, created_at, updated_at FROM players`).
 		WithArgs(userID, clubID).
 		WillReturnError(sql.ErrNoRows)
 
@@ -280,11 +280,11 @@ func TestHandleGetPlayers_Success(t *testing.T) {
 			AddRow(clubID, "Test Club", 0, 0, 0, true, false, userID, now, now))
 
 	// Mock players query
-	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, created_at, updated_at`).
+	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, created_at, updated_at`).
 		WithArgs(clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "created_at", "updated_at"}).
-			AddRow(playerID1, clubID, nil, nil, "Player 1", 1000, 500, nil, now, now).
-			AddRow(playerID2, clubID, nil, nil, "Player 2", 2000, 1000, nil, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "created_at", "updated_at"}).
+			AddRow(playerID1, clubID, nil, nil, "Player 1", 1000, 500, nil, false, now, now).
+			AddRow(playerID2, clubID, nil, nil, "Player 2", 2000, 1000, nil, false, now, now))
 
 	req := mustJSONRequest(t, http.MethodGet, "/api/clubs/"+clubID+"/players", "")
 	req.AddCookie(&http.Cookie{Name: authCookieName, Value: token})
@@ -336,7 +336,7 @@ func TestHandleGetPlayers_NotOwnerNoPermission(t *testing.T) {
 			AddRow(clubID, "Test Club", 0, 0, 0, true, false, otherUserID, now, now))
 
 	// Permission check: user has no player in this club
-	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, created_at, updated_at FROM players`).
+	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, created_at, updated_at FROM players`).
 		WithArgs(userID, clubID).
 		WillReturnError(sql.ErrNoRows)
 
@@ -381,10 +381,10 @@ func TestHandleGetPlayer_Success(t *testing.T) {
 			AddRow(clubID, "Test Club", 0, 0, 0, true, false, userID, now, now))
 
 	// Mock player query
-	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, created_at, updated_at`).
+	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, created_at, updated_at`).
 		WithArgs(playerID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "created_at", "updated_at"}).
-			AddRow(playerID, clubID, nil, nil, "Test Player", 1000, 500, nil, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "created_at", "updated_at"}).
+			AddRow(playerID, clubID, nil, nil, "Test Player", 1000, 500, nil, false, now, now))
 
 	req := mustJSONRequest(t, http.MethodGet, "/api/clubs/"+clubID+"/players/"+playerID, "")
 	req.AddCookie(&http.Cookie{Name: authCookieName, Value: token})
@@ -437,7 +437,7 @@ func TestHandleGetPlayer_NotOwnerNoPermission(t *testing.T) {
 			AddRow(clubID, "Test Club", 0, 0, 0, true, false, otherUserID, now, now))
 
 	// Permission check: user has no player in this club
-	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, created_at, updated_at FROM players`).
+	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, created_at, updated_at FROM players`).
 		WithArgs(userID, clubID).
 		WillReturnError(sql.ErrNoRows)
 
@@ -483,10 +483,10 @@ func TestHandleGetPlayer_WrongClub(t *testing.T) {
 			AddRow(clubID, "Test Club", 0, 0, 0, true, false, userID, now, now))
 
 	// Mock player query - player belongs to different club
-	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, created_at, updated_at`).
+	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, created_at, updated_at`).
 		WithArgs(playerID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "created_at", "updated_at"}).
-			AddRow(playerID, wrongClubID, nil, nil, "Test Player", 1000, 500, nil, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "created_at", "updated_at"}).
+			AddRow(playerID, wrongClubID, nil, nil, "Test Player", 1000, 500, nil, false, now, now))
 
 	req := mustJSONRequest(t, http.MethodGet, "/api/clubs/"+clubID+"/players/"+playerID, "")
 	req.AddCookie(&http.Cookie{Name: authCookieName, Value: token})
@@ -530,16 +530,16 @@ func TestHandleUpdatePlayer_Success(t *testing.T) {
 			AddRow(clubID, "Test Club", 0, 0, 0, true, false, userID, now, now))
 
 	// Mock player query to verify existence and club membership
-	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, created_at, updated_at`).
+	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, created_at, updated_at`).
 		WithArgs(playerID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "created_at", "updated_at"}).
-			AddRow(playerID, clubID, nil, roleID, "Old Name", 1000, 500, nil, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "created_at", "updated_at"}).
+			AddRow(playerID, clubID, nil, roleID, "Old Name", 1000, 500, nil, false, now, now))
 
 	// Mock player update
 	mock.ExpectQuery(`UPDATE players`).
-		WithArgs("Updated Player", 2000, 1000, nil, &roleID, sqlmock.AnyArg(), sqlmock.AnyArg(), playerID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "created_at", "updated_at"}).
-			AddRow(playerID, clubID, nil, roleID, "Updated Player", 2000, 1000, nil, now, now.Add(time.Hour)))
+		WithArgs("Updated Player", 2000, 1000, nil, &roleID, sqlmock.AnyArg(), false, sqlmock.AnyArg(), playerID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "created_at", "updated_at"}).
+			AddRow(playerID, clubID, nil, roleID, "Updated Player", 2000, 1000, nil, false, now, now.Add(time.Hour)))
 
 	body := `{"name":"Updated Player","balance":2000,"start_balance":1000,"role_id":"` + roleID + `"}`
 	req := mustJSONRequest(t, http.MethodPut, "/api/clubs/"+clubID+"/players/"+playerID, body)
@@ -593,10 +593,10 @@ func TestHandleUpdatePlayer_MissingRole(t *testing.T) {
 			AddRow(clubID, "Test Club", 0, 0, 0, true, false, userID, now, now))
 
 	// Mock player query to verify existence and club membership
-	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, created_at, updated_at`).
+	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, created_at, updated_at`).
 		WithArgs(playerID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "created_at", "updated_at"}).
-			AddRow(playerID, clubID, nil, roleID, "Test Player", 1000, 500, nil, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "created_at", "updated_at"}).
+			AddRow(playerID, clubID, nil, roleID, "Test Player", 1000, 500, nil, false, now, now))
 
 	body := `{"name":"Updated Player","balance":2000,"start_balance":1000}`
 	req := mustJSONRequest(t, http.MethodPut, "/api/clubs/"+clubID+"/players/"+playerID, body)
@@ -641,7 +641,7 @@ func TestHandleUpdatePlayer_NotOwnerNoPermission(t *testing.T) {
 			AddRow(clubID, "Test Club", 0, 0, 0, true, false, otherUserID, now, now))
 
 	// Permission check: user has no player in this club
-	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, created_at, updated_at FROM players`).
+	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, created_at, updated_at FROM players`).
 		WithArgs(userID, clubID).
 		WillReturnError(sql.ErrNoRows)
 
@@ -688,10 +688,10 @@ func TestHandleUpdatePlayer_WrongClub(t *testing.T) {
 			AddRow(clubID, "Test Club", 0, 0, 0, true, false, userID, now, now))
 
 	// Mock player query - player belongs to different club
-	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, created_at, updated_at`).
+	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, created_at, updated_at`).
 		WithArgs(playerID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "created_at", "updated_at"}).
-			AddRow(playerID, wrongClubID, nil, nil, "Test Player", 1000, 500, nil, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "created_at", "updated_at"}).
+			AddRow(playerID, wrongClubID, nil, nil, "Test Player", 1000, 500, nil, false, now, now))
 
 	body := `{"name":"Updated Player","balance":2000,"start_balance":1000}`
 	req := mustJSONRequest(t, http.MethodPut, "/api/clubs/"+clubID+"/players/"+playerID, body)
@@ -735,16 +735,16 @@ func TestHandleDeletePlayer_Success(t *testing.T) {
 			AddRow(clubID, "Test Club", 0, 0, 0, true, false, userID, now, now))
 
 	// Mock player query to verify existence and club membership
-	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, created_at, updated_at`).
+	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, created_at, updated_at`).
 		WithArgs(playerID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "created_at", "updated_at"}).
-			AddRow(playerID, clubID, nil, nil, "Test Player", 1000, 500, nil, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "created_at", "updated_at"}).
+			AddRow(playerID, clubID, nil, nil, "Test Player", 1000, 500, nil, false, now, now))
 
 	// Additional GetByID call in Delete method
-	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, created_at, updated_at FROM players`).
+	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, created_at, updated_at FROM players`).
 		WithArgs(playerID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "created_at", "updated_at"}).
-			AddRow(playerID, clubID, nil, nil, "Test Player", 1000, 500, nil, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "created_at", "updated_at"}).
+			AddRow(playerID, clubID, nil, nil, "Test Player", 1000, 500, nil, false, now, now))
 
 	// Mock player deletion
 	mock.ExpectExec(`DELETE FROM players`).
@@ -793,7 +793,7 @@ func TestHandleDeletePlayer_NotOwnerNoPermission(t *testing.T) {
 			AddRow(clubID, "Test Club", 0, 0, 0, true, false, otherUserID, now, now))
 
 	// Permission check: user has no player in this club
-	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, created_at, updated_at FROM players`).
+	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, created_at, updated_at FROM players`).
 		WithArgs(userID, clubID).
 		WillReturnError(sql.ErrNoRows)
 
@@ -839,10 +839,10 @@ func TestHandleDeletePlayer_WrongClub(t *testing.T) {
 			AddRow(clubID, "Test Club", 0, 0, 0, true, false, userID, now, now))
 
 	// Mock player query - player belongs to different club
-	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, created_at, updated_at`).
+	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, created_at, updated_at`).
 		WithArgs(playerID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "created_at", "updated_at"}).
-			AddRow(playerID, wrongClubID, nil, nil, "Test Player", 1000, 500, nil, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "created_at", "updated_at"}).
+			AddRow(playerID, wrongClubID, nil, nil, "Test Player", 1000, 500, nil, false, now, now))
 
 	req := mustJSONRequest(t, http.MethodDelete, "/api/clubs/"+clubID+"/players/"+playerID, "")
 	req.AddCookie(&http.Cookie{Name: authCookieName, Value: token})

@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -52,6 +53,7 @@ export function PlayerDialog({
   const [startBalance, setStartBalance] = React.useState("0");
   const [roleId, setRoleId] = React.useState<string | null>(null);
   const [gender, setGender] = React.useState<Gender | null>(null);
+  const [inactive, setInactive] = React.useState(false);
   const [inviteEmail, setInviteEmail] = React.useState("");
   const [isSendingInvite, setIsSendingInvite] = React.useState(false);
   const isEdit = !!player;
@@ -64,12 +66,14 @@ export function PlayerDialog({
       setStartBalance((player.start_balance / 100).toString());
       setRoleId(player.role_id);
       setGender(player.gender ?? null);
+      setInactive(player.inactive ?? false);
       setInviteEmail("");
     } else if (open && !player) {
       setName("");
       setBalance("0");
       setStartBalance("0");
       setGender(null);
+      setInactive(false);
       setInviteEmail("");
       // Pre-select first role when creating new player
       setRoleId(roles.length > 0 ? roles[0].id : null);
@@ -98,6 +102,7 @@ export function PlayerDialog({
         role_id: roleId!, // role_id is required and validated above
         user_id: null,
         gender: gender,
+        inactive,
       };
 
       const url = isEdit
@@ -330,6 +335,22 @@ export function PlayerDialog({
               Für die Auswertung geschlechtsspezifischer Wettbewerbe
             </p>
           </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="inactive"
+              checked={inactive}
+              onCheckedChange={(checked) => setInactive(checked === true)}
+            />
+            <Label
+              htmlFor="inactive"
+              className="text-sm font-normal cursor-pointer leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+              Inaktiv (keine Grundgebühr)
+            </Label>
+          </div>
+          <p className="text-sm text-muted-foreground -mt-2">
+            Inaktive Spieler zahlen keine Basis-Strafe, können aber weiterhin an Spieltagen teilnehmen und Strafen erhalten.
+          </p>
           {canInvite && (
             <div className="space-y-4 border-t pt-4">
               <div>

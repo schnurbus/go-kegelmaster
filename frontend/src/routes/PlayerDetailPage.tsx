@@ -259,9 +259,19 @@ function PlayerDetailPage() {
                 <Separator />
                 <div>
                   <p className="text-sm text-muted-foreground">Rolle</p>
-                  <Badge variant={player.role_id ? "outline" : "secondary"}>
-                    {getRoleName(player.role_id)}
-                  </Badge>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant={player.role_id ? "outline" : "secondary"}>
+                      {getRoleName(player.role_id)}
+                    </Badge>
+                    {player.inactive && (
+                      <Badge
+                        variant="secondary"
+                        title="Zahlt keine Grundgebühr, kann weiterhin an Spieltagen teilnehmen und Strafen erhalten"
+                      >
+                        Inaktiv
+                      </Badge>
+                    )}
+                  </div>
                 </div>
                 <Separator />
                 <div>

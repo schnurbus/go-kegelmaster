@@ -21,6 +21,7 @@ INSERT INTO players (
     balance,
     start_balance,
     gender,
+    inactive,
     created_at,
     updated_at
 ) VALUES (
@@ -33,9 +34,10 @@ INSERT INTO players (
     $7,
     $8,
     $9,
-    $10
+    $10,
+    $11
 )
-RETURNING id, club_id, user_id, role_id, name, balance, start_balance, gender, created_at, updated_at
+RETURNING id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, created_at, updated_at
 `
 
 type CreatePlayerParams struct {
@@ -47,6 +49,7 @@ type CreatePlayerParams struct {
 	Balance      int32          `json:"balance"`
 	StartBalance int32          `json:"start_balance"`
 	Gender       sql.NullString `json:"gender"`
+	Inactive     bool           `json:"inactive"`
 	CreatedAt    time.Time      `json:"created_at"`
 	UpdatedAt    time.Time      `json:"updated_at"`
 }
@@ -61,6 +64,7 @@ func (q *Queries) CreatePlayer(ctx context.Context, arg CreatePlayerParams) (Pla
 		arg.Balance,
 		arg.StartBalance,
 		arg.Gender,
+		arg.Inactive,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -74,6 +78,7 @@ func (q *Queries) CreatePlayer(ctx context.Context, arg CreatePlayerParams) (Pla
 		&i.Balance,
 		&i.StartBalance,
 		&i.Gender,
+		&i.Inactive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -91,7 +96,7 @@ func (q *Queries) DeletePlayer(ctx context.Context, id string) error {
 }
 
 const getPlayerByID = `-- name: GetPlayerByID :one
-SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, created_at, updated_at FROM players
+SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, created_at, updated_at FROM players
 WHERE id = $1
 `
 
@@ -107,6 +112,7 @@ func (q *Queries) GetPlayerByID(ctx context.Context, id string) (Player, error) 
 		&i.Balance,
 		&i.StartBalance,
 		&i.Gender,
+		&i.Inactive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -114,7 +120,7 @@ func (q *Queries) GetPlayerByID(ctx context.Context, id string) (Player, error) 
 }
 
 const getPlayerByUserIDAndClubID = `-- name: GetPlayerByUserIDAndClubID :one
-SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, created_at, updated_at FROM players
+SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, created_at, updated_at FROM players
 WHERE user_id = $1 AND club_id = $2
 `
 
@@ -135,6 +141,7 @@ func (q *Queries) GetPlayerByUserIDAndClubID(ctx context.Context, arg GetPlayerB
 		&i.Balance,
 		&i.StartBalance,
 		&i.Gender,
+		&i.Inactive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -142,7 +149,7 @@ func (q *Queries) GetPlayerByUserIDAndClubID(ctx context.Context, arg GetPlayerB
 }
 
 const getPlayersByClubID = `-- name: GetPlayersByClubID :many
-SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, created_at, updated_at FROM players
+SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, created_at, updated_at FROM players
 WHERE club_id = $1
 ORDER BY created_at DESC
 `
@@ -165,6 +172,7 @@ func (q *Queries) GetPlayersByClubID(ctx context.Context, clubID string) ([]Play
 			&i.Balance,
 			&i.StartBalance,
 			&i.Gender,
+			&i.Inactive,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -190,9 +198,10 @@ SET
     user_id = $4,
     role_id = $5,
     gender = $6,
-    updated_at = $7
-WHERE id = $8
-RETURNING id, club_id, user_id, role_id, name, balance, start_balance, gender, created_at, updated_at
+    inactive = $7,
+    updated_at = $8
+WHERE id = $9
+RETURNING id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, created_at, updated_at
 `
 
 type UpdatePlayerParams struct {
@@ -202,6 +211,7 @@ type UpdatePlayerParams struct {
 	UserID       *string        `json:"user_id"`
 	RoleID       *string        `json:"role_id"`
 	Gender       sql.NullString `json:"gender"`
+	Inactive     bool           `json:"inactive"`
 	UpdatedAt    time.Time      `json:"updated_at"`
 	ID           string         `json:"id"`
 }
@@ -214,6 +224,7 @@ func (q *Queries) UpdatePlayer(ctx context.Context, arg UpdatePlayerParams) (Pla
 		arg.UserID,
 		arg.RoleID,
 		arg.Gender,
+		arg.Inactive,
 		arg.UpdatedAt,
 		arg.ID,
 	)
@@ -227,6 +238,7 @@ func (q *Queries) UpdatePlayer(ctx context.Context, arg UpdatePlayerParams) (Pla
 		&i.Balance,
 		&i.StartBalance,
 		&i.Gender,
+		&i.Inactive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
