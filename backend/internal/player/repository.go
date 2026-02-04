@@ -32,6 +32,7 @@ type CreatePlayerParams struct {
 	Balance      int
 	StartBalance int
 	Gender       *string
+	Inactive     bool
 }
 
 func (r *Repository) Create(ctx context.Context, params CreatePlayerParams) (Player, error) {
@@ -51,6 +52,7 @@ func (r *Repository) Create(ctx context.Context, params CreatePlayerParams) (Pla
 		Balance:      int32(params.Balance),
 		StartBalance: int32(params.StartBalance),
 		Gender:       gender,
+		Inactive:     params.Inactive,
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	})
@@ -117,11 +119,14 @@ func dbPlayerToPlayer(dbPlayer db.Player) Player {
 		Balance:      int(dbPlayer.Balance),
 		StartBalance: int(dbPlayer.StartBalance),
 		Gender:       gender,
+		Inactive:     dbPlayer.Inactive,
 		CreatedAt:    dbPlayer.CreatedAt,
 		UpdatedAt:    dbPlayer.UpdatedAt,
 	}
 }
 
+// UpdatePlayerParams holds fields for updating a player.
+// Inactive: nil = keep existing value (avoids flipping inactive→active on partial updates).
 type UpdatePlayerParams struct {
 	ID           string
 	Name         string
@@ -130,10 +135,25 @@ type UpdatePlayerParams struct {
 	UserID       *string
 	RoleID       *string
 	Gender       *string
+	Inactive     *bool // nil = do not change; non-nil = set to value
 }
 
 func (r *Repository) Update(ctx context.Context, params UpdatePlayerParams) (Player, error) {
 	now := time.Now().UTC()
+
+	inactive := false
+	if params.Inactive != nil {
+		inactive = *params.Inactive
+	} else {
+		existing, err := r.queries.GetPlayerByID(ctx, params.ID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return Player{}, ErrNotFound
+			}
+			return Player{}, err
+		}
+		inactive = existing.Inactive
+	}
 
 	var gender sql.NullString
 	if params.Gender != nil && *params.Gender != "" {
@@ -147,6 +167,7 @@ func (r *Repository) Update(ctx context.Context, params UpdatePlayerParams) (Pla
 		UserID:       params.UserID,
 		RoleID:       params.RoleID,
 		Gender:       gender,
+		Inactive:     inactive,
 		UpdatedAt:    now,
 	})
 	if errors.Is(err, sql.ErrNoRows) {

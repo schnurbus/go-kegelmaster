@@ -425,9 +425,9 @@ func migratePlayers(ctx context.Context, source *sql.DB, exec execContext, maps 
 			count++
 			continue
 		}
-		_, err := exec(ctx, `INSERT INTO players (id, club_id, user_id, role_id, name, balance, start_balance, gender, created_at, updated_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) ON CONFLICT (id) DO NOTHING`,
-			newID, newClubID, nullUUID(newUserID), newRoleID, name, balance, initialBalance, nullString(gender), createdAt, updatedAt)
+		_, err := exec(ctx, `INSERT INTO players (id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) ON CONFLICT (id) DO NOTHING`,
+			newID, newClubID, nullUUID(newUserID), newRoleID, name, balance, initialBalance, nullString(gender), false, createdAt, updatedAt)
 		if err != nil {
 			return fmt.Errorf("insert player %d: %w", id, err)
 		}

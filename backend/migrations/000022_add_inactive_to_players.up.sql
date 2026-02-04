@@ -1,0 +1,2 @@
+ALTER TABLE players
+ADD COLUMN inactive BOOLEAN NOT NULL DEFAULT false;

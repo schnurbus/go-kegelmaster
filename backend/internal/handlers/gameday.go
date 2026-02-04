@@ -129,6 +129,10 @@ func (h *Handler) HandleCreateGameDay(c fiber.Ctx) error {
 		} else {
 			// Process each player
 			for _, player := range players {
+				// Inactive players do not pay base fee
+				if player.Inactive {
+					continue
+				}
 				// Check if player has a role
 				if player.RoleID == nil {
 					continue

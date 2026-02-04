@@ -119,6 +119,7 @@ type PlayerResponse struct {
 	Balance      int       `json:"balance"`
 	StartBalance int       `json:"start_balance"`
 	Gender       *string   `json:"gender,omitempty"`
+	Inactive     bool      `json:"inactive"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
@@ -133,6 +134,7 @@ func PlayerResponseFromEntity(p player.Player) PlayerResponse {
 		Balance:      p.Balance,
 		StartBalance: p.StartBalance,
 		Gender:       p.Gender,
+		Inactive:     p.Inactive,
 		CreatedAt:    p.CreatedAt,
 		UpdatedAt:    p.UpdatedAt,
 	}

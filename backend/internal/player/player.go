@@ -14,6 +14,7 @@ type Player struct {
 	Balance      int // Cent-Betrag
 	StartBalance int // Cent-Betrag
 	Gender       *string // male, female, or nil (for evaluation of gender-specific competitions)
+	Inactive     bool   // Inactive players do not pay base fee (Grundgebühr)
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
