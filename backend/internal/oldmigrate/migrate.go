@@ -484,13 +484,18 @@ func migratePenaltyTypes(ctx context.Context, source *sql.DB, exec execContext, 
 		}
 		newID := ID("penalty_types", id)
 		maps.PenaltyTypeID[id] = newID
+		// Alte DB kann negative Preise speichern; neue App erwartet positive price
+		price := amount
+		if price < 0 {
+			price = -price
+		}
 		if dryRun {
 			count++
 			continue
 		}
 		_, err := exec(ctx, `INSERT INTO penalty_types (id, club_id, name, description, price, display_order, allows_decimal_quantity, created_at, updated_at)
 			VALUES ($1, $2, $3, $4, $5, $6, false, $7, $8) ON CONFLICT (id) DO NOTHING`,
-			newID, newClubID, name, nullString(desc), amount, position, createdAt, updatedAt)
+			newID, newClubID, name, nullString(desc), price, position, createdAt, updatedAt)
 		if err != nil {
 			return fmt.Errorf("insert penalty_type %d: %w", id, err)
 		}
@@ -677,15 +682,26 @@ func migrateGameDayFees(ctx context.Context, source *sql.DB, exec execContext, m
 			slog.Warn("Game day fee übersprungen: penalty_type nicht migriert", "fee_entry_id", feID, "fee_type_id", feeTypeID)
 			continue
 		}
-		// count: integer part; quantity_scale: 1 for integer, 100 for 2 decimals if amount has fractional part
-		countVal := int32(amount)
-		scale := int32(1)
-		if amount != float64(countVal) {
-			scale = 100
-			countVal = int32(amount * 100)
+		// Alte DB speichert Strafen teils negativ; neue App erwartet positive count. Betrag verwenden.
+		absAmount := amount
+		if absAmount < 0 {
+			absAmount = -absAmount
 		}
-		if countVal < 1 {
-			countVal = 1
+		// count: integer part; quantity_scale: 1 for integer, 100 for 2 decimals if amount has fractional part
+		countVal := int32(absAmount)
+		scale := int32(1)
+		if absAmount != float64(countVal) {
+			scale = 100
+			countVal = int32(absAmount * 100)
+		}
+		// Schema erlaubt nur count > 0; Einträge mit 0 Strafen nicht migrieren (keine Fee-Zeile = keine Strafe).
+		if countVal == 0 {
+			continue
+		}
+		// Snapshot-Preis positiv (alte DB kann negative Preise haben)
+		ftvPrice := ftvAmount
+		if ftvPrice < 0 {
+			ftvPrice = -ftvPrice
 		}
 		newID := ID("game_day_fees", feID)
 		maps.GameDayFeeID[feID] = newID
@@ -695,7 +711,7 @@ func migrateGameDayFees(ctx context.Context, source *sql.DB, exec execContext, m
 		}
 		_, err := exec(ctx, `INSERT INTO game_day_fees (id, game_day_participant_id, penalty_type_id, penalty_type_name, penalty_type_description, penalty_type_price, count, quantity_scale, created_at, updated_at)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) ON CONFLICT (id) DO NOTHING`,
-			newID, participantID, penaltyTypeID, ftvName, ftvDesc, ftvAmount, countVal, scale, feCreatedAt, feUpdatedAt)
+			newID, participantID, penaltyTypeID, ftvName, ftvDesc, ftvPrice, countVal, scale, feCreatedAt, feUpdatedAt)
 		if err != nil {
 			return fmt.Errorf("insert game_day_fee %d: %w", feID, err)
 		}
@@ -755,6 +771,21 @@ var transactionTypeMap = map[int]string{
 	1: "base_fee", 2: "fee", 3: "deposit", 4: "tip", 5: "expense",
 }
 
+// normalizeTransactionAmount brings old-DB amount into new app convention: base_fee/fee/expense negative, deposit/tip positive.
+func normalizeTransactionAmount(txType string, amount int32) int32 {
+	switch txType {
+	case "base_fee", "fee", "expense":
+		if amount > 0 {
+			return -amount
+		}
+	case "deposit", "tip":
+		if amount < 0 {
+			return -amount
+		}
+	}
+	return amount
+}
+
 func migrateTransactions(ctx context.Context, source *sql.DB, exec execContext, maps *Maps, dryRun bool) error {
 	rows, err := source.QueryContext(ctx, `SELECT id, club_id, player_id, matchday_id, fee_entry_id, type, amount, date, notes, created_at, updated_at FROM transactions`)
 	if err != nil {
@@ -777,10 +808,17 @@ func migrateTransactions(ctx context.Context, source *sql.DB, exec execContext, 
 		if !ok {
 			continue
 		}
+		// Transaktionen, die auf einen nicht migrierten Straf-Eintrag verweisen (z. B. count=0), überspringen
+		if feeEntryID.Valid {
+			if _, ok := maps.GameDayFeeID[feeEntryID.Int64]; !ok {
+				continue
+			}
+		}
 		txType, ok := transactionTypeMap[int(typ)]
 		if !ok {
 			txType = "deposit"
 		}
+		amount = normalizeTransactionAmount(txType, amount)
 		var newPlayerID, newGameDayID, newGameDayFeeID interface{}
 		if playerID.Valid {
 			if u, ok := maps.PlayerID[playerID.Int64]; ok {
