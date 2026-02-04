@@ -35,7 +35,7 @@ VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: GetGameDayParticipants :many
-SELECT gdp.*, p.name as player_name
+SELECT gdp.id, gdp.game_day_id, gdp.player_id, gdp.created_at, p.name as player_name, p.gender as player_gender
 FROM game_day_participants gdp
 JOIN players p ON p.id = gdp.player_id
 WHERE gdp.game_day_id = $1
@@ -175,3 +175,24 @@ LEFT JOIN (
 ) t ON gd.id = t.game_day_id
 WHERE gd.club_id = $1
 ORDER BY gd.date DESC;
+
+-- ==================== PLAYER PENALTY HISTORY (DASHBOARD) ====================
+
+-- name: GetPlayerPenaltyHistoryByClubAndPlayer :many
+SELECT gd.id as game_day_id, gd.date, gdf.penalty_type_id, gdf.penalty_type_name, gdf.count, gdf.quantity_scale
+FROM game_days gd
+JOIN game_day_participants gdp ON gdp.game_day_id = gd.id AND gdp.player_id = $2
+LEFT JOIN game_day_fees gdf ON gdf.game_day_participant_id = gdp.id
+WHERE gd.club_id = $1 AND gd.date >= $3
+ORDER BY gd.date ASC, gdf.penalty_type_name ASC;
+
+-- ==================== PLAYER COMPETITION HISTORY (DASHBOARD) ====================
+
+-- name: GetPlayerCompetitionHistoryByClubAndPlayer :many
+SELECT gd.id as game_day_id, gd.date, gdcv.competition_id, c.name as competition_name, gdcv.value
+FROM game_days gd
+JOIN game_day_participants gdp ON gdp.game_day_id = gd.id AND gdp.player_id = $2
+JOIN game_day_competition_values gdcv ON gdcv.game_day_participant_id = gdp.id
+JOIN competitions c ON c.id = gdcv.competition_id
+WHERE gd.club_id = $1 AND gd.date >= $3
+ORDER BY gd.date ASC, c.display_order ASC, c.name ASC;

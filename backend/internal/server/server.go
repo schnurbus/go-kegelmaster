@@ -166,6 +166,8 @@ func (s *Server) registerRoutes() {
 	// Player endpoints
 	clubsGroup.Get("/:clubId/players", s.handlers.HandleGetPlayers)
 	clubsGroup.Get("/:clubId/players/me", s.handlers.HandleGetMyPlayer)
+	clubsGroup.Get("/:clubId/players/me/penalty-history", s.handlers.HandleGetMyPenaltyHistory)
+	clubsGroup.Get("/:clubId/players/me/competition-history", s.handlers.HandleGetMyCompetitionHistory)
 	clubsGroup.Get("/:clubId/players/:id", s.handlers.HandleGetPlayer)
 	clubsGroup.Post("/:clubId/players", s.handlers.HandleCreatePlayer)
 	clubsGroup.Put("/:clubId/players/:id", s.handlers.HandleUpdatePlayer)

@@ -74,9 +74,13 @@ type Querier interface {
 	GetPenaltyTypesByClubID(ctx context.Context, clubID string) ([]PenaltyType, error)
 	GetPlayerByID(ctx context.Context, id string) (Player, error)
 	GetPlayerByUserIDAndClubID(ctx context.Context, arg GetPlayerByUserIDAndClubIDParams) (Player, error)
+	// ==================== PLAYER COMPETITION HISTORY (DASHBOARD) ====================
+	GetPlayerCompetitionHistoryByClubAndPlayer(ctx context.Context, arg GetPlayerCompetitionHistoryByClubAndPlayerParams) ([]GetPlayerCompetitionHistoryByClubAndPlayerRow, error)
 	GetPlayerInvitationByID(ctx context.Context, id string) (PlayerInvitation, error)
 	GetPlayerInvitationByToken(ctx context.Context, token string) (PlayerInvitation, error)
 	GetPlayerInvitationsByPlayerID(ctx context.Context, playerID string) ([]PlayerInvitation, error)
+	// ==================== PLAYER PENALTY HISTORY (DASHBOARD) ====================
+	GetPlayerPenaltyHistoryByClubAndPlayer(ctx context.Context, arg GetPlayerPenaltyHistoryByClubAndPlayerParams) ([]GetPlayerPenaltyHistoryByClubAndPlayerRow, error)
 	GetPlayersByClubID(ctx context.Context, clubID string) ([]Player, error)
 	GetRoleByID(ctx context.Context, id string) (Role, error)
 	GetRolePermissions(ctx context.Context, roleID string) ([]RolePermission, error)

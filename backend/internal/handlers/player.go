@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 
@@ -201,6 +202,94 @@ func (h *Handler) HandleGetMyPlayer(c fiber.Ctx) error {
 	}
 
 	return c.JSON(PlayerResponseFromEntity(playerEntity))
+}
+
+// HandleGetMyPenaltyHistory returns penalty counts per game day for the current user's player (dashboard chart).
+// Query param since (YYYY-MM-DD) optional; default is 1 year ago.
+func (h *Handler) HandleGetMyPenaltyHistory(c fiber.Ctx) error {
+	ctx, cancel := h.RequestContext()
+	defer cancel()
+
+	u, err := h.UserFromCookie(ctx, c)
+	if err != nil {
+		return fiber.NewError(fiber.StatusUnauthorized, "Nicht angemeldet")
+	}
+
+	clubID := c.Params("clubId")
+	if clubID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "Club-ID ist erforderlich")
+	}
+
+	playerEntity, err := h.PlayerRepo.GetByUserIDAndClubID(ctx, u.ID, clubID)
+	if err != nil {
+		if errors.Is(err, player.ErrNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "Kein Spieler in diesem Club")
+		}
+		slog.Error("get my player for penalty history", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+	if playerEntity.ClubID != clubID {
+		return fiber.NewError(fiber.StatusNotFound, "Kein Spieler in diesem Club")
+	}
+
+	since := time.Now().UTC().AddDate(-1, 0, 0) // default 1 year ago
+	if sinceParam := c.Query("since"); sinceParam != "" {
+		if t, err := time.Parse("2006-01-02", sinceParam); err == nil {
+			since = t
+		}
+	}
+
+	days, err := h.GameDayRepo.GetPlayerPenaltyHistory(ctx, clubID, playerEntity.ID, since)
+	if err != nil {
+		slog.Error("get player penalty history", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+
+	return c.JSON(PenaltyHistoryResponseFromEntities(days))
+}
+
+// HandleGetMyCompetitionHistory returns competition values per game day for the current user's player (dashboard chart).
+// Query param since (YYYY-MM-DD) optional; default is 1 year ago.
+func (h *Handler) HandleGetMyCompetitionHistory(c fiber.Ctx) error {
+	ctx, cancel := h.RequestContext()
+	defer cancel()
+
+	u, err := h.UserFromCookie(ctx, c)
+	if err != nil {
+		return fiber.NewError(fiber.StatusUnauthorized, "Nicht angemeldet")
+	}
+
+	clubID := c.Params("clubId")
+	if clubID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "Club-ID ist erforderlich")
+	}
+
+	playerEntity, err := h.PlayerRepo.GetByUserIDAndClubID(ctx, u.ID, clubID)
+	if err != nil {
+		if errors.Is(err, player.ErrNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "Kein Spieler in diesem Club")
+		}
+		slog.Error("get my player for competition history", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+	if playerEntity.ClubID != clubID {
+		return fiber.NewError(fiber.StatusNotFound, "Kein Spieler in diesem Club")
+	}
+
+	since := time.Now().UTC().AddDate(-1, 0, 0) // default 1 year ago
+	if sinceParam := c.Query("since"); sinceParam != "" {
+		if t, err := time.Parse("2006-01-02", sinceParam); err == nil {
+			since = t
+		}
+	}
+
+	days, err := h.GameDayRepo.GetPlayerCompetitionHistory(ctx, clubID, playerEntity.ID, since)
+	if err != nil {
+		slog.Error("get player competition history", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+
+	return c.JSON(CompetitionHistoryResponseFromEntities(days))
 }
 
 type updatePlayerRequest struct {
