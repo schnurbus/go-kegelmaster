@@ -107,6 +107,7 @@ type Querier interface {
 	SumTransactionsByPlayer(ctx context.Context, playerID *string) (interface{}, error)
 	UpdateClub(ctx context.Context, arg UpdateClubParams) (Club, error)
 	UpdateClubBalance(ctx context.Context, arg UpdateClubBalanceParams) error
+	UpdateClubOwner(ctx context.Context, arg UpdateClubOwnerParams) (Club, error)
 	UpdateCompetition(ctx context.Context, arg UpdateCompetitionParams) (Competition, error)
 	UpdateGameDay(ctx context.Context, arg UpdateGameDayParams) (GameDay, error)
 	UpdateGameDayFee(ctx context.Context, arg UpdateGameDayFeeParams) (GameDayFee, error)

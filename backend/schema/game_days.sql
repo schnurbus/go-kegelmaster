@@ -29,7 +29,7 @@ CREATE INDEX IF NOT EXISTS idx_game_day_participants_player ON game_day_particip
 CREATE TABLE IF NOT EXISTS game_day_fees (
     id UUID PRIMARY KEY,
     game_day_participant_id UUID NOT NULL REFERENCES game_day_participants(id) ON DELETE CASCADE,
-    penalty_type_id UUID NOT NULL REFERENCES penalty_types(id) ON DELETE RESTRICT,
+    penalty_type_id UUID NOT NULL REFERENCES penalty_types(id) ON DELETE CASCADE,
     -- Snapshot fields preserve historical data when penalty types change
     penalty_type_name TEXT NOT NULL,
     penalty_type_description TEXT DEFAULT '',
@@ -49,7 +49,7 @@ CREATE INDEX IF NOT EXISTS idx_game_day_fees_penalty_type ON game_day_fees(penal
 CREATE TABLE IF NOT EXISTS game_day_competition_values (
     id UUID PRIMARY KEY,
     game_day_participant_id UUID NOT NULL REFERENCES game_day_participants(id) ON DELETE CASCADE,
-    competition_id UUID NOT NULL REFERENCES competitions(id) ON DELETE RESTRICT,
+    competition_id UUID NOT NULL REFERENCES competitions(id) ON DELETE CASCADE,
     value INTEGER NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),

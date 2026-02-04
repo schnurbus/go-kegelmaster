@@ -173,6 +173,23 @@ func (r *Repository) UpdateBalance(ctx context.Context, id string, balance int) 
 	})
 }
 
+// UpdateOwner sets the club's owner (user_id) to the given new user ID.
+func (r *Repository) UpdateOwner(ctx context.Context, clubID, newUserID string) (Club, error) {
+	now := time.Now().UTC()
+	dbClub, err := r.queries.UpdateClubOwner(ctx, db.UpdateClubOwnerParams{
+		UserID:    newUserID,
+		UpdatedAt: now,
+		ID:        clubID,
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return Club{}, ErrNotFound
+	}
+	if err != nil {
+		return Club{}, err
+	}
+	return dbClubToClub(dbClub), nil
+}
+
 // dbClubToClub converts a db.Club to a club.Club
 func dbClubToClub(dbClub db.Club) Club {
 	return Club{

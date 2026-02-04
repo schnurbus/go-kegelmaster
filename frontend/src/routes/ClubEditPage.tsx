@@ -15,7 +15,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { ArrowLeftIcon, CalculatorIcon, Loader2Icon, SaveIcon } from "lucide-react";
+import { ArrowLeftIcon, CalculatorIcon, Loader2Icon, SaveIcon, Trash2Icon, UserCogIcon } from "lucide-react";
+import { DeleteClubDialog } from "@/components/delete-club-dialog";
+import { TransferClubOwnerDialog } from "@/components/transfer-club-owner-dialog";
 
 function ClubEditPage() {
   const { clubId } = useParams<{ clubId: string }>();
@@ -32,6 +34,8 @@ function ClubEditPage() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [isSaving, setIsSaving] = React.useState(false);
   const [isRecalculating, setIsRecalculating] = React.useState(false);
+  const [transferOwnerDialogOpen, setTransferOwnerDialogOpen] = React.useState(false);
+  const [deleteClubDialogOpen, setDeleteClubDialogOpen] = React.useState(false);
 
   const isOwner = clubUserId != null && user != null && clubUserId === user.id;
 
@@ -268,62 +272,107 @@ function ClubEditPage() {
                   Abbrechen
                 </Button>
                 {isOwner && (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    disabled={isSaving || isRecalculating}
-                    onClick={async () => {
-                      if (!clubId) return;
-                      setIsRecalculating(true);
-                      try {
-                        const token = csrfToken || (await refreshCsrf());
-                        const response = await fetch(
-                          `/api/clubs/${clubId}/recalculate-balance`,
-                          {
-                            method: "POST",
-                            credentials: "include",
-                            headers: { "X-CSRF-Token": token },
+                  <>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      disabled={isSaving || isRecalculating}
+                      onClick={async () => {
+                        if (!clubId) return;
+                        setIsRecalculating(true);
+                        try {
+                          const token = csrfToken || (await refreshCsrf());
+                          const response = await fetch(
+                            `/api/clubs/${clubId}/recalculate-balance`,
+                            {
+                              method: "POST",
+                              credentials: "include",
+                              headers: { "X-CSRF-Token": token },
+                            }
+                          );
+                          const body = await response.json().catch(() => ({}));
+                          if (!response.ok) {
+                            const message =
+                              (body as { message?: string }).message ||
+                              "Fehler beim Neuberechnen der Club-Balance";
+                            toast.error(message);
+                            return;
                           }
-                        );
-                        const body = await response.json().catch(() => ({}));
-                        if (!response.ok) {
-                          const message =
-                            (body as { message?: string }).message ||
-                            "Fehler beim Neuberechnen der Club-Balance";
-                          toast.error(message);
-                          return;
+                          const updated = body as { balance?: number };
+                          setBalance(
+                            updated.balance != null
+                              ? (updated.balance / 100).toFixed(2)
+                              : "0"
+                          );
+                          await refreshClubs();
+                          setActiveClub(updated as Parameters<typeof setActiveClub>[0]);
+                          toast.success("Club-Balance wurde neu berechnet.");
+                        } catch (error) {
+                          console.error("Recalculate balance:", error);
+                          toast.error(
+                            (error as Error).message || "Etwas ist schiefgelaufen."
+                          );
+                        } finally {
+                          setIsRecalculating(false);
                         }
-                        const updated = body as { balance?: number };
-                        setBalance(
-                          updated.balance != null
-                            ? (updated.balance / 100).toFixed(2)
-                            : "0"
-                        );
-                        await refreshClubs();
-                        setActiveClub(updated as Parameters<typeof setActiveClub>[0]);
-                        toast.success("Club-Balance wurde neu berechnet.");
-                      } catch (error) {
-                        console.error("Recalculate balance:", error);
-                        toast.error(
-                          (error as Error).message || "Etwas ist schiefgelaufen."
-                        );
-                      } finally {
-                        setIsRecalculating(false);
-                      }
-                    }}
-                  >
-                    {isRecalculating ? (
-                      <Loader2Icon className="mr-2 size-4 animate-spin" />
-                    ) : (
-                      <CalculatorIcon className="mr-2 size-4" />
-                    )}
-                    Balance neu berechnen
-                  </Button>
+                      }}
+                    >
+                      {isRecalculating ? (
+                        <Loader2Icon className="mr-2 size-4 animate-spin" />
+                      ) : (
+                        <CalculatorIcon className="mr-2 size-4" />
+                      )}
+                      Balance neu berechnen
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={isSaving || isRecalculating}
+                      onClick={() => setTransferOwnerDialogOpen(true)}
+                    >
+                      <UserCogIcon className="mr-2 size-4" />
+                      Eigentümer wechseln
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      disabled={isSaving || isRecalculating}
+                      onClick={() => setDeleteClubDialogOpen(true)}
+                    >
+                      <Trash2Icon className="mr-2 size-4" />
+                      Club löschen
+                    </Button>
+                  </>
                 )}
               </div>
             </form>
           </CardContent>
         </Card>
+
+        {clubId && (
+          <>
+            <TransferClubOwnerDialog
+              open={transferOwnerDialogOpen}
+              onOpenChange={setTransferOwnerDialogOpen}
+              clubId={clubId}
+              clubName={name}
+              onSuccess={() => {
+                fetchClub();
+                refreshClubs();
+              }}
+            />
+            <DeleteClubDialog
+              open={deleteClubDialogOpen}
+              onOpenChange={setDeleteClubDialogOpen}
+              clubId={clubId}
+              clubName={name}
+              onSuccess={() => {
+                refreshClubs();
+                navigate("/app", { replace: true });
+              }}
+            />
+          </>
+        )}
       </div>
     </AppLayout>
   );
