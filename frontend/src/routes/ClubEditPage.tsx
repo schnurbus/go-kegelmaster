@@ -52,6 +52,11 @@ function ClubEditPage() {
           navigate("/app", { replace: true });
           return;
         }
+        if (response.status === 403) {
+          toast.error("Keine Berechtigung, diesen Club einzusehen");
+          navigate("/app", { replace: true });
+          return;
+        }
         throw new Error("Fehler beim Laden des Clubs");
       }
       const data = await response.json();
@@ -74,6 +79,14 @@ function ClubEditPage() {
   React.useEffect(() => {
     fetchClub();
   }, [fetchClub]);
+
+  // Redirect non-owners: they must not access club edit
+  React.useEffect(() => {
+    if (!isLoading && clubUserId != null && user != null && clubUserId !== user.id) {
+      toast.error("Keine Berechtigung, diesen Club zu bearbeiten");
+      navigate("/app", { replace: true });
+    }
+  }, [isLoading, clubUserId, user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

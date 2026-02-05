@@ -2,6 +2,7 @@ import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { useClub } from "@/context/ClubContext";
+import { usePermissions } from "@/hooks/use-permissions";
 import { GameDaysDataTable } from "@/components/game-days-data-table";
 import type { GameDaySummary } from "@/types/gameday";
 import { toast } from "sonner";
@@ -9,6 +10,7 @@ import { toast } from "sonner";
 function GameDaysPage() {
   const navigate = useNavigate();
   const { activeClub } = useClub();
+  const { canCreate, canUpdate, canDelete } = usePermissions(activeClub?.id ?? null);
   const [gameDays, setGameDays] = React.useState<GameDaySummary[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
 
@@ -118,6 +120,9 @@ function GameDaysPage() {
           onCreate={handleCreateGameDay}
           isLoading={isLoading}
           clubId={activeClub.id}
+          canCreate={canCreate("game_days")}
+          canUpdate={canUpdate("game_days")}
+          canDelete={canDelete("game_days")}
         />
       </div>
     </AppLayout>

@@ -17,6 +17,8 @@ export type Role = {
   created_at: string;
   updated_at: string;
   permissions: Permission[];
+  /** Anzahl Spieler im Club mit dieser Rolle (nur in Listen-API). */
+  player_count?: number;
 };
 
 export type CreateRoleRequest = {

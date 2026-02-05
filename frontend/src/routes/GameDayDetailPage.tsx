@@ -2,6 +2,7 @@ import * as React from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { useClub } from "@/context/ClubContext";
+import { usePermissions } from "@/hooks/use-permissions";
 import {
   Card,
   CardContent,
@@ -117,6 +118,7 @@ function GameDayDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { activeClub } = useClub();
+  const { canCreate, canUpdate, canDelete } = usePermissions(activeClub?.id ?? null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isSaving, setIsSaving] = React.useState(false);
   
@@ -644,20 +646,22 @@ function GameDayDetailPage() {
             </div>
           </div>
           <div className="flex gap-2">
-            {!isNew && (
+            {!isNew && canDelete("game_days") && (
               <Button variant="destructive" onClick={handleDelete}>
                 <TrashIcon className="mr-2 h-4 w-4" />
                 Löschen
               </Button>
             )}
-            <Button onClick={handleSave} disabled={isSaving}>
-              {isSaving ? (
-                <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <SaveIcon className="mr-2 h-4 w-4" />
-              )}
-              Speichern
-            </Button>
+            {(isNew ? canCreate("game_days") : canUpdate("game_days")) && (
+              <Button onClick={handleSave} disabled={isSaving}>
+                {isSaving ? (
+                  <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <SaveIcon className="mr-2 h-4 w-4" />
+                )}
+                Speichern
+              </Button>
+            )}
           </div>
         </div>
 

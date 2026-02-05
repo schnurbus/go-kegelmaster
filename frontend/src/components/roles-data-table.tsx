@@ -94,6 +94,9 @@ type RolesDataTableProps = {
   onCreate: () => void;
   isLoading?: boolean;
   clubId?: string;
+  canCreate?: boolean;
+  canUpdate?: boolean;
+  canDelete?: boolean;
 };
 
 export function RolesDataTable({
@@ -104,6 +107,9 @@ export function RolesDataTable({
   onCreate,
   isLoading = false,
   clubId,
+  canCreate = true,
+  canUpdate = true,
+  canDelete = true,
 }: RolesDataTableProps) {
   const navigate = useNavigate();
   const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -158,6 +164,14 @@ export function RolesDataTable({
       },
     },
     {
+      accessorKey: "player_count",
+      header: () => <div className="text-right">Spieler</div>,
+      cell: ({ row }) => {
+        const count = row.original.player_count ?? 0;
+        return <div className="text-right">{count}</div>;
+      },
+    },
+    {
       accessorKey: "permissions",
       header: () => <div className="text-right">Berechtigungen</div>,
       cell: ({ row }) => {
@@ -185,7 +199,7 @@ export function RolesDataTable({
       id: "actions",
       cell: ({ row }) => {
         const role = row.original;
-
+        if (!canUpdate && !canDelete) return null;
         return (
           <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
             <DropdownMenu>
@@ -205,18 +219,22 @@ export function RolesDataTable({
                   <EyeIcon className="mr-2 size-4" />
                   Details
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onEdit(role)}>
-                  <EditIcon className="mr-2 size-4" />
-                  Bearbeiten
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-red-600"
-                  onClick={() => onDelete(role)}
-                >
-                  <TrashIcon className="mr-2 size-4" />
-                  Löschen
-                </DropdownMenuItem>
+                {canUpdate && (
+                  <DropdownMenuItem onClick={() => onEdit(role)}>
+                    <EditIcon className="mr-2 size-4" />
+                    Bearbeiten
+                  </DropdownMenuItem>
+                )}
+                {canUpdate && canDelete && <DropdownMenuSeparator />}
+                {canDelete && (
+                  <DropdownMenuItem
+                    className="text-red-600"
+                    onClick={() => onDelete(role)}
+                  >
+                    <TrashIcon className="mr-2 size-4" />
+                    Löschen
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -281,10 +299,12 @@ export function RolesDataTable({
             </SelectContent>
           </Select>
         </div>
-        <Button onClick={onCreate}>
-          <PlusIcon className="mr-2 size-4" />
-          Rolle hinzufügen
-        </Button>
+        {canCreate && (
+          <Button onClick={onCreate}>
+            <PlusIcon className="mr-2 size-4" />
+            Rolle hinzufügen
+          </Button>
+        )}
       </div>
 
       {/* Table */}

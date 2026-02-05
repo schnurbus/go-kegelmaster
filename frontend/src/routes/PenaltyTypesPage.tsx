@@ -4,11 +4,13 @@ import { PenaltyTypesDataTable } from "@/components/penalty-types-data-table";
 import { PenaltyTypeDialog } from "@/components/penalty-type-dialog";
 import { DeletePenaltyTypeDialog } from "@/components/delete-penalty-type-dialog";
 import { useClub } from "@/context/ClubContext";
+import { usePermissions } from "@/hooks/use-permissions";
 import type { PenaltyType } from "@/types/penalty-type";
 import { toast } from "sonner";
 
 function PenaltyTypesPage() {
   const { activeClub } = useClub();
+  const { canCreate, canUpdate, canDelete } = usePermissions(activeClub?.id ?? null);
   const [penaltyTypes, setPenaltyTypes] = React.useState<PenaltyType[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
@@ -138,6 +140,9 @@ function PenaltyTypesPage() {
           onCreate={handleCreate}
           onUpdateDisplayOrder={handleUpdateDisplayOrder}
           isLoading={isLoading}
+          canCreate={canCreate("penalty_types")}
+          canUpdate={canUpdate("penalty_types")}
+          canDelete={canDelete("penalty_types")}
         />
 
         <PenaltyTypeDialog

@@ -81,6 +81,7 @@ type RoleResponse struct {
 	CreatedAt   time.Time            `json:"created_at"`
 	UpdatedAt   time.Time            `json:"updated_at"`
 	Permissions []PermissionResponse `json:"permissions"`
+	PlayerCount int64                `json:"player_count"`
 }
 
 func PermissionResponseFromEntity(p role.RolePermission) PermissionResponse {
@@ -93,7 +94,7 @@ func PermissionResponseFromEntity(p role.RolePermission) PermissionResponse {
 	}
 }
 
-func RoleResponseFromEntity(r role.Role, perms []role.RolePermission) RoleResponse {
+func RoleResponseFromEntity(r role.Role, perms []role.RolePermission, playerCount int64) RoleResponse {
 	permResponses := make([]PermissionResponse, len(perms))
 	for i, p := range perms {
 		permResponses[i] = PermissionResponseFromEntity(p)
@@ -107,6 +108,7 @@ func RoleResponseFromEntity(r role.Role, perms []role.RolePermission) RoleRespon
 		CreatedAt:   r.CreatedAt,
 		UpdatedAt:   r.UpdatedAt,
 		Permissions: permResponses,
+		PlayerCount: playerCount,
 	}
 }
 

@@ -85,6 +85,9 @@ type GameDaysDataTableProps = {
   onCreate: () => void;
   isLoading?: boolean;
   clubId?: string;
+  canCreate?: boolean;
+  canUpdate?: boolean;
+  canDelete?: boolean;
 };
 
 const DEFAULT_SORTING: SortingState = [{ id: "date", desc: true }];
@@ -97,6 +100,9 @@ export function GameDaysDataTable({
   onCreate,
   isLoading = false,
   clubId,
+  canCreate = true,
+  canUpdate = true,
+  canDelete = true,
 }: GameDaysDataTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>(DEFAULT_SORTING);
   const [pagination, setPagination] = React.useState(DEFAULT_PAGINATION);
@@ -156,43 +162,50 @@ export function GameDaysDataTable({
         );
       },
     },
-    {
-      id: "actions",
-      cell: ({ row }) => {
-        const gameDay = row.original;
-
-        return (
-          <div className="flex justify-end">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="flex size-8 p-0 data-[state=open]:bg-muted"
-                  onClick={(e) => e.stopPropagation()} // Prevent row click
-                >
-                  <MoreVerticalIcon className="size-4" />
-                  <span className="sr-only">Menü öffnen</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => onView(gameDay)}>
-                  <EditIcon className="mr-2 size-4" />
-                  Bearbeiten
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-red-600"
-                  onClick={() => onDelete(gameDay)}
-                >
-                  <TrashIcon className="mr-2 size-4" />
-                  Löschen
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        );
-      },
-    },
+    ...((canUpdate || canDelete)
+      ? [
+          {
+            id: "actions",
+            cell: ({ row }: { row: { original: GameDaySummary } }) => {
+              const gameDay = row.original;
+              return (
+                <div className="flex justify-end">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        className="flex size-8 p-0 data-[state=open]:bg-muted"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <MoreVerticalIcon className="size-4" />
+                        <span className="sr-only">Menü öffnen</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {canUpdate && (
+                        <DropdownMenuItem onClick={() => onView(gameDay)}>
+                          <EditIcon className="mr-2 size-4" />
+                          Bearbeiten
+                        </DropdownMenuItem>
+                      )}
+                      {canUpdate && canDelete && <DropdownMenuSeparator />}
+                      {canDelete && (
+                        <DropdownMenuItem
+                          className="text-red-600"
+                          onClick={() => onDelete(gameDay)}
+                        >
+                          <TrashIcon className="mr-2 size-4" />
+                          Löschen
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              );
+            },
+          },
+        ]
+      : []),
   ];
 
   const table = useReactTable({
@@ -211,13 +224,14 @@ export function GameDaysDataTable({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Header with Create Button */}
-      <div className="flex justify-end">
-        <Button onClick={onCreate}>
-          <PlusIcon className="mr-2 size-4" />
-          Neuer Spieltag
-        </Button>
-      </div>
+      {canCreate && (
+        <div className="flex justify-end">
+          <Button onClick={onCreate}>
+            <PlusIcon className="mr-2 size-4" />
+            Neuer Spieltag
+          </Button>
+        </div>
+      )}
 
       {/* Table */}
       <div className="rounded-md border">

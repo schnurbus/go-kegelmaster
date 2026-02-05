@@ -12,6 +12,7 @@ type Querier interface {
 	AcceptPlayerInvitation(ctx context.Context, arg AcceptPlayerInvitationParams) error
 	AddRolePermission(ctx context.Context, arg AddRolePermissionParams) (RolePermission, error)
 	CheckGameDayExistsByClubAndDate(ctx context.Context, arg CheckGameDayExistsByClubAndDateParams) (bool, error)
+	CountPlayersByRoleIDForClub(ctx context.Context, clubID string) ([]CountPlayersByRoleIDForClubRow, error)
 	CountTransactionsByClub(ctx context.Context, clubID string) (int64, error)
 	CountTransactionsByPlayer(ctx context.Context, arg CountTransactionsByPlayerParams) (int64, error)
 	CountTransactionsByType(ctx context.Context, arg CountTransactionsByTypeParams) (int64, error)

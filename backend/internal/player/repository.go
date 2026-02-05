@@ -104,6 +104,22 @@ func (r *Repository) GetByUserIDAndClubID(ctx context.Context, userID, clubID st
 	return dbPlayerToPlayer(dbPlayer), nil
 }
 
+// CountByClubIDGroupByRoleID returns the number of players per role_id for the given club.
+// Roles with zero players are not in the map (use 0 as default when building the response).
+func (r *Repository) CountByClubIDGroupByRoleID(ctx context.Context, clubID string) (map[string]int64, error) {
+	rows, err := r.queries.CountPlayersByRoleIDForClub(ctx, clubID)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]int64, len(rows))
+	for _, row := range rows {
+		if row.RoleID != nil {
+			out[*row.RoleID] = row.Count
+		}
+	}
+	return out, nil
+}
+
 // dbPlayerToPlayer converts a db.Player to a player.Player
 func dbPlayerToPlayer(dbPlayer db.Player) Player {
 	var gender *string

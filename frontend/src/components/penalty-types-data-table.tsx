@@ -57,6 +57,9 @@ type PenaltyTypesDataTableProps = {
   onCreate: () => void;
   onUpdateDisplayOrder?: (penaltyType: PenaltyType, newOrder: number) => void;
   isLoading?: boolean;
+  canCreate?: boolean;
+  canUpdate?: boolean;
+  canDelete?: boolean;
 };
 
 export function PenaltyTypesDataTable({
@@ -66,6 +69,9 @@ export function PenaltyTypesDataTable({
   onCreate,
   onUpdateDisplayOrder,
   isLoading = false,
+  canCreate = true,
+  canUpdate = true,
+  canDelete = true,
 }: PenaltyTypesDataTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -184,7 +190,7 @@ export function PenaltyTypesDataTable({
       id: "actions",
       cell: ({ row }) => {
         const penaltyType = row.original;
-
+        if (!canUpdate && !canDelete) return null;
         return (
           <div className="flex justify-end">
             <DropdownMenu>
@@ -198,18 +204,22 @@ export function PenaltyTypesDataTable({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => onEdit(penaltyType)}>
-                  <EditIcon className="mr-2 size-4" />
-                  Bearbeiten
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-red-600"
-                  onClick={() => onDelete(penaltyType)}
-                >
-                  <TrashIcon className="mr-2 size-4" />
-                  Löschen
-                </DropdownMenuItem>
+                {canUpdate && (
+                  <DropdownMenuItem onClick={() => onEdit(penaltyType)}>
+                    <EditIcon className="mr-2 size-4" />
+                    Bearbeiten
+                  </DropdownMenuItem>
+                )}
+                {canUpdate && canDelete && <DropdownMenuSeparator />}
+                {canDelete && (
+                  <DropdownMenuItem
+                    className="text-red-600"
+                    onClick={() => onDelete(penaltyType)}
+                  >
+                    <TrashIcon className="mr-2 size-4" />
+                    Löschen
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -251,10 +261,12 @@ export function PenaltyTypesDataTable({
             className="max-w-sm"
           />
         </div>
-        <Button onClick={onCreate}>
-          <PlusIcon className="mr-2 size-4" />
-          Strafentyp hinzufügen
-        </Button>
+        {canCreate && (
+          <Button onClick={onCreate}>
+            <PlusIcon className="mr-2 size-4" />
+            Strafentyp hinzufügen
+          </Button>
+        )}
       </div>
 
       {/* Table */}

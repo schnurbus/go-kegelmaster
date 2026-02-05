@@ -36,10 +36,14 @@ import {
 import { Link } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
 import { useClub } from "@/context/ClubContext"
+import { usePermissions } from "@/hooks/use-permissions"
 
 function useDashboardData() {
   const { user } = useAuth()
   const { activeClub } = useClub()
+  const { isOwner, canList, canView } = usePermissions(activeClub?.id ?? null)
+  const showRoles =
+    (activeClub && user && (isOwner || canList("roles") || canView("roles"))) ?? false
 
   const navMain = [
     {
@@ -143,11 +147,7 @@ function useDashboardData() {
       },
     ],
     management: [
-      {
-        title: "Rollen",
-        url: "/app/roles",
-        icon: ShieldIcon,
-      },
+      ...(showRoles ? [{ title: "Rollen", url: "/app/roles", icon: ShieldIcon }] : []),
       {
         title: "Strafentypen",
         url: "/app/penalty-types",
@@ -179,7 +179,8 @@ function useDashboardData() {
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const data = useDashboardData()
-  
+  const { user: authUser } = useAuth()
+
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -200,7 +201,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        {data.activeClub && (
+        {data.activeClub && authUser && data.activeClub.user_id === authUser.id && (
           <SidebarGroup>
             <SidebarGroupContent>
               <SidebarMenu>

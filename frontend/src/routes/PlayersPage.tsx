@@ -5,6 +5,7 @@ import { PlayersDataTable } from "@/components/players-data-table";
 import { PlayerDialog } from "@/components/player-dialog";
 import { DeletePlayerDialog } from "@/components/delete-player-dialog";
 import { useClub } from "@/context/ClubContext";
+import { usePermissions } from "@/hooks/use-permissions";
 import {
   Card,
   CardContent,
@@ -20,10 +21,12 @@ import { toast } from "sonner";
 function PlayersPage() {
   const navigate = useNavigate();
   const { activeClub } = useClub();
+  const { canCreate, canUpdate, canDelete } = usePermissions(activeClub?.id ?? null);
   const [players, setPlayers] = React.useState<Player[]>([]);
   const [roles, setRoles] = React.useState<Role[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isRolesLoading, setIsRolesLoading] = React.useState(true);
+  const [rolesForbidden, setRolesForbidden] = React.useState(false);
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
   const [selectedPlayer, setSelectedPlayer] = React.useState<Player | null>(
@@ -61,12 +64,18 @@ function PlayersPage() {
     if (!activeClub) return;
 
     setIsRolesLoading(true);
+    setRolesForbidden(false);
     try {
       const response = await fetch(`/api/clubs/${activeClub.id}/roles`, {
         credentials: "include",
       });
 
       if (!response.ok) {
+        if (response.status === 403) {
+          setRoles([]);
+          setRolesForbidden(true);
+          return;
+        }
         throw new Error("Fehler beim Laden der Rollen");
       }
 
@@ -122,8 +131,8 @@ function PlayersPage() {
     );
   }
 
-  // Show empty state if no roles exist
-  if (!isRolesLoading && roles.length === 0) {
+  // Show empty state only if roles loaded successfully and list is empty (not on 403)
+  if (!isRolesLoading && roles.length === 0 && !rolesForbidden) {
     return (
       <AppLayout title="Spieler">
         <div className="flex flex-col items-center justify-center py-12 px-4">
@@ -154,6 +163,12 @@ function PlayersPage() {
     <AppLayout title="Spieler">
       <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
         <div className="px-4 lg:px-6">
+          {rolesForbidden && (
+            <p className="mb-4 text-sm text-muted-foreground">
+              Rollen konnten nicht geladen werden. Die Zuweisung von Rollen im
+              Spieler-Dialog ist eingeschränkt.
+            </p>
+          )}
           <PlayersDataTable
             players={players}
             roles={roles}
@@ -163,6 +178,9 @@ function PlayersPage() {
             onCreate={handleCreate}
             isLoading={isLoading}
             clubId={activeClub?.id}
+            canCreate={canCreate("players")}
+            canUpdate={canUpdate("players")}
+            canDelete={canDelete("players")}
           />
         </div>
       </div>

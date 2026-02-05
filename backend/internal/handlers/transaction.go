@@ -10,6 +10,8 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
+	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/player"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/role"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/transaction"
 )
@@ -32,6 +34,9 @@ func (h *Handler) HandleListTransactions(c fiber.Ctx) error {
 	// Check permission
 	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypeTransactions, role.PermissionTypeList)
 	if err != nil {
+		if errors.Is(err, club.ErrNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
+		}
 		slog.Error("permission check failed", "error", err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
@@ -90,17 +95,7 @@ func (h *Handler) HandleGetTransaction(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "Club-ID und Transaction-ID sind erforderlich")
 	}
 
-	// Check permission
-	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypeTransactions, role.PermissionTypeView)
-	if err != nil {
-		slog.Error("permission check failed", "error", err)
-		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
-	}
-	if !hasPermission {
-		return fiber.NewError(fiber.StatusForbidden, "Keine Berechtigung")
-	}
-
-	// Get transaction
+	// Get transaction first to check ownership
 	tx, err := h.TransactionRepo.GetByID(ctx, txID)
 	if err != nil {
 		if errors.Is(err, transaction.ErrNotFound) {
@@ -113,6 +108,28 @@ func (h *Handler) HandleGetTransaction(c fiber.Ctx) error {
 	// Verify it belongs to the club
 	if tx.ClubID != clubID {
 		return fiber.NewError(fiber.StatusNotFound, "Transaktion nicht gefunden")
+	}
+
+	// Allow access if transaction belongs to current user's player; otherwise require view permission
+	isOwnPlayerTransaction := false
+	if tx.PlayerID != nil {
+		playerEntity, pErr := h.PlayerRepo.GetByID(ctx, *tx.PlayerID)
+		if pErr == nil && playerEntity.ClubID == clubID && playerEntity.UserID != nil && *playerEntity.UserID == u.ID {
+			isOwnPlayerTransaction = true
+		}
+	}
+	if !isOwnPlayerTransaction {
+		hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypeTransactions, role.PermissionTypeView)
+		if err != nil {
+			if errors.Is(err, club.ErrNotFound) {
+				return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
+			}
+			slog.Error("permission check failed", "error", err)
+			return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+		}
+		if !hasPermission {
+			return fiber.NewError(fiber.StatusForbidden, "Keine Berechtigung")
+		}
 	}
 
 	return c.JSON(TransactionResponseFromEntity(*tx))
@@ -188,6 +205,9 @@ func (h *Handler) HandleCreateTransaction(c fiber.Ctx) error {
 	// Check permission
 	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypeTransactions, role.PermissionTypeCreate)
 	if err != nil {
+		if errors.Is(err, club.ErrNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
+		}
 		slog.Error("permission check failed", "error", err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
@@ -295,6 +315,9 @@ func (h *Handler) HandleDeleteTransaction(c fiber.Ctx) error {
 	// Check permission
 	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypeTransactions, role.PermissionTypeDelete)
 	if err != nil {
+		if errors.Is(err, club.ErrNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
+		}
 		slog.Error("permission check failed", "error", err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
@@ -345,14 +368,25 @@ func (h *Handler) HandleListPlayerTransactions(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "Club-ID und Player-ID sind erforderlich")
 	}
 
-	// Check permission
-	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypeTransactions, role.PermissionTypeList)
-	if err != nil {
-		slog.Error("permission check failed", "error", err)
+	// Allow access to own player's transactions without list permission; otherwise require list permission
+	myPlayer, err := h.PlayerRepo.GetByUserIDAndClubID(ctx, u.ID, clubID)
+	if err != nil && !errors.Is(err, player.ErrNotFound) {
+		slog.Error("get my player", "error", err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
-	if !hasPermission {
-		return fiber.NewError(fiber.StatusForbidden, "Keine Berechtigung")
+	isOwnPlayer := err == nil && myPlayer.ID == playerID
+	if !isOwnPlayer {
+		hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypeTransactions, role.PermissionTypeList)
+		if err != nil {
+			if errors.Is(err, club.ErrNotFound) {
+				return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
+			}
+			slog.Error("permission check failed", "error", err)
+			return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+		}
+		if !hasPermission {
+			return fiber.NewError(fiber.StatusForbidden, "Keine Berechtigung")
+		}
 	}
 
 	// Parse query parameters
@@ -396,6 +430,9 @@ func (h *Handler) HandleListGameDayTransactions(c fiber.Ctx) error {
 	// Check permission
 	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypeTransactions, role.PermissionTypeList)
 	if err != nil {
+		if errors.Is(err, club.ErrNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
+		}
 		slog.Error("permission check failed", "error", err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
@@ -433,6 +470,9 @@ func (h *Handler) HandleGetGameDayTransactionSummary(c fiber.Ctx) error {
 	// Check permission
 	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypeGameDays, role.PermissionTypeView)
 	if err != nil {
+		if errors.Is(err, club.ErrNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
+		}
 		slog.Error("permission check failed", "error", err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}

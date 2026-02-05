@@ -5,12 +5,14 @@ import { RolesDataTable } from "@/components/roles-data-table";
 import { RoleDialog } from "@/components/role-dialog";
 import { DeleteRoleDialog } from "@/components/delete-role-dialog";
 import { useClub } from "@/context/ClubContext";
+import { usePermissions } from "@/hooks/use-permissions";
 import type { Role } from "@/types/role";
 import { toast } from "sonner";
 
 function RolesPage() {
   const navigate = useNavigate();
   const { activeClub } = useClub();
+  const { canCreate, canUpdate, canDelete } = usePermissions(activeClub?.id ?? null);
   const [roles, setRoles] = React.useState<Role[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
@@ -95,6 +97,9 @@ function RolesPage() {
             onCreate={handleCreate}
             isLoading={isLoading}
             clubId={activeClub.id}
+            canCreate={canCreate("roles")}
+            canUpdate={canUpdate("roles")}
+            canDelete={canDelete("roles")}
           />
         </div>
       </div>

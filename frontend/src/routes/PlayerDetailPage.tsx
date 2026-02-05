@@ -4,6 +4,7 @@ import { AppLayout } from "@/components/AppLayout";
 import { PlayerDialog } from "@/components/player-dialog";
 import { DeletePlayerDialog } from "@/components/delete-player-dialog";
 import { useClub } from "@/context/ClubContext";
+import { usePermissions } from "@/hooks/use-permissions";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -35,6 +36,7 @@ function PlayerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { activeClub } = useClub();
+  const { canUpdate, canDelete } = usePermissions(activeClub?.id ?? null);
   const { csrfToken, refreshCsrf } = useAuth();
   const [player, setPlayer] = React.useState<Player | null>(null);
   const [roles, setRoles] = React.useState<Role[]>([]);
@@ -177,19 +179,22 @@ function PlayerDetailPage() {
               Zurück
             </Button>
             <div className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsEditDialogOpen(true)}
-              >
-                <EditIcon className="mr-2 size-4" />
-                Bearbeiten
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={isRecalculating}
-                onClick={async () => {
+              {canUpdate("players") && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditDialogOpen(true)}
+                >
+                  <EditIcon className="mr-2 size-4" />
+                  Bearbeiten
+                </Button>
+              )}
+              {canUpdate("players") && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isRecalculating}
+                  onClick={async () => {
                   if (!activeClub || !player) return;
                   setIsRecalculating(true);
                   try {
@@ -230,15 +235,18 @@ function PlayerDetailPage() {
                 )}
                 Balance neu berechnen
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsDeleteDialogOpen(true)}
-                className="text-red-600 hover:text-red-700"
-              >
-                <TrashIcon className="mr-2 size-4" />
-                Löschen
-              </Button>
+              )}
+              {canDelete("players") && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsDeleteDialogOpen(true)}
+                  className="text-red-600 hover:text-red-700"
+                >
+                  <TrashIcon className="mr-2 size-4" />
+                  Löschen
+                </Button>
+              )}
             </div>
           </div>
 

@@ -148,19 +148,6 @@ func (h *Handler) HandleGetPlayer(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "Club-ID und Player-ID sind erforderlich")
 	}
 
-	// Check permission: owner OR has view permission for players
-	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypePlayers, role.PermissionTypeView)
-	if err != nil {
-		if errors.Is(err, club.ErrNotFound) {
-			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
-		}
-		slog.Error("check permission", "error", err)
-		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
-	}
-	if !hasPermission {
-		return fiber.NewError(fiber.StatusForbidden, "Keine Berechtigung, Player anzuzeigen")
-	}
-
 	playerEntity, err := h.PlayerRepo.GetByID(ctx, playerID)
 	if err != nil {
 		if errors.Is(err, player.ErrNotFound) {
@@ -173,6 +160,22 @@ func (h *Handler) HandleGetPlayer(c fiber.Ctx) error {
 	// Verify player belongs to club
 	if playerEntity.ClubID != clubID {
 		return fiber.NewError(fiber.StatusNotFound, "Player nicht gefunden")
+	}
+
+	// Allow access to own player; otherwise require view permission
+	isOwnPlayer := playerEntity.UserID != nil && *playerEntity.UserID == u.ID
+	if !isOwnPlayer {
+		hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypePlayers, role.PermissionTypeView)
+		if err != nil {
+			if errors.Is(err, club.ErrNotFound) {
+				return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
+			}
+			slog.Error("check permission", "error", err)
+			return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+		}
+		if !hasPermission {
+			return fiber.NewError(fiber.StatusForbidden, "Keine Berechtigung, Player anzuzeigen")
+		}
 	}
 
 	return c.JSON(PlayerResponseFromEntity(playerEntity))

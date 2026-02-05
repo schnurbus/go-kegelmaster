@@ -155,6 +155,9 @@ func (s *Server) registerRoutes() {
 	clubsGroup.Post("/:id/transfer-owner", s.handlers.HandleTransferClubOwner)
 	clubsGroup.Delete("/:id", s.handlers.HandleDeleteClub)
 
+	// My permissions for a club (must be before :id to avoid matching)
+	clubsGroup.Get("/:clubId/permissions/me", s.handlers.HandleGetMyPermissions)
+
 	// Role endpoints
 	clubsGroup.Get("/:clubId/roles", s.handlers.HandleGetRoles)
 	clubsGroup.Get("/:clubId/roles/:id", s.handlers.HandleGetRole)

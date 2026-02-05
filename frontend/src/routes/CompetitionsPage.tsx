@@ -4,11 +4,13 @@ import { CompetitionsDataTable } from "@/components/competitions-data-table";
 import { CompetitionDialog } from "@/components/competition-dialog";
 import { DeleteCompetitionDialog } from "@/components/delete-competition-dialog";
 import { useClub } from "@/context/ClubContext";
+import { usePermissions } from "@/hooks/use-permissions";
 import type { Competition } from "@/types/competition";
 import { toast } from "sonner";
 
 function CompetitionsPage() {
   const { activeClub } = useClub();
+  const { canCreate, canUpdate, canDelete } = usePermissions(activeClub?.id ?? null);
   const [competitions, setCompetitions] = React.useState<Competition[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
@@ -103,6 +105,9 @@ function CompetitionsPage() {
           onCreate={handleCreate}
           isLoading={isLoading}
           clubId={activeClub.id}
+          canCreate={canCreate("competitions")}
+          canUpdate={canUpdate("competitions")}
+          canDelete={canDelete("competitions")}
         />
 
         <CompetitionDialog

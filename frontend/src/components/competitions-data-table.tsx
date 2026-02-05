@@ -94,6 +94,9 @@ type CompetitionsDataTableProps = {
   onCreate: () => void;
   isLoading?: boolean;
   clubId?: string;
+  canCreate?: boolean;
+  canUpdate?: boolean;
+  canDelete?: boolean;
 };
 
 export function CompetitionsDataTable({
@@ -103,6 +106,9 @@ export function CompetitionsDataTable({
   onCreate,
   isLoading = false,
   clubId,
+  canCreate = true,
+  canUpdate = true,
+  canDelete = true,
 }: CompetitionsDataTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -184,6 +190,7 @@ export function CompetitionsDataTable({
       id: "actions",
       cell: ({ row }) => {
         const competition = row.original;
+        if (!canUpdate && !canDelete) return null;
         return (
           <div className="flex justify-end">
             <DropdownMenu>
@@ -197,18 +204,22 @@ export function CompetitionsDataTable({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => onEdit(competition)}>
-                  <EditIcon className="mr-2 size-4" />
-                  Bearbeiten
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-red-600"
-                  onClick={() => onDelete(competition)}
-                >
-                  <TrashIcon className="mr-2 size-4" />
-                  Löschen
-                </DropdownMenuItem>
+                {canUpdate && (
+                  <DropdownMenuItem onClick={() => onEdit(competition)}>
+                    <EditIcon className="mr-2 size-4" />
+                    Bearbeiten
+                  </DropdownMenuItem>
+                )}
+                {canUpdate && canDelete && <DropdownMenuSeparator />}
+                {canDelete && (
+                  <DropdownMenuItem
+                    className="text-red-600"
+                    onClick={() => onDelete(competition)}
+                  >
+                    <TrashIcon className="mr-2 size-4" />
+                    Löschen
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -249,10 +260,12 @@ export function CompetitionsDataTable({
             className="max-w-sm"
           />
         </div>
-        <Button onClick={onCreate}>
-          <PlusIcon className="mr-2 size-4" />
-          Wettbewerb hinzufügen
-        </Button>
+        {canCreate && (
+          <Button onClick={onCreate}>
+            <PlusIcon className="mr-2 size-4" />
+            Wettbewerb hinzufügen
+          </Button>
+        )}
       </div>
 
       <div className="rounded-md border">
