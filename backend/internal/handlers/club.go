@@ -106,7 +106,8 @@ func (h *Handler) HandleGetClub(c fiber.Ctx) error {
 	ctx, cancel := h.RequestContext()
 	defer cancel()
 
-	if _, err := h.UserFromCookie(ctx, c); err != nil {
+	u, err := h.UserFromCookie(ctx, c)
+	if err != nil {
 		return fiber.NewError(fiber.StatusUnauthorized, "Nicht angemeldet")
 	}
 
@@ -122,6 +123,14 @@ func (h *Handler) HandleGetClub(c fiber.Ctx) error {
 		}
 		slog.Error("get club", "error", err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+
+	// Only owner or members (user has a player in this club) may access club details
+	if clubEntity.UserID != u.ID {
+		_, err := h.PlayerRepo.GetByUserIDAndClubID(ctx, u.ID, clubID)
+		if err != nil {
+			return fiber.NewError(fiber.StatusForbidden, "Keine Berechtigung, diesen Club einzusehen")
+		}
 	}
 
 	return c.JSON(ClubResponseFromEntity(clubEntity))

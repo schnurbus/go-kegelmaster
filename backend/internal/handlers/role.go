@@ -27,22 +27,27 @@ func (h *Handler) HandleGetRoles(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "Club-ID ist erforderlich")
 	}
 
-	// Check if user is club owner
-	isOwner, err := h.PermissionChecker.IsClubOwner(ctx, u.ID, clubID)
+	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypeRoles, role.PermissionTypeList)
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
 		}
-		slog.Error("check club owner", "error", err)
+		slog.Error("check roles list permission", "error", err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
-	if !isOwner {
-		return fiber.NewError(fiber.StatusForbidden, "Nur der Owner kann Rollen einsehen")
+	if !hasPermission {
+		return fiber.NewError(fiber.StatusForbidden, "Keine Berechtigung, Rollen einzusehen")
 	}
 
 	roles, err := h.RoleRepo.GetByClubID(ctx, clubID)
 	if err != nil {
 		slog.Error("get roles", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+
+	playerCountByRole, err := h.PlayerRepo.CountByClubIDGroupByRoleID(ctx, clubID)
+	if err != nil {
+		slog.Error("count players by role", "error", err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
@@ -54,7 +59,8 @@ func (h *Handler) HandleGetRoles(c fiber.Ctx) error {
 			slog.Error("get permissions", "error", err)
 			return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 		}
-		rolesWithPerms = append(rolesWithPerms, RoleResponseFromEntity(r, perms))
+		count := playerCountByRole[r.ID]
+		rolesWithPerms = append(rolesWithPerms, RoleResponseFromEntity(r, perms, count))
 	}
 
 	return c.JSON(rolesWithPerms)
@@ -75,17 +81,16 @@ func (h *Handler) HandleGetRole(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "Club-ID und Rollen-ID sind erforderlich")
 	}
 
-	// Check if user is club owner
-	isOwner, err := h.PermissionChecker.IsClubOwner(ctx, u.ID, clubID)
+	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypeRoles, role.PermissionTypeView)
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
 		}
-		slog.Error("check club owner", "error", err)
+		slog.Error("check roles view permission", "error", err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
-	if !isOwner {
-		return fiber.NewError(fiber.StatusForbidden, "Nur der Owner kann Rollen einsehen")
+	if !hasPermission {
+		return fiber.NewError(fiber.StatusForbidden, "Keine Berechtigung, Rollen einzusehen")
 	}
 
 	roleEntity, err := h.RoleRepo.GetByID(ctx, roleID)
@@ -108,7 +113,7 @@ func (h *Handler) HandleGetRole(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
-	return c.JSON(RoleResponseFromEntity(roleEntity, perms))
+	return c.JSON(RoleResponseFromEntity(roleEntity, perms, 0))
 }
 
 type createRoleRequest struct {
@@ -148,17 +153,16 @@ func (h *Handler) HandleCreateRole(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "Club-ID ist erforderlich")
 	}
 
-	// Check if user is club owner
-	isOwner, err := h.PermissionChecker.IsClubOwner(ctx, u.ID, clubID)
+	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypeRoles, role.PermissionTypeCreate)
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
 		}
-		slog.Error("check club owner", "error", err)
+		slog.Error("check roles create permission", "error", err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
-	if !isOwner {
-		return fiber.NewError(fiber.StatusForbidden, "Nur der Owner kann Rollen erstellen")
+	if !hasPermission {
+		return fiber.NewError(fiber.StatusForbidden, "Keine Berechtigung, Rollen zu erstellen")
 	}
 
 	var req createRoleRequest
@@ -208,7 +212,7 @@ func (h *Handler) HandleCreateRole(c fiber.Ctx) error {
 		perms = append(perms, perm)
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(RoleResponseFromEntity(roleEntity, perms))
+	return c.Status(fiber.StatusCreated).JSON(RoleResponseFromEntity(roleEntity, perms, 0))
 }
 
 type updateRoleRequest struct {
@@ -243,17 +247,16 @@ func (h *Handler) HandleUpdateRole(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "Club-ID und Rollen-ID sind erforderlich")
 	}
 
-	// Check if user is club owner
-	isOwner, err := h.PermissionChecker.IsClubOwner(ctx, u.ID, clubID)
+	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypeRoles, role.PermissionTypeUpdate)
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
 		}
-		slog.Error("check club owner", "error", err)
+		slog.Error("check roles update permission", "error", err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
-	if !isOwner {
-		return fiber.NewError(fiber.StatusForbidden, "Nur der Owner kann Rollen aktualisieren")
+	if !hasPermission {
+		return fiber.NewError(fiber.StatusForbidden, "Keine Berechtigung, Rollen zu aktualisieren")
 	}
 
 	// Verify role exists and belongs to club
@@ -298,7 +301,7 @@ func (h *Handler) HandleUpdateRole(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
-	return c.JSON(RoleResponseFromEntity(updatedRole, perms))
+	return c.JSON(RoleResponseFromEntity(updatedRole, perms, 0))
 }
 
 func (h *Handler) HandleDeleteRole(c fiber.Ctx) error {
@@ -320,17 +323,16 @@ func (h *Handler) HandleDeleteRole(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "Club-ID und Rollen-ID sind erforderlich")
 	}
 
-	// Check if user is club owner
-	isOwner, err := h.PermissionChecker.IsClubOwner(ctx, u.ID, clubID)
+	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypeRoles, role.PermissionTypeDelete)
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
 		}
-		slog.Error("check club owner", "error", err)
+		slog.Error("check roles delete permission", "error", err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
-	if !isOwner {
-		return fiber.NewError(fiber.StatusForbidden, "Nur der Owner kann Rollen löschen")
+	if !hasPermission {
+		return fiber.NewError(fiber.StatusForbidden, "Keine Berechtigung, Rollen zu löschen")
 	}
 
 	// Verify role exists and belongs to club
@@ -382,17 +384,16 @@ func (h *Handler) HandleAddPermission(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "Club-ID und Rollen-ID sind erforderlich")
 	}
 
-	// Check if user is club owner
-	isOwner, err := h.PermissionChecker.IsClubOwner(ctx, u.ID, clubID)
+	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypeRoles, role.PermissionTypeUpdate)
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
 		}
-		slog.Error("check club owner", "error", err)
+		slog.Error("check roles update permission", "error", err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
-	if !isOwner {
-		return fiber.NewError(fiber.StatusForbidden, "Nur der Owner kann Berechtigungen hinzufügen")
+	if !hasPermission {
+		return fiber.NewError(fiber.StatusForbidden, "Keine Berechtigung, Rollen zu bearbeiten")
 	}
 
 	// Verify role exists and belongs to club
@@ -464,17 +465,16 @@ func (h *Handler) HandleRemovePermission(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "Club-ID und Rollen-ID sind erforderlich")
 	}
 
-	// Check if user is club owner
-	isOwner, err := h.PermissionChecker.IsClubOwner(ctx, u.ID, clubID)
+	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypeRoles, role.PermissionTypeUpdate)
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
 		}
-		slog.Error("check club owner", "error", err)
+		slog.Error("check roles update permission", "error", err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
-	if !isOwner {
-		return fiber.NewError(fiber.StatusForbidden, "Nur der Owner kann Berechtigungen entfernen")
+	if !hasPermission {
+		return fiber.NewError(fiber.StatusForbidden, "Keine Berechtigung, Rollen zu bearbeiten")
 	}
 
 	// Verify role exists and belongs to club

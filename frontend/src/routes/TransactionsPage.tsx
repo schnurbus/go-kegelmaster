@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { TransactionDialog } from "@/components/transaction-dialog";
 import { useClub } from "@/context/ClubContext";
+import { usePermissions } from "@/hooks/use-permissions";
 import {
   type ColumnDef,
   type ColumnFiltersState,
@@ -99,6 +100,7 @@ function saveTransactionsStorage(clubId: string, data: TransactionsStorage) {
 function TransactionsPage() {
   const navigate = useNavigate();
   const { activeClub } = useClub();
+  const { canCreate, canDelete } = usePermissions(activeClub?.id ?? null);
   const [transactions, setTransactions] = React.useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
@@ -189,7 +191,11 @@ function TransactionsPage() {
         });
 
         if (!response.ok) {
-          throw new Error("Fehler beim Laden der Transaktionen");
+          throw new Error(
+            response.status === 403
+              ? "Keine Berechtigung"
+              : "Fehler beim Laden der Transaktionen"
+          );
         }
 
         const data: PaginatedTransactions = await response.json();
@@ -365,11 +371,10 @@ function TransactionsPage() {
       id: "actions",
       cell: ({ row }) => {
         const transaction = row.original;
-        const canDelete =
+        const isManual =
           transaction.transaction_type !== "base_fee" &&
           transaction.transaction_type !== "fee";
-
-        if (!canDelete) return null;
+        if (!canDelete("transactions") || !isManual) return null;
 
         return (
           <div className="flex justify-end">
@@ -491,10 +496,12 @@ function TransactionsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button onClick={() => setIsDialogOpen(true)}>
-                <PlusIcon className="mr-2 size-4" />
-                Transaktion erstellen
-              </Button>
+              {canCreate("transactions") && (
+                <Button onClick={() => setIsDialogOpen(true)}>
+                  <PlusIcon className="mr-2 size-4" />
+                  Transaktion erstellen
+                </Button>
+              )}
             </div>
 
             {/* Table */}

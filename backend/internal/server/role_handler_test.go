@@ -1,6 +1,7 @@
 package server
 
 import (
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"testing"
@@ -85,11 +86,16 @@ func TestHandleCreateRole_NotOwner(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
 			AddRow(userID, "user@example.com", "hash", now, now))
 
-	// Mock club lookup - user is not owner
+	// Mock club lookup - user is not owner (HasPermission -> IsClubOwner uses GetClubByID)
 	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
 		WithArgs(clubID).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
 			AddRow(clubID, "Test Club", 0, 0, 0, true, false, otherUserID, now, now))
+
+	// HasPermission then checks player; no player in club -> no permission
+	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, created_at, updated_at FROM players`).
+		WithArgs(userID, clubID).
+		WillReturnError(sql.ErrNoRows)
 
 	body := `{"name":"Test Role","pays_base_fee":false}`
 	req := mustJSONRequest(t, http.MethodPost, "/api/clubs/"+clubID+"/roles", body)
@@ -139,6 +145,13 @@ func TestHandleGetRoles_Success(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "name", "pays_base_fee", "created_at", "updated_at"}).
 			AddRow(roleID1, clubID, "Role 1", false, now, now).
 			AddRow(roleID2, clubID, "Role 2", true, now, now))
+
+	// Mock player count per role for club
+	mock.ExpectQuery(`SELECT role_id, COUNT`).
+		WithArgs(clubID).
+		WillReturnRows(sqlmock.NewRows([]string{"role_id", "count"}).
+			AddRow(roleID1, 2).
+			AddRow(roleID2, 0))
 
 	// Mock permissions queries for each role
 	mock.ExpectQuery(`SELECT id, role_id, entity_type, permission_type, created_at`).

@@ -11,6 +11,41 @@ import (
 	"time"
 )
 
+const countPlayersByRoleIDForClub = `-- name: CountPlayersByRoleIDForClub :many
+SELECT role_id, COUNT(*) AS count
+FROM players
+WHERE club_id = $1 AND role_id IS NOT NULL
+GROUP BY role_id
+`
+
+type CountPlayersByRoleIDForClubRow struct {
+	RoleID *string `json:"role_id"`
+	Count  int64   `json:"count"`
+}
+
+func (q *Queries) CountPlayersByRoleIDForClub(ctx context.Context, clubID string) ([]CountPlayersByRoleIDForClubRow, error) {
+	rows, err := q.db.QueryContext(ctx, countPlayersByRoleIDForClub, clubID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountPlayersByRoleIDForClubRow
+	for rows.Next() {
+		var i CountPlayersByRoleIDForClubRow
+		if err := rows.Scan(&i.RoleID, &i.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const createPlayer = `-- name: CreatePlayer :one
 INSERT INTO players (
     id,

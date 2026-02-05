@@ -61,3 +61,9 @@ WHERE id = $1;
 -- name: GetPlayerByUserIDAndClubID :one
 SELECT * FROM players
 WHERE user_id = $1 AND club_id = $2;
+
+-- name: CountPlayersByRoleIDForClub :many
+SELECT role_id, COUNT(*) AS count
+FROM players
+WHERE club_id = $1 AND role_id IS NOT NULL
+GROUP BY role_id;

@@ -22,6 +22,8 @@ type PermissionsTableProps = {
   role: Role;
   clubId: string;
   onUpdate: () => void;
+  /** Wenn false, sind die Checkboxen deaktiviert (nur Ansicht, z. B. bei View ohne Update). */
+  canEdit?: boolean;
 };
 
 const ENTITY_TYPES: EntityType[] = ["roles", "players", "game_days", "penalty_types", "competitions"];
@@ -37,6 +39,7 @@ export function PermissionsTable({
   role,
   clubId,
   onUpdate,
+  canEdit = true,
 }: PermissionsTableProps) {
   const [loadingStates, setLoadingStates] = React.useState<
     Record<string, boolean>
@@ -152,7 +155,7 @@ export function PermissionsTable({
                       <div className="flex justify-center">
                         <Checkbox
                           checked={isChecked}
-                          disabled={loading}
+                          disabled={!canEdit || loading}
                           onCheckedChange={(checked) =>
                             handlePermissionChange(
                               entityType,
@@ -160,7 +163,7 @@ export function PermissionsTable({
                               checked === true
                             )
                           }
-                          className={loading ? "opacity-50" : ""}
+                          className={!canEdit || loading ? "opacity-50" : ""}
                         />
                       </div>
                     </TableCell>
@@ -171,6 +174,11 @@ export function PermissionsTable({
           </TableBody>
         </Table>
       </div>
+      {!canEdit && (
+        <p className="text-sm text-muted-foreground">
+          Sie haben keine Berechtigung, Berechtigungen dieser Rolle zu ändern.
+        </p>
+      )}
       <div className="text-xs text-muted-foreground">
         <p className="font-medium mb-1">Hinweise:</p>
         <ul className="list-disc list-inside space-y-1">

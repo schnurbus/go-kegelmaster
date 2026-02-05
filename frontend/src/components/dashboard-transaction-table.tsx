@@ -72,7 +72,11 @@ export function DashboardTransactionTable() {
         const response = await fetch(url, { credentials: "include" });
 
         if (!response.ok) {
-          throw new Error("Fehler beim Laden der Transaktionen");
+          throw new Error(
+            response.status === 403
+              ? "Keine Berechtigung"
+              : "Fehler beim Laden der Transaktionen"
+          );
         }
 
         const data: PaginatedTransactions = await response.json();

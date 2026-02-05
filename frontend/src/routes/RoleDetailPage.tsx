@@ -5,6 +5,7 @@ import { RoleDialog } from "@/components/role-dialog";
 import { DeleteRoleDialog } from "@/components/delete-role-dialog";
 import { PermissionsTable } from "@/components/permissions-table";
 import { useClub } from "@/context/ClubContext";
+import { usePermissions } from "@/hooks/use-permissions";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -31,6 +32,7 @@ function RoleDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { activeClub } = useClub();
+  const { canUpdate, canDelete } = usePermissions(activeClub?.id ?? null);
   const [role, setRole] = React.useState<Role | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
@@ -142,25 +144,31 @@ function RoleDetailPage() {
               <ArrowLeftIcon className="mr-2 size-4" />
               Zurück
             </Button>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsEditDialogOpen(true)}
-              >
-                <EditIcon className="mr-2 size-4" />
-                Bearbeiten
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsDeleteDialogOpen(true)}
-                className="text-red-600 hover:text-red-700"
-              >
-                <TrashIcon className="mr-2 size-4" />
-                Löschen
-              </Button>
-            </div>
+            {(canUpdate("roles") || canDelete("roles")) && (
+              <div className="flex gap-2">
+                {canUpdate("roles") && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditDialogOpen(true)}
+                  >
+                    <EditIcon className="mr-2 size-4" />
+                    Bearbeiten
+                  </Button>
+                )}
+                {canDelete("roles") && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsDeleteDialogOpen(true)}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    <TrashIcon className="mr-2 size-4" />
+                    Löschen
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Role Information Card */}
@@ -223,6 +231,7 @@ function RoleDetailPage() {
                 role={role}
                 clubId={activeClub.id}
                 onUpdate={handleSuccess}
+                canEdit={canUpdate("roles")}
               />
             </CardContent>
           </Card>

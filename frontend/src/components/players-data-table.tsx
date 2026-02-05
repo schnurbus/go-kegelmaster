@@ -99,6 +99,9 @@ type PlayersDataTableProps = {
   onCreate: () => void;
   isLoading?: boolean;
   clubId?: string;
+  canCreate?: boolean;
+  canUpdate?: boolean;
+  canDelete?: boolean;
 };
 
 export function PlayersDataTable({
@@ -110,6 +113,9 @@ export function PlayersDataTable({
   onCreate,
   isLoading = false,
   clubId,
+  canCreate = true,
+  canUpdate = true,
+  canDelete = true,
 }: PlayersDataTableProps) {
   const navigate = useNavigate();
   const [sorting, setSorting] = React.useState<SortingState>([
@@ -221,7 +227,8 @@ export function PlayersDataTable({
       id: "actions",
       cell: ({ row }) => {
         const player = row.original;
-
+        const hasAnyAction = canUpdate || canDelete;
+        if (!hasAnyAction) return null;
         return (
           <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
             <DropdownMenu>
@@ -241,18 +248,22 @@ export function PlayersDataTable({
                   <EyeIcon className="mr-2 size-4" />
                   Details
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onEdit(player)}>
-                  <EditIcon className="mr-2 size-4" />
-                  Bearbeiten
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-red-600"
-                  onClick={() => onDelete(player)}
-                >
-                  <TrashIcon className="mr-2 size-4" />
-                  Löschen
-                </DropdownMenuItem>
+                {canUpdate && (
+                  <DropdownMenuItem onClick={() => onEdit(player)}>
+                    <EditIcon className="mr-2 size-4" />
+                    Bearbeiten
+                  </DropdownMenuItem>
+                )}
+                {canUpdate && canDelete && <DropdownMenuSeparator />}
+                {canDelete && (
+                  <DropdownMenuItem
+                    className="text-red-600"
+                    onClick={() => onDelete(player)}
+                  >
+                    <TrashIcon className="mr-2 size-4" />
+                    Löschen
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -347,10 +358,12 @@ export function PlayersDataTable({
             </Select>
           </div>
         </div>
-        <Button onClick={onCreate}>
-          <PlusIcon className="mr-2 size-4" />
-          Player hinzufügen
-        </Button>
+        {canCreate && (
+          <Button onClick={onCreate}>
+            <PlusIcon className="mr-2 size-4" />
+            Player hinzufügen
+          </Button>
+        )}
       </div>
 
       {/* Table */}

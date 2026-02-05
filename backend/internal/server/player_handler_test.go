@@ -374,17 +374,17 @@ func TestHandleGetPlayer_Success(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
 			AddRow(userID, "user@example.com", "hash", now, now))
 
-	// Mock club lookup for owner check
-	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
-		WithArgs(clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID, "Test Club", 0, 0, 0, true, false, userID, now, now))
-
-	// Mock player query
+	// Mock player query (handler loads player first)
 	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, created_at, updated_at`).
 		WithArgs(playerID).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "created_at", "updated_at"}).
 			AddRow(playerID, clubID, nil, nil, "Test Player", 1000, 500, nil, false, now, now))
+
+	// Permission check: club lookup (user is owner, so has permission)
+	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
+		WithArgs(clubID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
+			AddRow(clubID, "Test Club", 0, 0, 0, true, false, userID, now, now))
 
 	req := mustJSONRequest(t, http.MethodGet, "/api/clubs/"+clubID+"/players/"+playerID, "")
 	req.AddCookie(&http.Cookie{Name: authCookieName, Value: token})
@@ -430,7 +430,13 @@ func TestHandleGetPlayer_NotOwnerNoPermission(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
 			AddRow(userID, "user@example.com", "hash", now, now))
 
-	// Mock club lookup - user is not owner
+	// Mock player query (handler loads player first)
+	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, created_at, updated_at`).
+		WithArgs(playerID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "created_at", "updated_at"}).
+			AddRow(playerID, clubID, nil, nil, "Other Player", 1000, 500, nil, false, now, now))
+
+	// Permission check: club lookup (user is not owner)
 	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
 		WithArgs(clubID).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
@@ -476,13 +482,7 @@ func TestHandleGetPlayer_WrongClub(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
 			AddRow(userID, "user@example.com", "hash", now, now))
 
-	// Mock club lookup for owner check
-	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
-		WithArgs(clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID, "Test Club", 0, 0, 0, true, false, userID, now, now))
-
-	// Mock player query - player belongs to different club
+	// Mock player query - player belongs to different club (handler returns 404 before permission check)
 	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, created_at, updated_at`).
 		WithArgs(playerID).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "created_at", "updated_at"}).
