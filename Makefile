@@ -1,6 +1,14 @@
 DATABASE_URL ?= postgres://kegelmaster:kegelmaster@localhost:5432/kegelmaster?sslmode=disable
 
-.PHONY: backend-run backend-test backend-build backend-build-embed build import-build migrate-old-build frontend-dev frontend-build compose-up compose-down fmt migrate-up migrate-down sqlc-generate
+# E2E Test Database
+E2E_DB_PORT=5433
+E2E_DB_USER=kegelmaster
+E2E_DB_PASSWORD=e2e_test_password
+E2E_DB_NAME=e2e_testdb
+E2E_DB_URL="postgres://$(E2E_DB_USER):$(E2E_DB_PASSWORD)@localhost:$(E2E_DB_PORT)/$(E2E_DB_NAME)?sslmode=disable"
+E2E_CONTAINER_NAME=postgres_e2e
+
+.PHONY: backend-run backend-test backend-build backend-build-embed build import-build migrate-old-build frontend-dev frontend-build compose-up compose-down fmt migrate-up migrate-down sqlc-generate test-e2e
 
 backend-run:
 	@cd backend && go run ./cmd/api
@@ -53,3 +61,24 @@ migrate-down:
 sqlc-generate:
 	@cd backend && sqlc generate
 
+test-e2e:
+	@echo "Starte dedizierte E2E-Datenbank..."
+	docker rm -f $(E2E_CONTAINER_NAME) || true
+	
+	docker run --name $(E2E_CONTAINER_NAME) \
+		-e POSTGRES_USER=$(E2E_DB_USER) \
+		-e POSTGRES_PASSWORD=$(E2E_DB_PASSWORD) \
+		-e POSTGRES_DB=$(E2E_DB_NAME) \
+		-p $(E2E_DB_PORT):5432 \
+		-d postgres:16-alpine
+	
+	@until docker exec $(E2E_CONTAINER_NAME) pg_isready; do sleep 1; done
+	
+	@echo "Führe Migrationen auf E2E-DB aus..."
+	migrate -path backend/migrations -database $(E2E_DB_URL) up
+	
+	@echo "Starte Tests..."
+	cd frontend && npx playwright test --config playwright.local.config.ts $(args); \
+	EXIT_CODE=$$?; \
+	docker rm -f $(E2E_CONTAINER_NAME); \
+	exit $$EXIT_CODE
