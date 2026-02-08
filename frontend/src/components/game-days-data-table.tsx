@@ -183,7 +183,12 @@ export function GameDaysDataTable({
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       {canUpdate && (
-                        <DropdownMenuItem onClick={() => onView(gameDay)}>
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onView(gameDay);
+                          }}
+                        >
                           <EditIcon className="mr-2 size-4" />
                           Bearbeiten
                         </DropdownMenuItem>
@@ -192,7 +197,10 @@ export function GameDaysDataTable({
                       {canDelete && (
                         <DropdownMenuItem
                           className="text-red-600"
-                          onClick={() => onDelete(gameDay)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDelete(gameDay);
+                          }}
                         >
                           <TrashIcon className="mr-2 size-4" />
                           Löschen

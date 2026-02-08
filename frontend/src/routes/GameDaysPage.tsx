@@ -86,6 +86,7 @@ function GameDaysPage() {
       }
 
       toast.success("Spieltag gelöscht");
+      navigate("/app/gamedays", { replace: true });
       fetchGameDays();
     } catch (error: any) {
       console.error("Error deleting game day:", error);
