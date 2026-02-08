@@ -51,6 +51,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 
 import type { Player, Role } from "@/types/player";
 import { formatCentsToEuro } from "@/types/player";
@@ -63,6 +64,7 @@ type PlayersStorage = {
   sorting?: SortingState;
   roleFilter?: string;
   balanceFilter?: string;
+  hideInactive?: boolean;
 };
 
 function loadPlayersStorage(clubId: string): Partial<PlayersStorage> {
@@ -76,6 +78,7 @@ function loadPlayersStorage(clubId: string): Partial<PlayersStorage> {
       sorting: Array.isArray(parsed.sorting) ? parsed.sorting : undefined,
       roleFilter: typeof parsed.roleFilter === "string" ? parsed.roleFilter : undefined,
       balanceFilter: typeof parsed.balanceFilter === "string" ? parsed.balanceFilter : undefined,
+      hideInactive: typeof parsed.hideInactive === "boolean" ? parsed.hideInactive : undefined,
     };
   } catch {
     return {};
@@ -132,6 +135,10 @@ export function PlayersDataTable({
   });
   const [roleFilter, setRoleFilter] = React.useState<string>("all");
   const [balanceFilter, setBalanceFilter] = React.useState<string>("all");
+  const [hideInactive, setHideInactive] = React.useState<boolean>(false);
+
+  // Skip the first save after loading from storage so we don't overwrite with initial state
+  const skipNextSaveRef = React.useRef(false);
 
   React.useEffect(() => {
     if (!clubId) return;
@@ -141,18 +148,27 @@ export function PlayersDataTable({
     if (stored.pageSize !== undefined) setPagination((p) => ({ ...p, pageSize: stored.pageSize! }));
     if (stored.roleFilter !== undefined) setRoleFilter(stored.roleFilter);
     if (stored.balanceFilter !== undefined) setBalanceFilter(stored.balanceFilter);
+    if (stored.hideInactive !== undefined) {
+      setHideInactive(stored.hideInactive);
+      skipNextSaveRef.current = true;
+    }
   }, [clubId]);
 
   React.useEffect(() => {
     if (!clubId) return;
+    if (skipNextSaveRef.current) {
+      skipNextSaveRef.current = false;
+      return;
+    }
     savePlayersStorage(clubId, {
       pageIndex: pagination.pageIndex,
       pageSize: pagination.pageSize,
       sorting,
       roleFilter,
       balanceFilter,
+      hideInactive,
     });
-  }, [clubId, pagination.pageIndex, pagination.pageSize, sorting, roleFilter, balanceFilter]);
+  }, [clubId, pagination.pageIndex, pagination.pageSize, sorting, roleFilter, balanceFilter, hideInactive]);
 
   // Helper function to get role name
   const getRoleName = (roleId: string | null) => {
@@ -296,8 +312,13 @@ export function PlayersDataTable({
       }
     }
 
+    // Hide inactive
+    if (hideInactive) {
+      filtered = filtered.filter((p) => !p.inactive);
+    }
+
     return filtered;
-  }, [players, roleFilter, balanceFilter]);
+  }, [players, roleFilter, balanceFilter, hideInactive]);
 
   const table = useReactTable({
     data: filteredData,
@@ -356,6 +377,16 @@ export function PlayersDataTable({
                 <SelectItem value="zero">Null</SelectItem>
               </SelectContent>
             </Select>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="hide-inactive"
+                checked={hideInactive}
+                onCheckedChange={(checked) => setHideInactive(checked === true)}
+              />
+              <Label htmlFor="hide-inactive" className="cursor-pointer text-sm font-normal">
+                Inaktive ausblenden
+              </Label>
+            </div>
           </div>
         </div>
         {canCreate && (

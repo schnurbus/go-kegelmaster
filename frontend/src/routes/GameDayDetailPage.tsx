@@ -30,7 +30,27 @@ import {
 import { toast } from "sonner";
 import { Loader2Icon, SaveIcon, TrashIcon, ArrowLeftIcon, XIcon, ChevronsUpDownIcon, CheckIcon } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+
+const GAMEDAY_HIDE_INACTIVE_KEY_PREFIX = "kegelmaster_gameday_hide_inactive_";
+
+function loadGamedayHideInactive(clubId: string): boolean {
+  try {
+    const raw = localStorage.getItem(GAMEDAY_HIDE_INACTIVE_KEY_PREFIX + clubId);
+    return raw === "true";
+  } catch {
+    return false;
+  }
+}
+
+function saveGamedayHideInactive(clubId: string, value: boolean) {
+  try {
+    localStorage.setItem(GAMEDAY_HIDE_INACTIVE_KEY_PREFIX + clubId, String(value));
+  } catch {
+    // ignore
+  }
+}
 
 interface GameDayDetail {
   game_day: {
@@ -81,6 +101,7 @@ interface Player {
   start_balance: number;
   role_id: string | null;
   user_id: string | null;
+  inactive: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -146,6 +167,15 @@ function GameDayDetailPage() {
   // Combobox state
   const [comboboxOpen, setComboboxOpen] = React.useState(false);
   const [selectedPlayerToAdd, setSelectedPlayerToAdd] = React.useState<string>("");
+
+  // Hide inactive players in selection (per-club, persisted)
+  const [hideInactive, setHideInactive] = React.useState<boolean>(false);
+
+  React.useEffect(() => {
+    if (activeClub) {
+      setHideInactive(loadGamedayHideInactive(activeClub.id));
+    }
+  }, [activeClub?.id]);
 
   // Transaction summary state
   const [transactionSummary, setTransactionSummary] = React.useState<{
@@ -599,10 +629,14 @@ function GameDayDetailPage() {
     }
   };
 
-  // Filter available players (not yet added) - Combobox handles search internally
+  // Filter available players (not yet added), optionally hide inactive, sort alphabetically
   const availablePlayers = React.useMemo(() => {
-    return allPlayers.filter(player => !selectedPlayerIds.has(player.id));
-  }, [allPlayers, selectedPlayerIds]);
+    let list = allPlayers.filter((player) => !selectedPlayerIds.has(player.id));
+    if (hideInactive) {
+      list = list.filter((p) => !p.inactive);
+    }
+    return [...list].sort((a, b) => a.name.localeCompare(b.name, "de"));
+  }, [allPlayers, selectedPlayerIds, hideInactive]);
 
   if (!activeClub) {
     return (
@@ -706,6 +740,20 @@ function GameDayDetailPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="gameday-hide-inactive"
+                  checked={hideInactive}
+                  onCheckedChange={(checked) => {
+                    const value = checked === true;
+                    setHideInactive(value);
+                    if (activeClub) saveGamedayHideInactive(activeClub.id, value);
+                  }}
+                />
+                <Label htmlFor="gameday-hide-inactive" className="cursor-pointer text-sm font-normal">
+                  Inaktive ausblenden
+                </Label>
+              </div>
               {/* Add Player Section with Combobox */}
               <div className="space-y-2">
                 <Label htmlFor="player-select">Spieler hinzufügen</Label>
