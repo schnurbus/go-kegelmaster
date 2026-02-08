@@ -26,7 +26,7 @@ type PermissionsTableProps = {
   canEdit?: boolean;
 };
 
-const ENTITY_TYPES: EntityType[] = ["roles", "players", "game_days", "penalty_types", "competitions"];
+const ENTITY_TYPES: EntityType[] = ["roles", "players", "game_days", "penalty_types", "competitions", "transactions"];
 const PERMISSION_TYPES: PermissionType[] = [
   "list",
   "view",
