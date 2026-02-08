@@ -1,4 +1,4 @@
-export type EntityType = "competitions" | "game_days" | "penalty_types" | "players" | "roles";
+export type EntityType = "competitions" | "game_days" | "penalty_types" | "players" | "roles" | "transactions";
 export type PermissionType = "list" | "view" | "create" | "update" | "delete";
 
 export type Permission = {
@@ -39,6 +39,7 @@ export function getEntityTypeLabel(entityType: EntityType): string {
     penalty_types: "Strafarten",
     players: "Spieler",
     roles: "Rollen",
+    transactions: "Transaktionen",
   };
   return labels[entityType];
 }
