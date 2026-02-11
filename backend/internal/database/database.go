@@ -16,8 +16,10 @@ func New(dsn string) (*sql.DB, error) {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
 
-	db.SetMaxOpenConns(20)
-	db.SetMaxIdleConns(5)
+	// db.SetMaxOpenConns(20)
+	db.SetMaxOpenConns(100)
+	// db.SetMaxIdleConns(5)
+	db.SetMaxIdleConns(50)
 	db.SetConnMaxLifetime(30 * time.Minute)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
