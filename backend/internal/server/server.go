@@ -133,6 +133,22 @@ func (s *Server) registerRoutes() {
 			"message": "backend placeholder",
 		})
 	})
+	chatLimiter := limiter.New(limiter.Config{
+		Max:        s.cfg.ChatRateLimitMax,
+		Expiration: time.Duration(s.cfg.ChatRateLimitWindowMin) * time.Minute,
+		KeyGenerator: func(c fiber.Ctx) string {
+			token := strings.TrimSpace(c.Cookies("auth_token"))
+			if token == "" {
+				return c.IP()
+			}
+			claims, err := s.handlers.AuthSvc.ParseToken(token)
+			if err != nil {
+				return c.IP()
+			}
+			return claims.UserID
+		},
+	})
+	api.Post("/chat", chatLimiter, s.handlers.HandleChat)
 
 	authGroup := api.Group("/auth")
 	authGroup.Get("/csrf-token", s.handlers.HandleCSRFCookie)
