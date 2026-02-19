@@ -145,6 +145,7 @@ function GameDayDetailPage() {
   
   // Fix: Derive isNew from id parameter instead of state
   const isNew = id === "new";
+  const canEditGameday = isNew ? canCreate("game_days") : canUpdate("game_days");
 
   const [date, setDate] = React.useState("");
   const [notes, setNotes] = React.useState("");
@@ -686,7 +687,7 @@ function GameDayDetailPage() {
                 Löschen
               </Button>
             )}
-            {(isNew ? canCreate("game_days") : canUpdate("game_days")) && (
+            {canEditGameday && (
               <Button onClick={handleSave} disabled={isSaving}>
                 {isSaving ? (
                   <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
@@ -715,6 +716,7 @@ function GameDayDetailPage() {
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 required
+                disabled={!canEditGameday}
               />
             </div>
 
@@ -726,12 +728,13 @@ function GameDayDetailPage() {
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Optionale Notizen zum Spieltag..."
                 rows={3}
+                disabled={!canEditGameday}
               />
             </div>
           </CardContent>
         </Card>
 
-        {!isNew && (
+        {!isNew && canUpdate("game_days") && (
           <Card>
             <CardHeader>
               <CardTitle>Teilnehmer hinzufügen</CardTitle>
@@ -815,16 +818,22 @@ function GameDayDetailPage() {
             <CardHeader>
               <CardTitle>Strafen & Wettbewerbe</CardTitle>
               <CardDescription>
-                Strafen und Wettbewerbs-Werte pro Teilnehmer erfassen
+                {canUpdate("game_days")
+                  ? "Strafen und Wettbewerbs-Werte pro Teilnehmer erfassen"
+                  : "Sie haben keine Berechtigung, Strafen oder Wettbewerbe zu bearbeiten."}
               </CardDescription>
             </CardHeader>
             <CardContent>
               {orderedParticipants.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <p>Noch keine Teilnehmer hinzugefügt</p>
-                  <p className="text-sm mt-1">Wählen Sie oben Spieler aus, um sie hinzuzufügen</p>
+                  <p className="text-sm mt-1">
+                    {canUpdate("game_days")
+                      ? "Wählen Sie oben Spieler aus, um sie hinzuzufügen"
+                      : "Für diesen Spieltag sind keine Teilnehmer erfasst."}
+                  </p>
                 </div>
-              ) : (
+              ) : canUpdate("game_days") ? (
                 <Tabs defaultValue="strafen" className="w-full">
                   <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="strafen">Strafen</TabsTrigger>
@@ -997,6 +1006,110 @@ function GameDayDetailPage() {
                           </Button>
                         </div>
                       </>
+                    )}
+                  </TabsContent>
+                </Tabs>
+              ) : (
+                <Tabs defaultValue="strafen" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="strafen">Strafen</TabsTrigger>
+                    <TabsTrigger value="wettbewerbe">Wettbewerbe</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="strafen" className="space-y-4 mt-4">
+                    {isLoadingPenaltyTypes ? (
+                      <p className="text-muted-foreground">Lade Strafarten...</p>
+                    ) : allPenaltyTypes.length === 0 ? (
+                      <p className="text-muted-foreground">Keine Strafarten vorhanden</p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full border-collapse">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left p-2 font-semibold">Spieler</th>
+                              {allPenaltyTypes.map(pt => (
+                                <th key={pt.id} className="text-center p-2 font-semibold min-w-[100px]">
+                                  <div className="text-sm">{pt.name}</div>
+                                  <div className="text-xs text-muted-foreground font-normal">
+                                    {(pt.price / 100).toFixed(2)} €
+                                  </div>
+                                </th>
+                              ))}
+                              <th className="text-right p-2 font-semibold">Gesamt</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {orderedParticipants.map((participant) => {
+                              const partData = detail?.participants.find(
+                                p => p.participant.player_id === participant.player_id
+                              );
+                              const total = (partData?.fees ?? []).reduce(
+                                (sum, f) => sum + f.quantity * f.penalty_type_price,
+                                0
+                              );
+                              return (
+                                <tr key={participant.player_id} className="border-b hover:bg-muted/50">
+                                  <td className="p-2 font-medium">{participant.player_name}</td>
+                                  {allPenaltyTypes.map(pt => {
+                                    const fee = partData?.fees.find(f => f.penalty_type_id === pt.id);
+                                    const qty = fee?.quantity ?? 0;
+                                    return (
+                                      <td key={pt.id} className="p-2 text-center">
+                                        {qty === 0 ? "–" : qty}
+                                      </td>
+                                    );
+                                  })}
+                                  <td className="p-2 text-right font-semibold">
+                                    {(total / 100).toFixed(2)} €
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </TabsContent>
+                  <TabsContent value="wettbewerbe" className="space-y-4 mt-4">
+                    {isLoadingCompetitions ? (
+                      <p className="text-muted-foreground">Lade Wettbewerbe...</p>
+                    ) : allCompetitions.length === 0 ? (
+                      <p className="text-muted-foreground">Keine Wettbewerbe vorhanden</p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full border-collapse">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left p-2 font-semibold">Spieler</th>
+                              {allCompetitions.map(c => (
+                                <th key={c.id} className="text-center p-2 font-semibold min-w-[80px]">
+                                  <div className="text-sm">{c.name}</div>
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {orderedParticipants.map((participant) => {
+                              const partData = detail?.participants.find(
+                                p => p.participant.player_id === participant.player_id
+                              );
+                              return (
+                                <tr key={participant.player_id} className="border-b hover:bg-muted/50">
+                                  <td className="p-2 font-medium">{participant.player_name}</td>
+                                  {allCompetitions.map(c => {
+                                    const cv = partData?.competition_values.find(v => v.competition_id === c.id);
+                                    const value = cv?.value ?? 0;
+                                    return (
+                                      <td key={c.id} className="p-2 text-center">
+                                        {value === 0 ? "–" : value}
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
                     )}
                   </TabsContent>
                 </Tabs>
