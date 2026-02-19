@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { toast } from "sonner";
+import { ChatBubble } from "./components/ChatBubble";
 import "./App.css";
 import { useAuth } from "./context/AuthContext";
 
@@ -11,7 +12,12 @@ function App() {
 
   // Dashboard hat seine eigene Sidebar, daher keinen Header anzeigen
   if (isDashboard) {
-    return <Outlet />;
+    return (
+      <>
+        <Outlet />
+        <ChatBubble />
+      </>
+    );
   }
 
   return (
@@ -49,6 +55,7 @@ function App() {
       <footer className="app-footer">
         <small>© {new Date().getFullYear()} Schnurbus</small>
       </footer>
+      <ChatBubble />
     </div>
   );
 }

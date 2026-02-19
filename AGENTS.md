@@ -178,6 +178,10 @@ func TestRepository_Create(t *testing.T) {
 - `DATABASE_URL`: PostgreSQL connection string
 - `JWT_SECRET`: JWT signing secret
 - `JWT_TTL`: Token time-to-live
+- `GEMINI_API_KEY`: (optional) API-Key für den Chatbot-Assistenten (Hilfe zur App). Wenn nicht gesetzt, antwortet `POST /api/chat` mit 503.
+- `GEMINI_MODEL`: (optional) Gemini-Modellname (z.B. `gemini-1.5-flash`, `gemini-2.0-flash`). Default: `gemini-1.5-flash`.
+- `CHAT_RATE_LIMIT_MAX`: (optional) Max. Chat-Requests pro User pro Fenster. Default: 30.
+- `CHAT_RATE_LIMIT_WINDOW_MINUTES`: (optional) Fenster in Minuten für das Chat-Rate-Limit. Default: 1.
 
 ### Security / Production
 - **JWT_SECRET:** In Production zwingend setzen (kein Default „dev-secret-change-me“ verwenden). Fehlt das Secret, beendet sich die App beim Start.
