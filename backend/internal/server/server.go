@@ -27,6 +27,7 @@ import (
 	"github.com/schnurbus/go-kegelmaster/backend/internal/role"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/transaction"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/user"
+	"github.com/schnurbus/go-kegelmaster/backend/openapi"
 )
 
 // Dependencies aggregates components the HTTP server relies on.
@@ -241,6 +242,12 @@ func (s *Server) registerRoutes() {
 	clubsGroup.Get("/:clubId/gamedays/:gamedayId/transactions", s.handlers.HandleListGameDayTransactions)
 	clubsGroup.Get("/:clubId/gamedays/:gamedayId/transaction-summary", s.handlers.HandleGetGameDayTransactionSummary)
 
+	// OpenAPI spec and Swagger UI (for technical users)
+	api.Get("/openapi.yaml", func(c fiber.Ctx) error {
+		c.Set(fiber.HeaderContentType, "application/x-yaml; charset=utf-8")
+		return c.Send(openapi.OpenAPIYAML)
+	})
+	api.Get("/docs", serveSwaggerUI)
 	registerStatic(s)
 }
 
@@ -255,6 +262,37 @@ func (s *Server) Listen() error {
 func (s *Server) Shutdown(ctx context.Context) error {
 	slog.Info("shutting down fiber server")
 	return s.app.ShutdownWithContext(ctx)
+}
+
+// serveSwaggerUI returns an HTML page that loads Swagger UI from CDN and the OpenAPI spec.
+func serveSwaggerUI(c fiber.Ctx) error {
+	const html = `<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kegelmaster API – Swagger UI</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js" crossorigin></script>
+  <script>
+    window.onload = function() {
+      window.ui = SwaggerUIBundle({
+        url: "/api/openapi.yaml",
+        dom_id: "#swagger-ui",
+        presets: [
+          SwaggerUIBundle.presets.apis,
+          SwaggerUIBundle.SwaggerUIStandalonePreset
+        ]
+      });
+    };
+  </script>
+</body>
+</html>`
+	c.Set(fiber.HeaderContentType, fiber.MIMETextHTMLCharsetUTF8)
+	return c.SendString(html)
 }
 
 func splitAndTrim(input string) []string {

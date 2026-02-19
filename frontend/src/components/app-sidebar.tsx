@@ -10,7 +10,6 @@ import {
   HelpCircleIcon,
   LayoutDashboardIcon,
   ReceiptIcon,
-  SearchIcon,
   SettingsIcon,
   ShieldIcon,
   UsersIcon,
@@ -131,19 +130,9 @@ function useDashboardData() {
     ],
     navSecondary: [
       {
-        title: "Settings",
-        url: "#",
-        icon: SettingsIcon,
-      },
-      {
-        title: "Get Help",
-        url: "#",
+        title: "Hilfe",
+        url: "/app/help",
         icon: HelpCircleIcon,
-      },
-      {
-        title: "Search",
-        url: "#",
-        icon: SearchIcon,
       },
     ],
     management: [
