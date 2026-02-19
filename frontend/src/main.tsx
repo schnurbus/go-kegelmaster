@@ -16,6 +16,7 @@ import GameDaysPage from "./routes/GameDaysPage.tsx";
 import GameDayDetailPage from "./routes/GameDayDetailPage.tsx";
 import TransactionsPage from "./routes/TransactionsPage.tsx";
 import ClubEditPage from "./routes/ClubEditPage.tsx";
+import HelpPage from "./routes/HelpPage.tsx";
 import InvitationPage from "./routes/InvitationPage.tsx";
 import ForgotPasswordPage from "./routes/ForgotPasswordPage.tsx";
 import ResetPasswordPage from "./routes/ResetPasswordPage.tsx";
@@ -50,6 +51,7 @@ const router = createBrowserRouter([
           { path: "/app/gamedays/:id", element: <GameDayDetailPage /> },
           { path: "/app/transactions", element: <TransactionsPage /> },
           { path: "/app/club/:clubId", element: <ClubEditPage /> },
+          { path: "/app/help", element: <HelpPage /> },
         ],
       },
     ],

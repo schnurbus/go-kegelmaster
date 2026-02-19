@@ -1,0 +1,1159 @@
+openapi: 3.0.3
+info:
+  title: Kegelmaster API
+  description: API für die Kegelmaster-App (Spieler, Spieltage, Transaktionen, Clubs).
+  version: 0.1.0
+servers:
+  - url: ""
+    description: App-Origin (Health unter /healthz, API unter /api)
+paths:
+  /healthz:
+    get:
+      summary: Health Check
+      tags: [System]
+      responses:
+        "200":
+          description: OK
+  /api/auth/csrf-token:
+    get:
+      summary: CSRF-Token abrufen
+      tags: [Auth]
+      responses:
+        "200":
+          description: Token (Cookie + JSON-Body)
+  /api/auth/me:
+    get:
+      summary: Angemeldeten User abrufen
+      tags: [Auth]
+      security: [cookieAuth: []]
+      responses:
+        "200":
+          description: User-Objekt
+        "401":
+          description: Nicht angemeldet
+  /api/auth/register:
+    post:
+      summary: Registrieren und einloggen
+      tags: [Auth]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        "201":
+          description: User angelegt und eingeloggt
+        "400":
+          description: Ungültige Anfrage
+  /api/auth/login:
+    post:
+      summary: Login (setzt HTTP-Only Cookie)
+      tags: [Auth]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string }
+                password: { type: string }
+      responses:
+        "200":
+          description: Erfolgreich eingeloggt
+        "401":
+          description: Anmeldung fehlgeschlagen
+  /api/auth/logout:
+    post:
+      summary: Logout (Cookie löschen)
+      tags: [Auth]
+      responses:
+        "204":
+          description: Erfolgreich abgemeldet
+  /api/auth/forgot-password:
+    post:
+      summary: Passwort vergessen (E-Mail mit Reset-Link)
+      tags: [Auth]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        "204":
+          description: E-Mail gesendet (oder ignoriert bei unbekannter Adresse)
+        "429":
+          description: Rate Limit
+  /api/auth/reset-password:
+    post:
+      summary: Passwort zurücksetzen
+      tags: [Auth]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password]
+              properties:
+                token: { type: string }
+                password: { type: string }
+      responses:
+        "204":
+          description: Passwort geändert
+        "400":
+          description: Ungültiger oder abgelaufener Token
+  /api/chat:
+    post:
+      summary: Hilfe-Chat (Assistent)
+      tags: [Chat]
+      security: [cookieAuth: []]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message: { type: string }
+                history: { type: array, items: { type: object, properties: { role: { type: string }, text: { type: string } } } }
+                current_page: { type: string }
+      responses:
+        "200":
+          description: Antwort des Assistenten
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply: { type: string }
+        "503":
+          description: Chat nicht verfügbar (z. B. API-Key fehlt)
+        "429":
+          description: Rate Limit
+  /api/clubs:
+    get:
+      summary: Alle Clubs des Users
+      tags: [Clubs]
+      security: [cookieAuth: []]
+      responses:
+        "200":
+          description: Liste der Clubs
+    post:
+      summary: Club anlegen
+      tags: [Clubs]
+      security: [cookieAuth: []]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateClubRequest"
+      responses:
+        "201":
+          description: Club erstellt
+        "400":
+          description: Validierungsfehler
+  /api/clubs/{id}:
+    get:
+      summary: Einzelnen Club abrufen
+      tags: [Clubs]
+      security: [cookieAuth: []]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Club
+        "404":
+          description: Nicht gefunden
+    put:
+      summary: Club aktualisieren (nur Owner)
+      tags: [Clubs]
+      security: [cookieAuth: []]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateClubRequest"
+      responses:
+        "200":
+          description: Aktualisiert
+        "403":
+          description: Kein Owner
+    delete:
+      summary: Club löschen (nur Owner)
+      tags: [Clubs]
+      security: [cookieAuth: []]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204":
+          description: Gelöscht
+        "403":
+          description: Kein Owner
+  /api/clubs/{id}/recalculate-balance:
+    post:
+      summary: Club-Saldo neu berechnen
+      tags: [Clubs]
+      security: [cookieAuth: []]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Neuberechnung durchgeführt
+  /api/clubs/{id}/transfer-owner:
+    post:
+      summary: Besitzer übertragen
+      tags: [Clubs]
+      security: [cookieAuth: []]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [new_owner_user_id]
+              properties:
+                new_owner_user_id: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Übertragen
+        "403":
+          description: Kein Owner
+  /api/clubs/{clubId}/permissions/me:
+    get:
+      summary: Eigene Berechtigungen im Club
+      tags: [Clubs]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Berechtigungen
+  /api/clubs/{clubId}/roles:
+    get:
+      summary: Rollen des Clubs
+      tags: [Rollen]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Rollenliste
+    post:
+      summary: Rolle anlegen
+      tags: [Rollen]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+      responses:
+        "201":
+          description: Rolle erstellt
+  /api/clubs/{clubId}/roles/{id}:
+    get:
+      summary: Einzelne Rolle
+      tags: [Rollen]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Rolle
+    put:
+      summary: Rolle aktualisieren
+      tags: [Rollen]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+      responses:
+        "200":
+          description: Aktualisiert
+    delete:
+      summary: Rolle löschen
+      tags: [Rollen]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204":
+          description: Gelöscht
+  /api/clubs/{clubId}/roles/{id}/permissions:
+    post:
+      summary: Berechtigung zu Rolle hinzufügen
+      tags: [Rollen]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [entity_type, permission_type]
+              properties:
+                entity_type: { type: string }
+                permission_type: { type: string }
+      responses:
+        "200":
+          description: Berechtigung hinzugefügt
+    delete:
+      summary: Berechtigung von Rolle entfernen
+      tags: [Rollen]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [entity_type, permission_type]
+              properties:
+                entity_type: { type: string }
+                permission_type: { type: string }
+      responses:
+        "200":
+          description: Berechtigung entfernt
+  /api/clubs/{clubId}/players:
+    get:
+      summary: Spieler des Clubs
+      tags: [Spieler]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Spielerliste
+    post:
+      summary: Spieler anlegen
+      tags: [Spieler]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, role_id]
+              properties:
+                name: { type: string }
+                role_id: { type: string, format: uuid }
+                gender: { type: string }
+                inactive: { type: boolean }
+      responses:
+        "201":
+          description: Spieler erstellt
+  /api/clubs/{clubId}/players/me:
+    get:
+      summary: Eigenen Spieler-Datensatz (verknüpfter User)
+      tags: [Spieler]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Spieler oder 404
+  /api/clubs/{clubId}/players/me/penalty-history:
+    get:
+      summary: Eigene Strafen-Historie
+      tags: [Spieler]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Historie
+  /api/clubs/{clubId}/players/me/competition-history:
+    get:
+      summary: Eigene Wettbewerbs-Historie
+      tags: [Spieler]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Historie
+  /api/clubs/{clubId}/players/{id}:
+    get:
+      summary: Einzelnen Spieler
+      tags: [Spieler]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Spieler
+    put:
+      summary: Spieler aktualisieren
+      tags: [Spieler]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                role_id: { type: string, format: uuid }
+                gender: { type: string }
+                inactive: { type: boolean }
+      responses:
+        "200":
+          description: Aktualisiert
+    delete:
+      summary: Spieler löschen
+      tags: [Spieler]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204":
+          description: Gelöscht
+  /api/clubs/{clubId}/players/{id}/recalculate-balance:
+    post:
+      summary: Spieler-Saldo neu berechnen
+      tags: [Spieler]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Neuberechnung durchgeführt
+  /api/clubs/{clubId}/players/{id}/invite:
+    post:
+      summary: Einladung an Spieler senden
+      tags: [Spieler]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Einladung versendet
+  /api/invitations/{token}:
+    get:
+      summary: Einladung abrufen (Token)
+      tags: [Einladungen]
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Einladungsdetails
+        "404":
+          description: Ungültiger Token
+  /api/invitations/{token}/accept:
+    post:
+      summary: Einladung annehmen
+      tags: [Einladungen]
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password: { type: string }
+      responses:
+        "200":
+          description: Account erstellt und eingeloggt
+        "400":
+          description: Ungültig oder abgelaufen
+  /api/clubs/{clubId}/penalty-types:
+    get:
+      summary: Strafentypen des Clubs
+      tags: [Strafentypen]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Liste Strafentypen
+    post:
+      summary: Strafentyp anlegen
+      tags: [Strafentypen]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, fee]
+              properties:
+                name: { type: string }
+                fee: { type: integer, description: "Gebühr in Cent" }
+      responses:
+        "201":
+          description: Strafentyp erstellt
+  /api/clubs/{clubId}/penalty-types/{id}:
+    get:
+      summary: Einzelnen Strafentyp
+      tags: [Strafentypen]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Strafentyp
+    put:
+      summary: Strafentyp aktualisieren
+      tags: [Strafentypen]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                fee: { type: integer }
+      responses:
+        "200":
+          description: Aktualisiert
+    delete:
+      summary: Strafentyp löschen
+      tags: [Strafentypen]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204":
+          description: Gelöscht
+  /api/clubs/{clubId}/penalty-types/{id}/display-order:
+    put:
+      summary: Anzeige-Reihenfolge Strafentyp
+      tags: [Strafentypen]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [display_order]
+              properties:
+                display_order: { type: integer }
+      responses:
+        "200":
+          description: Aktualisiert
+  /api/clubs/{clubId}/competitions:
+    get:
+      summary: Wettbewerbe des Clubs
+      tags: [Wettbewerbe]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Liste Wettbewerbe
+    post:
+      summary: Wettbewerb anlegen
+      tags: [Wettbewerbe]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+      responses:
+        "201":
+          description: Wettbewerb erstellt
+  /api/clubs/{clubId}/competitions/{id}:
+    get:
+      summary: Einzelnen Wettbewerb
+      tags: [Wettbewerbe]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Wettbewerb
+    put:
+      summary: Wettbewerb aktualisieren
+      tags: [Wettbewerbe]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+      responses:
+        "200":
+          description: Aktualisiert
+    delete:
+      summary: Wettbewerb löschen
+      tags: [Wettbewerbe]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204":
+          description: Gelöscht
+  /api/clubs/{clubId}/gamedays:
+    get:
+      summary: Spieltage des Clubs
+      tags: [Spieltage]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Liste Spieltage
+    post:
+      summary: Spieltag anlegen
+      tags: [Spieltage]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [date]
+              properties:
+                date: { type: string, format: date }
+      responses:
+        "201":
+          description: Spieltag erstellt
+  /api/clubs/{clubId}/gamedays/summaries:
+    get:
+      summary: Spieltag-Kurzübersichten
+      tags: [Spieltage]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Summaries
+  /api/clubs/{clubId}/gamedays/{id}:
+    get:
+      summary: Einzelnen Spieltag
+      tags: [Spieltage]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Spieltag inkl. Teilnehmer
+    put:
+      summary: Spieltag aktualisieren
+      tags: [Spieltage]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                date: { type: string, format: date }
+      responses:
+        "200":
+          description: Aktualisiert
+    delete:
+      summary: Spieltag löschen
+      tags: [Spieltage]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204":
+          description: Gelöscht
+  /api/clubs/{clubId}/gamedays/{id}/participants:
+    post:
+      summary: Teilnehmer hinzufügen
+      tags: [Spieltage]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [player_id]
+              properties:
+                player_id: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Teilnehmer hinzugefügt
+  /api/clubs/{clubId}/gamedays/{id}/participants/{playerId}:
+    delete:
+      summary: Teilnehmer entfernen
+      tags: [Spieltage]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: playerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204":
+          description: Entfernt
+  /api/clubs/{clubId}/gamedays/{id}/participants/{playerId}/fees:
+    put:
+      summary: Gebühren Teilnehmer (Teilnahme, Trinkgeld)
+      tags: [Spieltage]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: playerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                base_fee: { type: integer }
+                tip: { type: integer }
+      responses:
+        "200":
+          description: Aktualisiert
+  /api/clubs/{clubId}/gamedays/{id}/participants/{playerId}/competition-values:
+    put:
+      summary: Wettbewerbs-Werte Teilnehmer
+      tags: [Spieltage]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: playerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: Aktualisiert
+  /api/clubs/{clubId}/transactions:
+    get:
+      summary: Transaktionen des Clubs
+      tags: [Transaktionen]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Transaktionsliste
+    post:
+      summary: Transaktion anlegen
+      tags: [Transaktionen]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, amount_cents]
+              properties:
+                type: { type: string, enum: [deposit, withdrawal, tip, other_income, other_expense] }
+                amount_cents: { type: integer }
+                player_id: { type: string, format: uuid }
+                gameday_id: { type: string, format: uuid }
+                note: { type: string }
+      responses:
+        "201":
+          description: Transaktion erstellt
+  /api/clubs/{clubId}/transactions/{id}:
+    get:
+      summary: Einzelne Transaktion
+      tags: [Transaktionen]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Transaktion
+    delete:
+      summary: Transaktion löschen
+      tags: [Transaktionen]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204":
+          description: Gelöscht
+  /api/clubs/{clubId}/players/{playerId}/transactions:
+    get:
+      summary: Transaktionen eines Spielers
+      tags: [Transaktionen]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: playerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Transaktionsliste
+  /api/clubs/{clubId}/gamedays/{gamedayId}/transactions:
+    get:
+      summary: Transaktionen eines Spieltags
+      tags: [Transaktionen]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: gamedayId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Transaktionsliste
+  /api/clubs/{clubId}/gamedays/{gamedayId}/transaction-summary:
+    get:
+      summary: Transaktions-Zusammenfassung Spieltag
+      tags: [Transaktionen]
+      security: [cookieAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: gamedayId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Summary
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: auth_token
+      description: JWT im HTTP-Only Cookie; für geschützte Endpunkte erforderlich. X-CSRF-Token Header bei Mutationen.
+  schemas:
+    CreateClubRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        balance: { type: integer, description: "Cent" }
+        start_balance: { type: integer, description: "Cent" }
+        base_fee: { type: integer, description: "Cent" }
+        auto_tip_enabled: { type: boolean }
+        couples_mode_enabled: { type: boolean }
+    UpdateClubRequest:
+      type: object
+      properties:
+        name: { type: string }
+        balance: { type: integer }
+        start_balance: { type: integer }
+        base_fee: { type: integer }
+        auto_tip_enabled: { type: boolean }
+        couples_mode_enabled: { type: boolean }

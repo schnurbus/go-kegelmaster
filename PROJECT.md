@@ -214,7 +214,8 @@ Weitere Entitäten kommen mit der Zeit dazu
 ## 8. API-Spezifikation
 
 ### Dokumentation
-- OpenAPI Spec
+- **OpenAPI Spec:** `backend/openapi/openapi.yaml` (manuell gepflegt). Wird unter `GET /api/openapi.yaml` ausgeliefert.
+- **Swagger UI:** Interaktive API-Dokumentation unter `GET /api/docs` (lädt die Spec von `/api/openapi.yaml`). Für technische Nutzer/Entwickler.
 
 ### Auth
 - Login

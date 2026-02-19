@@ -252,3 +252,4 @@ Examples:
 - Maintain high test coverage (current: 84-93%)
 - Use UUIDs for all entity IDs
 - Implement proper error handling and logging
+- **OpenAPI Spec:** Bei neuen oder geänderten API-Endpunkten die OpenAPI-Spezifikation in `backend/openapi/openapi.yaml` anpassen und ggf. Schemas ergänzen. Die Spec wird unter `/api/openapi.yaml` ausgeliefert; Swagger UI unter `/api/docs`.
