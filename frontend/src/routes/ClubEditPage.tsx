@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { ArrowLeftIcon, CalculatorIcon, Loader2Icon, SaveIcon, Trash2Icon, UserCogIcon } from "lucide-react";
 import { DeleteClubDialog } from "@/components/delete-club-dialog";
 import { TransferClubOwnerDialog } from "@/components/transfer-club-owner-dialog";
+import { formatMoneyInput } from "@/types/player";
 
 function ClubEditPage() {
   const { clubId } = useParams<{ clubId: string }>();
@@ -61,9 +62,9 @@ function ClubEditPage() {
       }
       const data = await response.json();
       setName(data.name ?? "");
-      setBalance(data.balance != null ? (data.balance / 100).toFixed(2) : "0");
-      setStartBalance(data.start_balance != null ? (data.start_balance / 100).toFixed(2) : "0");
-      setBaseFee(data.base_fee != null ? (data.base_fee / 100).toFixed(2) : "0");
+      setBalance(data.balance != null ? (data.balance / 100).toFixed(2) : "0.00");
+      setStartBalance(data.start_balance != null ? (data.start_balance / 100).toFixed(2) : "0.00");
+      setBaseFee(data.base_fee != null ? (data.base_fee / 100).toFixed(2) : "0.00");
       setAutoTipEnabled(data.auto_tip_enabled ?? true);
       setCouplesModeEnabled(data.couples_mode_enabled ?? false);
       setClubUserId(data.user_id ?? null);
@@ -206,6 +207,7 @@ function ClubEditPage() {
                   min="0"
                   value={balance}
                   onChange={(e) => setBalance(e.target.value)}
+                  onBlur={() => setBalance(formatMoneyInput(balance))}
                   placeholder="0.00"
                   disabled={isSaving}
                 />
@@ -219,6 +221,7 @@ function ClubEditPage() {
                   min="0"
                   value={startBalance}
                   onChange={(e) => setStartBalance(e.target.value)}
+                  onBlur={() => setStartBalance(formatMoneyInput(startBalance))}
                   placeholder="0.00"
                   disabled={isSaving}
                 />
@@ -235,6 +238,7 @@ function ClubEditPage() {
                   min="0"
                   value={baseFee}
                   onChange={(e) => setBaseFee(e.target.value)}
+                  onBlur={() => setBaseFee(formatMoneyInput(baseFee))}
                   placeholder="0.00"
                   disabled={isSaving}
                 />

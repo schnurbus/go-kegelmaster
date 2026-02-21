@@ -25,7 +25,7 @@ import { AlertTriangleIcon, GiftIcon, InfoIcon } from "lucide-react";
 
 import type { CreateTransactionRequest } from "@/types/transaction";
 import type { Player } from "@/types/player";
-import { euroToCents, formatCentsToEuro } from "@/types/player";
+import { euroToCents, formatCentsToEuro, formatMoneyInput } from "@/types/player";
 
 type TransactionDialogProps = {
   open: boolean;
@@ -430,6 +430,7 @@ export function TransactionDialog({
               placeholder="10.00"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
+              onBlur={() => setAmount(formatMoneyInput(amount))}
               required
             />
             {transactionType === "expense" && amount && parseFloat(amount) > 0 && (
