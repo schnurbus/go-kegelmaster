@@ -264,14 +264,15 @@ export function TransactionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[90dvh] flex-col sm:max-w-[500px]">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Transaktion erstellen</DialogTitle>
           <DialogDescription>
             Erstellen Sie eine manuelle Transaktion (Einzahlung, Trinkgeld oder Ausgabe).
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={onSubmit} className="space-y-4">
+        <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
           <div className="space-y-2">
             <Label htmlFor="transaction_type">
               Transaktionstyp <span className="text-red-500">*</span>
@@ -498,7 +499,8 @@ export function TransactionDialog({
             </div>
           )}
 
-          <DialogFooter>
+          </div>
+          <DialogFooter className="shrink-0 gap-2 pt-4">
             <Button
               type="button"
               variant="outline"
