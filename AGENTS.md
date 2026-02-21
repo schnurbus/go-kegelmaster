@@ -190,6 +190,9 @@ func TestRepository_Create(t *testing.T) {
 - `IMPRESSUM_HTML`: (optional) Inhalt für das Impressum (HTML-String). Überschreibt Datei, wenn gesetzt.
 - `DATENSCHUTZ_HTML`: (optional) Inhalt für die Datenschutzerklärung (HTML-String). Überschreibt Datei, wenn gesetzt.
 
+### GitHub Actions / Release Please
+- **RELEASE_PLEASE_TOKEN:** (Repository-Secret) Personal Access Token (PAT) mit mindestens Scope `repo`. Wird vom Workflow `.github/workflows/release-please.yaml` verwendet. Ohne dieses Secret nutzt Release Please den Standard-`GITHUB_TOKEN`; dann lösen von Release Please erzeugte Events (z. B. „release published“) keine weiteren Workflows aus – der Workflow `docker-release` würde nach einem Release nicht starten. Secret unter Settings → Secrets and variables → Actions anlegen (z. B. Name `RELEASE_PLEASE_TOKEN`).
+
 ### Security / Production
 - **JWT_SECRET:** In Production zwingend setzen (kein Default „dev-secret-change-me“ verwenden). Fehlt das Secret, beendet sich die App beim Start.
 - **PUBLIC_BASE_URL:** Muss auf die vertrauenswürdige App-Origin zeigen (z. B. Frontend-URL). Wird u. a. für Passwort-Reset-Links in E-Mails verwendet. Bei Deployment prüfen, dass keine fremde/Phishing-Domain konfiguriert ist.
