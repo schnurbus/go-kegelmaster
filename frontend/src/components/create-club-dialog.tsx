@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
+import { formatMoneyInput } from "@/types/player"
 
 type Club = {
   id: string
@@ -154,6 +155,7 @@ export function CreateClubDialog({
                 min="0"
                 value={balance}
                 onChange={(e) => setBalance(e.target.value)}
+                onBlur={() => setBalance(formatMoneyInput(balance))}
                 placeholder="0.00"
                 disabled={isSubmitting}
               />
@@ -167,6 +169,7 @@ export function CreateClubDialog({
                 min="0"
                 value={baseFee}
                 onChange={(e) => setBaseFee(e.target.value)}
+                onBlur={() => setBaseFee(formatMoneyInput(baseFee))}
                 placeholder="0.00"
                 disabled={isSubmitting}
               />

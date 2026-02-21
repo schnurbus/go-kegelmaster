@@ -28,7 +28,7 @@ import type {
   CreatePlayerRequest,
   UpdatePlayerRequest,
 } from "@/types/player";
-import { euroToCents } from "@/types/player";
+import { euroToCents, formatMoneyInput } from "@/types/player";
 
 type PlayerDialogProps = {
   open: boolean;
@@ -51,8 +51,8 @@ export function PlayerDialog({
 }: PlayerDialogProps) {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [name, setName] = React.useState("");
-  const [balance, setBalance] = React.useState("0");
-  const [startBalance, setStartBalance] = React.useState("0");
+  const [balance, setBalance] = React.useState("0.00");
+  const [startBalance, setStartBalance] = React.useState("0.00");
   const [roleId, setRoleId] = React.useState<string | null>(null);
   const [gender, setGender] = React.useState<Gender | null>(null);
   const [inactive, setInactive] = React.useState(false);
@@ -67,8 +67,8 @@ export function PlayerDialog({
   React.useEffect(() => {
     if (open && player) {
       setName(player.name);
-      setBalance((player.balance / 100).toString());
-      setStartBalance((player.start_balance / 100).toString());
+      setBalance((player.balance / 100).toFixed(2));
+      setStartBalance((player.start_balance / 100).toFixed(2));
       setRoleId(player.role_id);
       setGender(player.gender ?? null);
       setInactive(player.inactive ?? false);
@@ -76,8 +76,8 @@ export function PlayerDialog({
       setInviteEmail("");
     } else if (open && !player) {
       setName("");
-      setBalance("0");
-      setStartBalance("0");
+      setBalance("0.00");
+      setStartBalance("0.00");
       setGender(null);
       setInactive(false);
       setPartnerId(null);
@@ -302,6 +302,7 @@ export function PlayerDialog({
                 placeholder="0.00"
                 value={balance}
                 onChange={(e) => setBalance(e.target.value)}
+                onBlur={() => setBalance(formatMoneyInput(balance))}
               />
             </div>
             <div className="space-y-2">
@@ -313,6 +314,7 @@ export function PlayerDialog({
                 placeholder="0.00"
                 value={startBalance}
                 onChange={(e) => setStartBalance(e.target.value)}
+                onBlur={() => setStartBalance(formatMoneyInput(startBalance))}
               />
             </div>
           </div>

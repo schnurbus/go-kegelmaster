@@ -54,3 +54,16 @@ export function euroToCents(euro: number): number {
   return Math.round(euro * 100);
 }
 
+/**
+ * Formatiert einen Eingabestring für Geldbeträge auf 2 Dezimalstellen.
+ * Leer → leer; gültige Zahl → "12.00"; ungültig → unverändert.
+ */
+export function formatMoneyInput(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed === "") return trimmed;
+  const normalized = trimmed.replace(",", ".");
+  const num = Number(normalized);
+  if (!Number.isFinite(num)) return value;
+  return num.toFixed(2);
+}
+

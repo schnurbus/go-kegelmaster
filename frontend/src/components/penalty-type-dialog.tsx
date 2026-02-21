@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 
 import type { PenaltyType } from "@/types/penalty-type";
+import { formatMoneyInput } from "@/types/player";
 
 type PenaltyTypeDialogProps = {
   open: boolean;
@@ -180,6 +181,7 @@ export function PenaltyTypeDialog({
               placeholder="0.00"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
+              onBlur={() => setPrice(formatMoneyInput(price))}
               required
             />
           </div>
