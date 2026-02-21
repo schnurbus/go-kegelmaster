@@ -24,6 +24,7 @@ type Config struct {
 	GeminiModel                 string
 	ChatRateLimitMax            int
 	ChatRateLimitWindowMin      int
+	AutoMigrate                 bool
 }
 
 // Load builds a Config from process environment variables, applying defaults
@@ -46,9 +47,22 @@ func Load() Config {
 		GeminiModel:                 getEnv("GEMINI_MODEL", "gemini-2.5-flash"),
 		ChatRateLimitMax:            getEnvInt("CHAT_RATE_LIMIT_MAX", 30),
 		ChatRateLimitWindowMin:      getEnvInt("CHAT_RATE_LIMIT_WINDOW_MINUTES", 1),
+		AutoMigrate:                 getEnvBool("AUTO_MIGRATE", false),
 	}
 
 	return cfg
+}
+
+func getEnvBool(key string, fallback bool) bool {
+	value := getEnv(key, "")
+	if value == "" {
+		return fallback
+	}
+	switch value {
+	case "1", "true", "on", "yes":
+		return true
+	}
+	return false
 }
 
 func getEnv(key, fallback string) string {

@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/schnurbus/go-kegelmaster/backend/internal/automigrate"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/auth"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/competition"
@@ -27,6 +28,8 @@ import (
 )
 
 func main() {
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+
 	cfg := config.Load()
 
 	if cfg.AppEnv == "production" && (cfg.JWTSecret == "" || cfg.JWTSecret == "dev-secret-change-me") {
@@ -42,6 +45,12 @@ func main() {
 		os.Exit(1)
 	}
 	defer db.Close()
+
+	slog.Info("auto_migrate", "enabled", cfg.AutoMigrate)
+	if err := automigrate.Run(context.Background(), cfg.DatabaseURL, cfg.AutoMigrate); err != nil {
+		slog.Error("auto migration failed", "error", err)
+		os.Exit(1)
+	}
 
 	userRepo := user.NewRepository(db)
 	clubRepo := club.NewRepository(db)
