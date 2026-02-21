@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -130,7 +131,11 @@ func (h *Handler) HandleGetPlayers(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
-	return c.JSON(PlayersResponseFromEntities(players))
+	responses := PlayersResponseFromEntities(players)
+	for i := range responses {
+		h.enrichPlayerResponseWithPairBalance(ctx, players[i], &responses[i])
+	}
+	return c.JSON(responses)
 }
 
 func (h *Handler) HandleGetPlayer(c fiber.Ctx) error {
@@ -178,7 +183,9 @@ func (h *Handler) HandleGetPlayer(c fiber.Ctx) error {
 		}
 	}
 
-	return c.JSON(PlayerResponseFromEntity(playerEntity))
+	resp := PlayerResponseFromEntity(playerEntity)
+	h.enrichPlayerResponseWithPairBalance(ctx, playerEntity, &resp)
+	return c.JSON(resp)
 }
 
 func (h *Handler) HandleGetMyPlayer(c fiber.Ctx) error {
@@ -210,7 +217,22 @@ func (h *Handler) HandleGetMyPlayer(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusNotFound, "Kein Spieler in diesem Club")
 	}
 
-	return c.JSON(PlayerResponseFromEntity(playerEntity))
+	resp := PlayerResponseFromEntity(playerEntity)
+	h.enrichPlayerResponseWithPairBalance(ctx, playerEntity, &resp)
+	return c.JSON(resp)
+}
+
+// enrichPlayerResponseWithPairBalance sets resp.PairBalance to own + partner balance when player has a partner (Paar-Modus).
+func (h *Handler) enrichPlayerResponseWithPairBalance(ctx context.Context, p player.Player, resp *PlayerResponse) {
+	if p.PartnerID == nil {
+		return
+	}
+	partner, err := h.PlayerRepo.GetByID(ctx, *p.PartnerID)
+	if err != nil || partner.ClubID != p.ClubID {
+		return
+	}
+	sum := p.Balance + partner.Balance
+	resp.PairBalance = &sum
 }
 
 // HandleGetMyPenaltyHistory returns penalty counts per game day for the current user's player (dashboard chart).
@@ -307,8 +329,9 @@ type updatePlayerRequest struct {
 	StartBalance int     `json:"start_balance"`
 	UserID       *string `json:"user_id"`
 	RoleID       *string `json:"role_id"`
-	Gender       *string `json:"gender"`   // male, female, or nil
-	Inactive     *bool   `json:"inactive"` // optional, keep existing if nil
+	Gender       *string `json:"gender"`    // male, female, or nil
+	Inactive     *bool   `json:"inactive"`  // optional, keep existing if nil
+	PartnerID    *string `json:"partner_id"` // optional; null or omit = keep, uuid = set, empty = clear
 }
 
 func (r updatePlayerRequest) validate() error {
@@ -391,6 +414,30 @@ func (h *Handler) HandleUpdatePlayer(c fiber.Ctx) error {
 		inactive = *req.Inactive
 	}
 
+	// Partner (Paar-Modus): validate same club and not self; nil = keep, empty string = clear
+	partnerID := existingPlayer.PartnerID
+	if req.PartnerID != nil {
+		if *req.PartnerID == "" {
+			partnerID = nil
+		} else {
+			if *req.PartnerID == playerID {
+				return fiber.NewError(fiber.StatusBadRequest, "Spieler kann nicht sich selbst als Partner haben")
+			}
+			partner, err := h.PlayerRepo.GetByID(ctx, *req.PartnerID)
+			if err != nil {
+				if errors.Is(err, player.ErrNotFound) {
+					return fiber.NewError(fiber.StatusBadRequest, "Partner-Spieler nicht gefunden")
+				}
+				slog.Error("get partner player", "error", err)
+				return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+			}
+			if partner.ClubID != clubID {
+				return fiber.NewError(fiber.StatusBadRequest, "Partner muss dem gleichen Club angehören")
+			}
+			partnerID = req.PartnerID
+		}
+	}
+
 	updatedPlayer, err := h.PlayerRepo.Update(ctx, player.UpdatePlayerParams{
 		ID:           playerID,
 		Name:         strings.TrimSpace(req.Name),
@@ -400,6 +447,7 @@ func (h *Handler) HandleUpdatePlayer(c fiber.Ctx) error {
 		RoleID:       roleID,
 		Gender:       req.Gender,
 		Inactive:     &inactive,
+		PartnerID:    partnerID,
 	})
 	if err != nil {
 		if errors.Is(err, player.ErrNotFound) {
@@ -409,7 +457,9 @@ func (h *Handler) HandleUpdatePlayer(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
-	return c.JSON(PlayerResponseFromEntity(updatedPlayer))
+	resp := PlayerResponseFromEntity(updatedPlayer)
+	h.enrichPlayerResponseWithPairBalance(ctx, updatedPlayer, &resp)
+	return c.JSON(resp)
 }
 
 func (h *Handler) HandleDeletePlayer(c fiber.Ctx) error {

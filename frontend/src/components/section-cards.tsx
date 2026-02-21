@@ -67,7 +67,14 @@ export function SectionCards() {
             {isLoading ? (
               "Laden..."
             ) : hasPlayer && player ? (
-              formatCentsToEuro(player.balance)
+              <>
+                {formatCentsToEuro(player.balance)}
+                {player.pair_balance != null && (
+                  <span className="ml-1 text-base font-normal text-muted-foreground">
+                    (Paar: {formatCentsToEuro(player.pair_balance)})
+                  </span>
+                )}
+              </>
             ) : (
               "Kein Spieler in diesem Club"
             )}

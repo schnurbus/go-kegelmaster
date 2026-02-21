@@ -93,7 +93,7 @@ func TestHandleCreateRole_NotOwner(t *testing.T) {
 			AddRow(clubID, "Test Club", 0, 0, 0, true, false, otherUserID, now, now))
 
 	// HasPermission then checks player; no player in club -> no permission
-	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, created_at, updated_at FROM players`).
+	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, partner_id, created_at, updated_at FROM players`).
 		WithArgs(userID, clubID).
 		WillReturnError(sql.ErrNoRows)
 

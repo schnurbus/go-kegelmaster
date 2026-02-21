@@ -53,6 +53,7 @@ func (r *Repository) Create(ctx context.Context, params CreatePlayerParams) (Pla
 		StartBalance: int32(params.StartBalance),
 		Gender:       gender,
 		Inactive:     params.Inactive,
+		PartnerID:    nil,
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	})
@@ -136,6 +137,7 @@ func dbPlayerToPlayer(dbPlayer db.Player) Player {
 		StartBalance: int(dbPlayer.StartBalance),
 		Gender:       gender,
 		Inactive:     dbPlayer.Inactive,
+		PartnerID:    dbPlayer.PartnerID,
 		CreatedAt:    dbPlayer.CreatedAt,
 		UpdatedAt:    dbPlayer.UpdatedAt,
 	}
@@ -143,6 +145,7 @@ func dbPlayerToPlayer(dbPlayer db.Player) Player {
 
 // UpdatePlayerParams holds fields for updating a player.
 // Inactive: nil = keep existing value (avoids flipping inactive→active on partial updates).
+// PartnerID: nil = keep existing; non-nil (including empty string for "clear") set in handler.
 type UpdatePlayerParams struct {
 	ID           string
 	Name         string
@@ -151,7 +154,8 @@ type UpdatePlayerParams struct {
 	UserID       *string
 	RoleID       *string
 	Gender       *string
-	Inactive     *bool // nil = do not change; non-nil = set to value
+	Inactive     *bool  // nil = do not change; non-nil = set to value
+	PartnerID    *string // optional partner (Paar-Modus)
 }
 
 func (r *Repository) Update(ctx context.Context, params UpdatePlayerParams) (Player, error) {
@@ -184,6 +188,7 @@ func (r *Repository) Update(ctx context.Context, params UpdatePlayerParams) (Pla
 		RoleID:       params.RoleID,
 		Gender:       gender,
 		Inactive:     inactive,
+		PartnerID:    params.PartnerID,
 		UpdatedAt:    now,
 	})
 	if errors.Is(err, sql.ErrNoRows) {

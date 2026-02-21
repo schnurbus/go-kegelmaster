@@ -122,6 +122,8 @@ type PlayerResponse struct {
 	StartBalance int       `json:"start_balance"`
 	Gender       *string   `json:"gender,omitempty"`
 	Inactive     bool      `json:"inactive"`
+	PartnerID    *string   `json:"partner_id,omitempty"`
+	PairBalance  *int      `json:"pair_balance,omitempty"` // only set when player has partner (own + partner balance)
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
@@ -137,6 +139,7 @@ func PlayerResponseFromEntity(p player.Player) PlayerResponse {
 		StartBalance: p.StartBalance,
 		Gender:       p.Gender,
 		Inactive:     p.Inactive,
+		PartnerID:    p.PartnerID,
 		CreatedAt:    p.CreatedAt,
 		UpdatedAt:    p.UpdatedAt,
 	}

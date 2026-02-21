@@ -36,6 +36,7 @@ type PlayerDialogProps = {
   player?: Player | null;
   clubId: string;
   roles: Role[];
+  couplesModeEnabled?: boolean;
   onSuccess: () => void;
 };
 
@@ -45,6 +46,7 @@ export function PlayerDialog({
   player,
   clubId,
   roles,
+  couplesModeEnabled = false,
   onSuccess,
 }: PlayerDialogProps) {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -54,10 +56,13 @@ export function PlayerDialog({
   const [roleId, setRoleId] = React.useState<string | null>(null);
   const [gender, setGender] = React.useState<Gender | null>(null);
   const [inactive, setInactive] = React.useState(false);
+  const [partnerId, setPartnerId] = React.useState<string | null>(null);
+  const [clubPlayers, setClubPlayers] = React.useState<Player[]>([]);
   const [inviteEmail, setInviteEmail] = React.useState("");
   const [isSendingInvite, setIsSendingInvite] = React.useState(false);
   const isEdit = !!player;
   const canInvite = isEdit && player && !player.user_id;
+  const showPartner = isEdit && couplesModeEnabled;
 
   React.useEffect(() => {
     if (open && player) {
@@ -67,6 +72,7 @@ export function PlayerDialog({
       setRoleId(player.role_id);
       setGender(player.gender ?? null);
       setInactive(player.inactive ?? false);
+      setPartnerId(player.partner_id ?? null);
       setInviteEmail("");
     } else if (open && !player) {
       setName("");
@@ -74,11 +80,32 @@ export function PlayerDialog({
       setStartBalance("0");
       setGender(null);
       setInactive(false);
+      setPartnerId(null);
       setInviteEmail("");
       // Pre-select first role when creating new player
       setRoleId(roles.length > 0 ? roles[0].id : null);
     }
   }, [open, player, roles]);
+
+  // Load club players for partner dropdown when Paar-Modus and editing
+  React.useEffect(() => {
+    if (!open || !couplesModeEnabled || !clubId) {
+      setClubPlayers([]);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/clubs/${clubId}/players`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: Player[]) => {
+        if (!cancelled) setClubPlayers(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (!cancelled) setClubPlayers([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, couplesModeEnabled, clubId]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,6 +130,7 @@ export function PlayerDialog({
         user_id: null,
         gender: gender,
         inactive,
+        ...(isEdit && { partner_id: partnerId ?? null }),
       };
 
       const url = isEdit
@@ -351,6 +379,34 @@ export function PlayerDialog({
           <p className="text-sm text-muted-foreground -mt-2">
             Inaktive Spieler zahlen keine Basis-Strafe, können aber weiterhin an Spieltagen teilnehmen und Strafen erhalten.
           </p>
+          {showPartner && (
+            <div className="space-y-2">
+              <Label htmlFor="partner_id">Partner (Paar-Modus)</Label>
+              <Select
+                value={partnerId ?? "none"}
+                onValueChange={(value) =>
+                  setPartnerId(value === "none" ? null : value)
+                }
+              >
+                <SelectTrigger id="partner_id">
+                  <SelectValue placeholder="Kein Partner" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Kein Partner</SelectItem>
+                  {clubPlayers
+                    .filter((p) => p.id !== player?.id)
+                    .map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-muted-foreground">
+                Optional: Ein Partner für das kummulierte Paar-Saldo
+              </p>
+            </div>
+          )}
           {canInvite && (
             <div className="space-y-4 border-t pt-4">
               <div>

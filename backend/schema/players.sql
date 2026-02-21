@@ -42,8 +42,10 @@ CREATE TABLE IF NOT EXISTS players (
     start_balance INTEGER NOT NULL DEFAULT 0,
     gender TEXT CHECK (gender IS NULL OR gender IN ('male', 'female')),
     inactive BOOLEAN NOT NULL DEFAULT false,
+    partner_id UUID REFERENCES players(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT players_partner_not_self CHECK (id != partner_id)
 );
 
 CREATE TABLE IF NOT EXISTS role_permissions (

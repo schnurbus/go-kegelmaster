@@ -214,17 +214,25 @@ export function PlayersDataTable({
       header: () => <div className="text-right">Balance</div>,
       cell: ({ row }) => {
         const balance = row.getValue("balance") as number;
+        const pairBalance = row.original.pair_balance;
         const formatted = formatCentsToEuro(balance);
         return (
-          <div
-            className={`text-right font-medium flex items-center justify-end gap-1 ${
-              balance < 0 ? "text-red-500" : balance > 0 ? "text-green-500" : ""
-            }`}
-          >
-            {formatted}
-            {balance > 0 && (
-              <span title="Positives Guthaben - sollte mit Auto-Tip nicht vorkommen">
-                <AlertTriangleIcon className="size-4 text-yellow-500" />
+          <div className="text-right font-medium flex flex-col items-end gap-0.5">
+            <div
+              className={`flex items-center justify-end gap-1 ${
+                balance < 0 ? "text-red-500" : balance > 0 ? "text-green-500" : ""
+              }`}
+            >
+              {formatted}
+              {balance > 0 && (
+                <span title="Positives Guthaben - sollte mit Auto-Tip nicht vorkommen">
+                  <AlertTriangleIcon className="size-4 text-yellow-500" />
+                </span>
+              )}
+            </div>
+            {pairBalance != null && (
+              <span className="text-xs text-muted-foreground">
+                (Paar: {formatCentsToEuro(pairBalance)})
               </span>
             )}
           </div>
