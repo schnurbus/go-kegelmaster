@@ -17,6 +17,7 @@ type GameDay struct {
 	ClubID    string
 	Date      time.Time
 	Notes     string
+	IsDraft   bool
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -74,6 +75,7 @@ type GameDaySummary struct {
 	ClubID           string
 	Date             time.Time
 	Notes            string
+	IsDraft          bool
 	ParticipantCount int
 	PenaltyFeeTotal  int // in cents
 	CreatedAt        time.Time

@@ -38,6 +38,7 @@ type GameDay struct {
 	ClubID    string         `json:"club_id"`
 	Date      time.Time      `json:"date"`
 	Notes     sql.NullString `json:"notes"`
+	IsDraft   bool           `json:"is_draft"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 }

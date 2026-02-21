@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS game_days (
     club_id UUID NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
     date DATE NOT NULL,
     notes TEXT DEFAULT '',
+    is_draft BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

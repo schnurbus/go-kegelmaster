@@ -31,9 +31,9 @@ func (q *Queries) CheckGameDayExistsByClubAndDate(ctx context.Context, arg Check
 
 const createGameDay = `-- name: CreateGameDay :one
 
-INSERT INTO game_days (id, club_id, date, notes, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, club_id, date, notes, created_at, updated_at
+INSERT INTO game_days (id, club_id, date, notes, is_draft, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, club_id, date, notes, is_draft, created_at, updated_at
 `
 
 type CreateGameDayParams struct {
@@ -41,6 +41,7 @@ type CreateGameDayParams struct {
 	ClubID    string         `json:"club_id"`
 	Date      time.Time      `json:"date"`
 	Notes     sql.NullString `json:"notes"`
+	IsDraft   bool           `json:"is_draft"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 }
@@ -52,6 +53,7 @@ func (q *Queries) CreateGameDay(ctx context.Context, arg CreateGameDayParams) (G
 		arg.ClubID,
 		arg.Date,
 		arg.Notes,
+		arg.IsDraft,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -61,6 +63,7 @@ func (q *Queries) CreateGameDay(ctx context.Context, arg CreateGameDayParams) (G
 		&i.ClubID,
 		&i.Date,
 		&i.Notes,
+		&i.IsDraft,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -293,7 +296,7 @@ func (q *Queries) DeleteGameDayParticipant(ctx context.Context, arg DeleteGameDa
 }
 
 const getGameDayByID = `-- name: GetGameDayByID :one
-SELECT id, club_id, date, notes, created_at, updated_at FROM game_days WHERE id = $1
+SELECT id, club_id, date, notes, is_draft, created_at, updated_at FROM game_days WHERE id = $1
 `
 
 func (q *Queries) GetGameDayByID(ctx context.Context, id string) (GameDay, error) {
@@ -304,6 +307,7 @@ func (q *Queries) GetGameDayByID(ctx context.Context, id string) (GameDay, error
 		&i.ClubID,
 		&i.Date,
 		&i.Notes,
+		&i.IsDraft,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -552,6 +556,7 @@ SELECT
     gd.club_id,
     gd.date,
     gd.notes,
+    gd.is_draft,
     gd.created_at,
     gd.updated_at,
     COALESCE(p.participant_count, 0)::int as participant_count,
@@ -577,6 +582,7 @@ type GetGameDaySummariesByClubIDRow struct {
 	ClubID           string         `json:"club_id"`
 	Date             time.Time      `json:"date"`
 	Notes            sql.NullString `json:"notes"`
+	IsDraft          bool           `json:"is_draft"`
 	CreatedAt        time.Time      `json:"created_at"`
 	UpdatedAt        time.Time      `json:"updated_at"`
 	ParticipantCount int32          `json:"participant_count"`
@@ -598,6 +604,7 @@ func (q *Queries) GetGameDaySummariesByClubID(ctx context.Context, clubID string
 			&i.ClubID,
 			&i.Date,
 			&i.Notes,
+			&i.IsDraft,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ParticipantCount,
@@ -617,7 +624,7 @@ func (q *Queries) GetGameDaySummariesByClubID(ctx context.Context, clubID string
 }
 
 const getGameDaysByClubID = `-- name: GetGameDaysByClubID :many
-SELECT id, club_id, date, notes, created_at, updated_at FROM game_days 
+SELECT id, club_id, date, notes, is_draft, created_at, updated_at FROM game_days 
 WHERE club_id = $1 
 ORDER BY date DESC
 `
@@ -636,6 +643,7 @@ func (q *Queries) GetGameDaysByClubID(ctx context.Context, clubID string) ([]Gam
 			&i.ClubID,
 			&i.Date,
 			&i.Notes,
+			&i.IsDraft,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -787,15 +795,16 @@ func (q *Queries) GetPlayerPenaltyHistoryByClubAndPlayer(ctx context.Context, ar
 
 const updateGameDay = `-- name: UpdateGameDay :one
 UPDATE game_days 
-SET date = $2, notes = $3, updated_at = $4
+SET date = $2, notes = $3, is_draft = $4, updated_at = $5
 WHERE id = $1
-RETURNING id, club_id, date, notes, created_at, updated_at
+RETURNING id, club_id, date, notes, is_draft, created_at, updated_at
 `
 
 type UpdateGameDayParams struct {
 	ID        string         `json:"id"`
 	Date      time.Time      `json:"date"`
 	Notes     sql.NullString `json:"notes"`
+	IsDraft   bool           `json:"is_draft"`
 	UpdatedAt time.Time      `json:"updated_at"`
 }
 
@@ -804,6 +813,7 @@ func (q *Queries) UpdateGameDay(ctx context.Context, arg UpdateGameDayParams) (G
 		arg.ID,
 		arg.Date,
 		arg.Notes,
+		arg.IsDraft,
 		arg.UpdatedAt,
 	)
 	var i GameDay
@@ -812,6 +822,7 @@ func (q *Queries) UpdateGameDay(ctx context.Context, arg UpdateGameDayParams) (G
 		&i.ClubID,
 		&i.Date,
 		&i.Notes,
+		&i.IsDraft,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

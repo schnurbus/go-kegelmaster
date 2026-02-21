@@ -58,6 +58,7 @@ interface GameDayDetail {
     club_id: string;
     date: string;
     notes: string;
+    is_draft: boolean;
     created_at: string;
     updated_at: string;
   };
@@ -149,6 +150,7 @@ function GameDayDetailPage() {
 
   const [date, setDate] = React.useState("");
   const [notes, setNotes] = React.useState("");
+  const [isDraft, setIsDraft] = React.useState(true); // default true for new gamedays
   const [detail, setDetail] = React.useState<GameDayDetail | null>(null);
 
   // State for participant and fee management
@@ -219,6 +221,7 @@ function GameDayDetailPage() {
       setDetail(data);
       setDate(data.game_day.date);
       setNotes(data.game_day.notes);
+      setIsDraft(data.game_day.is_draft);
     } catch (error) {
       console.error("Error fetching game day:", error);
       toast.error("Fehler beim Laden des Spieltags");
@@ -390,6 +393,7 @@ function GameDayDetailPage() {
         body: JSON.stringify({
           date,
           notes,
+          is_draft: isDraft,
         }),
       });
 
@@ -731,6 +735,23 @@ function GameDayDetailPage() {
                 disabled={!canEditGameday}
               />
             </div>
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="gameday-is-draft"
+                checked={isDraft}
+                onCheckedChange={(checked) => setIsDraft(checked === true)}
+                disabled={!canEditGameday}
+              />
+              <Label htmlFor="gameday-is-draft" className="text-sm font-normal cursor-pointer">
+                Vorläufig
+              </Label>
+            </div>
+            {isDraft && (
+              <p className="text-sm text-muted-foreground">
+                Bei vorläufigen Spieltagen werden keine Gebühren (Grundgebühr, Strafen) gebucht. Heben Sie „Vorläufig“ beim Bearbeiten auf, um alle Gebühren anzulegen.
+              </p>
+            )}
           </CardContent>
         </Card>
 

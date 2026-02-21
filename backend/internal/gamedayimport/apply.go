@@ -74,8 +74,9 @@ func applyWrite(ctx context.Context, resolved *ResolvedInput, playerByName map[s
 		return fmt.Errorf("Club laden: %w", err)
 	}
 
-	// Collect unique dates and get-or-create game days
-	gameDayByDate := make(map[time.Time]string) // date (UTC midnight) -> game day ID
+	// Collect unique dates and get-or-create game days; track is_draft per date for transaction creation
+	gameDayByDate := make(map[time.Time]string)   // date (UTC midnight) -> game day ID
+	isDraftByDate := make(map[time.Time]bool)    // date -> is_draft (no transactions when true)
 	datesOrder := make([]time.Time, 0)
 	datesSeen := make(map[time.Time]struct{})
 
@@ -95,6 +96,7 @@ func applyWrite(ctx context.Context, resolved *ResolvedInput, playerByName map[s
 		}
 
 		var gameDayID string
+		var isDraft bool
 		if exists {
 			gameDays, err := deps.GameDayRepo.GetByClubID(ctx, resolved.ClubID)
 			if err != nil {
@@ -103,6 +105,7 @@ func applyWrite(ctx context.Context, resolved *ResolvedInput, playerByName map[s
 			for _, gd := range gameDays {
 				if dateOnly(gd.Date).Equal(d) {
 					gameDayID = gd.ID
+					isDraft = gd.IsDraft
 					break
 				}
 			}
@@ -111,34 +114,29 @@ func applyWrite(ctx context.Context, resolved *ResolvedInput, playerByName map[s
 			}
 		} else {
 			created, err := deps.GameDayRepo.Create(ctx, gameday.CreateGameDayParams{
-				ClubID: resolved.ClubID,
-				Date:   d,
-				Notes:  "",
+				ClubID:  resolved.ClubID,
+				Date:    d,
+				Notes:   "",
+				IsDraft: true, // import creates draft gamedays; no base fee transactions
 			})
 			if err != nil {
 				return fmt.Errorf("Spieltag anlegen: %w", err)
 			}
 			gameDayID = created.ID
+			isDraft = created.IsDraft
 
-			// Base fee transactions for all players with PaysBaseFee
-			if clubEntity.BaseFee > 0 {
+			// Base fee transactions only when created game day is not draft
+			if !isDraft && clubEntity.BaseFee > 0 {
 				players, err := deps.PlayerRepo.GetByClubID(ctx, resolved.ClubID)
 				if err != nil {
 					slog.Error("Spieler für Grundgebühr laden", "error", err)
 				} else {
 					for _, p := range players {
-						if p.Inactive {
-							continue
-						}
-						if p.RoleID == nil {
+						if p.Inactive || p.RoleID == nil {
 							continue
 						}
 						playerRole, err := deps.RoleRepo.GetByID(ctx, *p.RoleID)
-						if err != nil {
-							slog.Error("Rolle für Grundgebühr laden", "player", p.ID, "error", err)
-							continue
-						}
-						if !playerRole.PaysBaseFee {
+						if err != nil || !playerRole.PaysBaseFee {
 							continue
 						}
 						playerID := p.ID
@@ -159,6 +157,7 @@ func applyWrite(ctx context.Context, resolved *ResolvedInput, playerByName map[s
 			}
 		}
 		gameDayByDate[d] = gameDayID
+		isDraftByDate[d] = isDraft
 	}
 
 	// Process each row: get-or-create participant, upsert fees and competition values
@@ -168,6 +167,7 @@ func applyWrite(ctx context.Context, resolved *ResolvedInput, playerByName map[s
 		slog.Info("Import: Zeile", "fortschritt", fmt.Sprintf("%d/%d", i+1, total), "datum", row.Date.Format("02.01.2006"), "spieler", row.PlayerName)
 		d := dateOnly(row.Date)
 		gameDayID := gameDayByDate[d]
+		rowIsDraft := isDraftByDate[d]
 		playerID := playerByName[row.PlayerName]
 
 		participant, err := deps.GameDayRepo.GetParticipantByGameDayAndPlayer(ctx, gameDayID, playerID)
@@ -194,13 +194,15 @@ func applyWrite(ctx context.Context, resolved *ResolvedInput, playerByName map[s
 			if col.Kind == ColumnKindPenalty {
 				countRaw := row.Values[col.ColumnName]
 				if countRaw <= 0 || math.IsNaN(countRaw) {
-					if existingFee, exists := existingFeeMap[col.PenaltyTypeID]; exists {
-						existingTx, err := deps.TransactionRepo.GetByGameDayFee(ctx, existingFee.ID)
-						if err == nil && existingTx != nil {
-							_ = deps.TransactionRepo.DeleteFeeTransaction(ctx, existingTx.ID)
+					if !rowIsDraft {
+						if existingFee, exists := existingFeeMap[col.PenaltyTypeID]; exists {
+							existingTx, err := deps.TransactionRepo.GetByGameDayFee(ctx, existingFee.ID)
+							if err == nil && existingTx != nil {
+								_ = deps.TransactionRepo.DeleteFeeTransaction(ctx, existingTx.ID)
+							}
 						}
-						_ = deps.GameDayRepo.DeleteFee(ctx, participant.ID, col.PenaltyTypeID)
 					}
+					_ = deps.GameDayRepo.DeleteFee(ctx, participant.ID, col.PenaltyTypeID)
 					continue
 				}
 
@@ -214,7 +216,7 @@ func applyWrite(ctx context.Context, resolved *ResolvedInput, playerByName map[s
 				}
 
 				existingFee, isUpdate := existingFeeMap[col.PenaltyTypeID]
-				if isUpdate {
+				if !rowIsDraft && isUpdate {
 					existingTx, err := deps.TransactionRepo.GetByGameDayFee(ctx, existingFee.ID)
 					if err == nil && existingTx != nil {
 						_ = deps.TransactionRepo.DeleteFeeTransaction(ctx, existingTx.ID)
@@ -234,23 +236,25 @@ func applyWrite(ctx context.Context, resolved *ResolvedInput, playerByName map[s
 					return fmt.Errorf("Fee upsert: %w", err)
 				}
 
-				amount := -(col.PenaltyTypePrice * countStored / quantityScale)
-				quantityDesc := fmt.Sprintf("%d", countStored)
-				if quantityScale > 1 {
-					quantityDesc = fmt.Sprintf("%.2f", float64(countStored)/float64(quantityScale))
-				}
-				_, err = deps.TransactionRepo.Create(ctx, transaction.CreateTransactionParams{
-					ClubID:           resolved.ClubID,
-					PlayerID:         &playerID,
-					TransactionType:  transaction.TransactionTypeFee,
-					Amount:           amount,
-					Description:      fmt.Sprintf("%s ×%s", col.PenaltyTypeName, quantityDesc),
-					GameDayFeeID:     &createdFee.ID,
-					GameDayID:        &gameDayID,
-					TransactionDate:  dateOnly(row.Date),
-				})
-				if err != nil {
-					slog.Error("Fee-Transaktion anlegen", "error", err)
+				if !rowIsDraft {
+					amount := -(col.PenaltyTypePrice * countStored / quantityScale)
+					quantityDesc := fmt.Sprintf("%d", countStored)
+					if quantityScale > 1 {
+						quantityDesc = fmt.Sprintf("%.2f", float64(countStored)/float64(quantityScale))
+					}
+					_, err = deps.TransactionRepo.Create(ctx, transaction.CreateTransactionParams{
+						ClubID:           resolved.ClubID,
+						PlayerID:         &playerID,
+						TransactionType:  transaction.TransactionTypeFee,
+						Amount:           amount,
+						Description:      fmt.Sprintf("%s ×%s", col.PenaltyTypeName, quantityDesc),
+						GameDayFeeID:     &createdFee.ID,
+						GameDayID:        &gameDayID,
+						TransactionDate:  dateOnly(row.Date),
+					})
+					if err != nil {
+						slog.Error("Fee-Transaktion anlegen", "error", err)
+					}
 				}
 			} else {
 				value := int(math.Round(row.Values[col.ColumnName]))

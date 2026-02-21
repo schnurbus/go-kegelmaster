@@ -19,6 +19,7 @@ import {
   TrashIcon,
 } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -129,15 +130,23 @@ export function GameDaysDataTable({
       accessorKey: "date",
       header: "Datum",
       cell: ({ row }) => {
-        const date = new Date(row.getValue("date"));
+        const gd = row.original;
+        const date = new Date(gd.date);
         return (
-          <div className="font-medium">
-            {date.toLocaleDateString("de-DE", {
-              weekday: "short",
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })}
+          <div className="flex flex-col gap-1">
+            <span className="font-medium">
+              {date.toLocaleDateString("de-DE", {
+                weekday: "short",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
+            </span>
+            {gd.is_draft && (
+              <Badge variant="secondary" className="w-fit text-xs">
+                Vorläufig
+              </Badge>
+            )}
           </div>
         );
       },
