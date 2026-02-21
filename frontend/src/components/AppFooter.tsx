@@ -32,7 +32,7 @@ export function AppFooter({ className = "" }: { className?: string }) {
         {version != null && (
           <>
             <span aria-hidden>·</span>
-            <span>v{version}</span>
+            <span>{version}</span>
           </>
         )}
         <span aria-hidden>·</span>
