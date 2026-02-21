@@ -137,6 +137,28 @@ paths:
           description: Chat nicht verfügbar (z. B. API-Key fehlt)
         "429":
           description: Rate Limit
+  /api/legal/impressum:
+    get:
+      summary: Impressum (HTML, öffentlich)
+      tags: [Legal]
+      responses:
+        "200":
+          description: HTML-Inhalt (aus Konfiguration: Datei oder Umgebungsvariable)
+          content:
+            text/html:
+              schema:
+                type: string
+  /api/legal/datenschutz:
+    get:
+      summary: Datenschutzerklärung (HTML, öffentlich)
+      tags: [Legal]
+      responses:
+        "200":
+          description: HTML-Inhalt (aus Konfiguration: Datei oder Umgebungsvariable)
+          content:
+            text/html:
+              schema:
+                type: string
   /api/clubs:
     get:
       summary: Alle Clubs des Users

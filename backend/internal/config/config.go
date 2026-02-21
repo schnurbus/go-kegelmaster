@@ -7,7 +7,9 @@ import (
 )
 
 // Config aggregates runtime configuration for the backend HTTP server.
+// Version is typically injected at build time via ldflags (e.g. -X main.Version=...).
 type Config struct {
+	Version                     string
 	AppEnv                      string
 	HTTPPort                    string
 	BaseURL                     string
@@ -25,12 +27,19 @@ type Config struct {
 	ChatRateLimitMax            int
 	ChatRateLimitWindowMin      int
 	AutoMigrate                 bool
+	// Legal pages: file path (read at request time) or inline HTML from env.
+	// LEGAL_IMPRESSUM_PATH / LEGAL_DATENSCHUTZ_PATH, or IMPRESSUM_HTML / DATENSCHUTZ_HTML.
+	LegalImpressumPath   string
+	LegalDatenschutzPath string
+	ImpressumHTML        string
+	DatenschutzHTML      string
 }
 
 // Load builds a Config from process environment variables, applying defaults
 // that make local development convenient.
 func Load() Config {
 	cfg := Config{
+		Version:                     "", // set in main from ldflags
 		AppEnv:                      getEnv("APP_ENV", "development"),
 		HTTPPort:                    getEnv("BACKEND_PORT", "8080"),
 		BaseURL:                     getEnv("PUBLIC_BASE_URL", "http://localhost:8080"),
@@ -48,6 +57,10 @@ func Load() Config {
 		ChatRateLimitMax:            getEnvInt("CHAT_RATE_LIMIT_MAX", 30),
 		ChatRateLimitWindowMin:      getEnvInt("CHAT_RATE_LIMIT_WINDOW_MINUTES", 1),
 		AutoMigrate:                 getEnvBool("AUTO_MIGRATE", false),
+		LegalImpressumPath:          os.Getenv("LEGAL_IMPRESSUM_PATH"),
+		LegalDatenschutzPath:        os.Getenv("LEGAL_DATENSCHUTZ_PATH"),
+		ImpressumHTML:               os.Getenv("IMPRESSUM_HTML"),
+		DatenschutzHTML:             os.Getenv("DATENSCHUTZ_HTML"),
 	}
 
 	return cfg

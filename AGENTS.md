@@ -185,6 +185,10 @@ func TestRepository_Create(t *testing.T) {
 - `GEMINI_MODEL`: (optional) Gemini-Modellname (z.B. `gemini-1.5-flash`, `gemini-2.0-flash`). Default: `gemini-1.5-flash`.
 - `CHAT_RATE_LIMIT_MAX`: (optional) Max. Chat-Requests pro User pro Fenster. Default: 30.
 - `CHAT_RATE_LIMIT_WINDOW_MINUTES`: (optional) Fenster in Minuten für das Chat-Rate-Limit. Default: 1.
+- `LEGAL_IMPRESSUM_PATH`: (optional) Absoluter Dateipfad zur Impressum-HTML-Datei. Wenn gesetzt, liefert `GET /api/legal/impressum` den Dateiinhalt.
+- `LEGAL_DATENSCHUTZ_PATH`: (optional) Absoluter Dateipfad zur Datenschutz-HTML-Datei. Wenn gesetzt, liefert `GET /api/legal/datenschutz` den Dateiinhalt.
+- `IMPRESSUM_HTML`: (optional) Inhalt für das Impressum (HTML-String). Überschreibt Datei, wenn gesetzt.
+- `DATENSCHUTZ_HTML`: (optional) Inhalt für die Datenschutzerklärung (HTML-String). Überschreibt Datei, wenn gesetzt.
 
 ### Security / Production
 - **JWT_SECRET:** In Production zwingend setzen (kein Default „dev-secret-change-me“ verwenden). Fehlt das Secret, beendet sich die App beim Start.
