@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.2.1](https://github.com/schnurbus/go-kegelmaster/compare/v0.2.0...v0.2.1) (2026-02-21)
+
+
+### Bug Fixes
+
+* **ci:** use PAT for Release Please so docker-release triggers on release ([#39](https://github.com/schnurbus/go-kegelmaster/issues/39)) ([2a69691](https://github.com/schnurbus/go-kegelmaster/commit/2a696919b44f38aa8f364e91ec7b031cee7a7e00))
+
 ## [0.2.0](https://github.com/schnurbus/go-kegelmaster/compare/v0.1.0...v0.2.0) (2026-02-21)
 
 
