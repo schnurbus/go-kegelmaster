@@ -21,6 +21,7 @@ This file contains essential information for agentic coding agents working in th
 - **Migrate down**: `make migrate-down` (rolls back migrations)
 - **Create migration**: `migrate create -ext sql -dir backend/migrations migration_name`
 - **Database URL**: Set via `DATABASE_URL` env var (defaults to postgres://kegelmaster:kegelmaster@localhost:5432/kegelmaster?sslmode=disable)
+- **Auto-migration**: Set `AUTO_MIGRATE=true` (or `1`, `on`) to run pending migrations on application startup. Migration files are embedded in the binary. When not set (default: false), use `make migrate-up` for manual migration.
 
 ### CLI Import Tool (Spieltag-CSV)
 - **Build**: `make import-build` → binary `bin/import`
@@ -55,6 +56,7 @@ backend/
 │   └── migrate-old/     # CLI Migration alter DB → neue App-DB
 ├── internal/            # Private application code
 │   ├── auth/            # Authentication service
+│   ├── automigrate/     # Auto-run DB migrations on startup (embedded, optional)
 │   ├── club/            # Club entity & repository
 │   ├── config/          # Configuration management
 │   ├── database/        # Database connection
@@ -176,6 +178,7 @@ func TestRepository_Create(t *testing.T) {
 
 ### Environment Variables
 - `DATABASE_URL`: PostgreSQL connection string
+- `AUTO_MIGRATE`: Optional. When set (e.g. `true`, `1`, `on`), the app runs pending DB migrations on startup using embedded migration files. Default: false.
 - `JWT_SECRET`: JWT signing secret
 - `JWT_TTL`: Token time-to-live
 - `GEMINI_API_KEY`: (optional) API-Key für den Chatbot-Assistenten (Hilfe zur App). Wenn nicht gesetzt, antwortet `POST /api/chat` mit 503.
