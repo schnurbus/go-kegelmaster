@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { toast } from "sonner";
+import { AppFooter } from "./components/AppFooter";
 import { ChatBubble } from "./components/ChatBubble";
 import "./App.css";
 import { useAuth } from "./context/AuthContext";
@@ -52,9 +53,7 @@ function App() {
       <main className="app-main">
         <Outlet />
       </main>
-      <footer className="app-footer">
-        <small>© {new Date().getFullYear()} Schnurbus</small>
-      </footer>
+      <AppFooter />
       <ChatBubble />
     </div>
   );

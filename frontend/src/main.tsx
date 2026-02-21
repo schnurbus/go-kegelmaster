@@ -20,6 +20,8 @@ import HelpPage from "./routes/HelpPage.tsx";
 import InvitationPage from "./routes/InvitationPage.tsx";
 import ForgotPasswordPage from "./routes/ForgotPasswordPage.tsx";
 import ResetPasswordPage from "./routes/ResetPasswordPage.tsx";
+import ImpressumPage from "./routes/ImpressumPage.tsx";
+import DatenschutzPage from "./routes/DatenschutzPage.tsx";
 import RequireAuth from "./components/RequireAuth.tsx";
 import { AuthProvider } from "./context/AuthContext.tsx";
 import { ClubProvider } from "./context/ClubContext.tsx";
@@ -36,6 +38,8 @@ const router = createBrowserRouter([
       { path: "/register", element: <RegisterPage /> },
       { path: "/forgot-password", element: <ForgotPasswordPage /> },
       { path: "/reset-password", element: <ResetPasswordPage /> },
+      { path: "/impressum", element: <ImpressumPage /> },
+      { path: "/datenschutz", element: <DatenschutzPage /> },
       { path: "/invite/:token", element: <InvitationPage /> },
       {
         element: <RequireAuth />,

@@ -27,10 +27,19 @@ import (
 	"github.com/schnurbus/go-kegelmaster/backend/internal/user"
 )
 
+// Version is set at build time via ldflags (e.g. -ldflags "-X main.Version=v1.2.3").
+var Version string
+
 func main() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 
 	cfg := config.Load()
+	if Version != "" {
+		cfg.Version = Version
+	}
+	if cfg.Version == "" {
+		cfg.Version = "0.0.0-dev"
+	}
 
 	if cfg.AppEnv == "production" && (cfg.JWTSecret == "" || cfg.JWTSecret == "dev-secret-change-me") {
 		slog.Error("JWT_SECRET must be set in production")

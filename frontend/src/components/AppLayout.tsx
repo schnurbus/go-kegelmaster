@@ -1,4 +1,5 @@
 import { type ReactNode } from "react";
+import { AppFooter } from "@/components/AppFooter";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SiteHeader } from "@/components/site-header";
 import {
@@ -29,6 +30,7 @@ export function AppLayout({ children, title = "Dashboard" }: AppLayoutProps) {
             {children}
           </div>
         </div>
+        <AppFooter className="app-footer border-t border-border px-4 py-2 text-center text-sm text-muted-foreground" />
       </SidebarInset>
     </SidebarProvider>
   );

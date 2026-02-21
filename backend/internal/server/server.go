@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -124,7 +126,7 @@ func (s *Server) registerRoutes() {
 	s.app.Get("/healthz", func(c fiber.Ctx) error {
 		return c.JSON(fiber.Map{
 			"status":  "ok",
-			"version": "0.1.0",
+			"version": s.cfg.Version,
 		})
 	})
 
@@ -150,6 +152,10 @@ func (s *Server) registerRoutes() {
 		},
 	})
 	api.Post("/chat", chatLimiter, s.handlers.HandleChat)
+
+	// Legal pages (public, no auth): content from file path or env
+	api.Get("/legal/impressum", s.handleLegalPage("impressum", s.cfg.LegalImpressumPath, s.cfg.ImpressumHTML, "Impressum"))
+	api.Get("/legal/datenschutz", s.handleLegalPage("datenschutz", s.cfg.LegalDatenschutzPath, s.cfg.DatenschutzHTML, "Datenschutz"))
 
 	authGroup := api.Group("/auth")
 	authGroup.Get("/csrf-token", s.handlers.HandleCSRFCookie)
@@ -293,6 +299,30 @@ func serveSwaggerUI(c fiber.Ctx) error {
 </html>`
 	c.Set(fiber.HeaderContentType, fiber.MIMETextHTMLCharsetUTF8)
 	return c.SendString(html)
+}
+
+// handleLegalPage returns a handler that serves legal page content from file path or inline HTML.
+// If neither is set, returns a short placeholder so the app does not break.
+func (s *Server) handleLegalPage(name, filePath, inlineHTML, title string) func(fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
+		var body string
+		if inlineHTML != "" {
+			body = inlineHTML
+		} else if filePath != "" && filepath.IsAbs(filepath.Clean(filePath)) {
+			abs := filepath.Clean(filePath)
+			b, err := os.ReadFile(abs)
+			if err != nil {
+				slog.Warn("legal page file read failed", "name", name, "path", abs, "error", err)
+				body = "<p>Inhalt derzeit nicht verfügbar.</p>"
+			} else {
+				body = string(b)
+			}
+		} else {
+			body = "<p>" + title + " wird konfiguriert.</p>"
+		}
+		c.Set(fiber.HeaderContentType, fiber.MIMETextHTMLCharsetUTF8)
+		return c.SendString(body)
+	}
 }
 
 func splitAndTrim(input string) []string {
