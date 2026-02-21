@@ -228,6 +228,7 @@ type GameDayResponse struct {
 	ClubID    string `json:"club_id"`
 	Date      string `json:"date"`
 	Notes     string `json:"notes"`
+	IsDraft   bool   `json:"is_draft"`
 	CreatedAt string `json:"created_at"`
 	UpdatedAt string `json:"updated_at"`
 }
@@ -238,6 +239,7 @@ func GameDayResponseFromEntity(gd gameday.GameDay) GameDayResponse {
 		ClubID:    gd.ClubID,
 		Date:      gd.Date.Format("2006-01-02"),
 		Notes:     gd.Notes,
+		IsDraft:   gd.IsDraft,
 		CreatedAt: gd.CreatedAt.Format(time.RFC3339),
 		UpdatedAt: gd.UpdatedAt.Format(time.RFC3339),
 	}
@@ -256,6 +258,7 @@ type GameDaySummaryResponse struct {
 	ClubID           string `json:"club_id"`
 	Date             string `json:"date"`
 	Notes            string `json:"notes"`
+	IsDraft          bool   `json:"is_draft"`
 	ParticipantCount int    `json:"participant_count"`
 	PenaltyFeeTotal  int    `json:"penalty_fee_total"`
 	CreatedAt        string `json:"created_at"`
@@ -268,6 +271,7 @@ func GameDaySummaryResponseFromEntity(gds gameday.GameDaySummary) GameDaySummary
 		ClubID:           gds.ClubID,
 		Date:             gds.Date.Format("2006-01-02"),
 		Notes:            gds.Notes,
+		IsDraft:          gds.IsDraft,
 		ParticipantCount: gds.ParticipantCount,
 		PenaltyFeeTotal:  gds.PenaltyFeeTotal,
 		CreatedAt:        gds.CreatedAt.Format(time.RFC3339),

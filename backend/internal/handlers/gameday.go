@@ -22,8 +22,9 @@ import (
 // ==================== REQUEST/RESPONSE TYPES ====================
 
 type createGameDayRequest struct {
-	Date  string `json:"date"` // ISO date format YYYY-MM-DD
-	Notes string `json:"notes"`
+	Date    string `json:"date"` // ISO date format YYYY-MM-DD
+	Notes   string `json:"notes"`
+	IsDraft *bool  `json:"is_draft"` // optional; default true (vorläufig)
 }
 
 func (r createGameDayRequest) validate() error {
@@ -40,8 +41,9 @@ func (r createGameDayRequest) validate() error {
 }
 
 type updateGameDayRequest struct {
-	Date  string `json:"date"`
-	Notes string `json:"notes"`
+	Date    string `json:"date"`
+	Notes   string `json:"notes"`
+	IsDraft *bool  `json:"is_draft"` // optional; when omitted keep existing value
 }
 
 func (r updateGameDayRequest) validate() error {
@@ -105,66 +107,72 @@ func (h *Handler) HandleCreateGameDay(c fiber.Ctx) error {
 
 	date, _ := time.Parse("2006-01-02", req.Date)
 
+	isDraft := true
+	if req.IsDraft != nil {
+		isDraft = *req.IsDraft
+	}
+
 	gameDayEntity, err := h.GameDayRepo.Create(ctx, gameday.CreateGameDayParams{
-		ClubID: clubID,
-		Date:   date,
-		Notes:  req.Notes,
+		ClubID:  clubID,
+		Date:    date,
+		Notes:   req.Notes,
+		IsDraft: isDraft,
 	})
 	if err != nil {
 		slog.Error("create game day", "error", err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
-	// Create base fee transactions for ALL players with roles that pay base fee
-	// Get club to access base fee amount
-	clubEntity, err := h.ClubRepo.GetByID(ctx, clubID)
-	if err != nil {
-		slog.Error("get club for base fee", "error", err)
-		// Don't fail the request, game day was created successfully
-	} else if clubEntity.BaseFee > 0 {
-		// Get all players for this club
-		players, err := h.PlayerRepo.GetByClubID(ctx, clubID)
+	// Create base fee transactions only when game day is not draft
+	if !gameDayEntity.IsDraft {
+		clubEntity, err := h.ClubRepo.GetByID(ctx, clubID)
 		if err != nil {
-			slog.Error("get players for base fee", "error", err)
-		} else {
-			// Process each player
-			for _, player := range players {
-				// Inactive players do not pay base fee
-				if player.Inactive {
-					continue
-				}
-				// Check if player has a role
-				if player.RoleID == nil {
-					continue
-				}
+			slog.Error("get club for base fee", "error", err)
+		} else if clubEntity.BaseFee > 0 {
+			// Get all players for this club
+			players, err := h.PlayerRepo.GetByClubID(ctx, clubID)
+			if err != nil {
+				slog.Error("get players for base fee", "error", err)
+			} else {
+				// Process each player
+				for _, player := range players {
+					// Inactive players do not pay base fee
+					if player.Inactive {
+						continue
+					}
+					// Check if player has a role
+					if player.RoleID == nil {
+						continue
+					}
 
-				// Get the role
-				playerRole, err := h.RoleRepo.GetByID(ctx, *player.RoleID)
-				if err != nil {
-					slog.Error("get player role for base fee", "player", player.ID, "error", err)
-					continue
-				}
+					// Get the role
+					playerRole, err := h.RoleRepo.GetByID(ctx, *player.RoleID)
+					if err != nil {
+						slog.Error("get player role for base fee", "player", player.ID, "error", err)
+						continue
+					}
 
-				// Check if role pays base fee
-				if !playerRole.PaysBaseFee {
-					continue
-				}
+					// Check if role pays base fee
+					if !playerRole.PaysBaseFee {
+						continue
+					}
 
-				// Create base fee transaction (negative = debt)
-				playerID := player.ID
-				gameDayID := gameDayEntity.ID
-				_, err = h.TransactionRepo.Create(ctx, transaction.CreateTransactionParams{
-					ClubID:           clubID,
-					PlayerID:         &playerID,
-					TransactionType:  transaction.TransactionTypeBaseFee,
-					Amount:           -clubEntity.BaseFee, // Negative for debt
-					Description:      fmt.Sprintf("Grundgebühr für %s", date.Format("02.01.2006")),
-					GameDayID:        &gameDayID,
-					TransactionDate:  gameDayEntity.Date,
-				})
-				if err != nil {
-					slog.Error("create base fee transaction", "player", player.ID, "error", err)
-					// Continue with other players
+					// Create base fee transaction (negative = debt)
+					playerID := player.ID
+					gameDayID := gameDayEntity.ID
+					_, err = h.TransactionRepo.Create(ctx, transaction.CreateTransactionParams{
+						ClubID:           clubID,
+						PlayerID:         &playerID,
+						TransactionType:  transaction.TransactionTypeBaseFee,
+						Amount:           -clubEntity.BaseFee, // Negative for debt
+						Description:      fmt.Sprintf("Grundgebühr für %s", date.Format("02.01.2006")),
+						GameDayID:        &gameDayID,
+						TransactionDate:  gameDayEntity.Date,
+					})
+					if err != nil {
+						slog.Error("create base fee transaction", "player", player.ID, "error", err)
+						// Continue with other players
+					}
 				}
 			}
 		}
@@ -347,14 +355,103 @@ func (h *Handler) HandleUpdateGameDay(c fiber.Ctx) error {
 
 	date, _ := time.Parse("2006-01-02", req.Date)
 
+	isDraft := existing.IsDraft
+	if req.IsDraft != nil {
+		isDraft = *req.IsDraft
+	}
+
 	updated, err := h.GameDayRepo.Update(ctx, gameday.UpdateGameDayParams{
-		ID:    gameDayID,
-		Date:  date,
-		Notes: req.Notes,
+		ID:      gameDayID,
+		Date:    date,
+		Notes:   req.Notes,
+		IsDraft: isDraft,
 	})
 	if err != nil {
 		slog.Error("update game day", "error", err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+
+	// When transitioning from draft to final: create base fee + all penalty fee transactions
+	if existing.IsDraft && !updated.IsDraft {
+		// 1) Base fee transactions for eligible players
+		clubEntity, err := h.ClubRepo.GetByID(ctx, clubID)
+		if err != nil {
+			slog.Error("get club for base fee on finalize", "error", err)
+		} else if clubEntity.BaseFee > 0 {
+			existingTxs, err := h.TransactionRepo.ListByGameDay(ctx, updated.ID)
+			if err != nil {
+				slog.Error("list transactions for base fee skip check", "error", err)
+			}
+			baseFeePlayerIDs := make(map[string]struct{})
+			if err == nil {
+				for _, tx := range existingTxs {
+					if tx.TransactionType == transaction.TransactionTypeBaseFee && tx.PlayerID != nil {
+						baseFeePlayerIDs[*tx.PlayerID] = struct{}{}
+					}
+				}
+			}
+			players, err := h.PlayerRepo.GetByClubID(ctx, clubID)
+			if err != nil {
+				slog.Error("get players for base fee on finalize", "error", err)
+			} else {
+				for _, player := range players {
+					if player.Inactive || player.RoleID == nil {
+						continue
+					}
+					if _, exists := baseFeePlayerIDs[player.ID]; exists {
+						continue // already has base fee for this game day
+					}
+					playerRole, err := h.RoleRepo.GetByID(ctx, *player.RoleID)
+					if err != nil || !playerRole.PaysBaseFee {
+						continue
+					}
+					playerID := player.ID
+					gameDayID := updated.ID
+					_, _ = h.TransactionRepo.Create(ctx, transaction.CreateTransactionParams{
+						ClubID:           clubID,
+						PlayerID:         &playerID,
+						TransactionType:  transaction.TransactionTypeBaseFee,
+						Amount:           -clubEntity.BaseFee,
+						Description:      fmt.Sprintf("Grundgebühr für %s", updated.Date.Format("02.01.2006")),
+						GameDayID:        &gameDayID,
+						TransactionDate:  updated.Date,
+					})
+				}
+			}
+		}
+
+		// 2) Fee transactions for all existing game_day_fees
+		detail, err := h.GameDayRepo.GetGameDayWithDetails(ctx, gameDayID)
+		if err != nil {
+			slog.Error("get game day details for fee transactions", "error", err)
+		} else {
+			for _, pwf := range detail.Participants {
+				playerID := pwf.Participant.PlayerID
+				for _, fee := range pwf.Fees {
+					_, err := h.TransactionRepo.GetByGameDayFee(ctx, fee.ID)
+					if err == nil {
+						continue // transaction already exists
+					}
+					amount := -(fee.PenaltyTypePrice * fee.Count / fee.QuantityScale)
+					quantityDesc := fmt.Sprintf("%d", fee.Count)
+					if fee.QuantityScale > 1 {
+						quantityDesc = fmt.Sprintf("%.2f", float64(fee.Count)/float64(fee.QuantityScale))
+					}
+					gameDayID := updated.ID
+					feeID := fee.ID
+					_, _ = h.TransactionRepo.Create(ctx, transaction.CreateTransactionParams{
+						ClubID:           clubID,
+						PlayerID:         &playerID,
+						TransactionType:  transaction.TransactionTypeFee,
+						Amount:           amount,
+						Description:      fmt.Sprintf("%s ×%s", fee.PenaltyTypeName, quantityDesc),
+						GameDayFeeID:     &feeID,
+						GameDayID:        &gameDayID,
+						TransactionDate:  updated.Date,
+					})
+				}
+			}
+		}
 	}
 
 	return c.JSON(GameDayResponseFromEntity(updated))
@@ -609,16 +706,17 @@ func (h *Handler) HandleUpdateFees(c fiber.Ctx) error {
 		existingFeeMap[ef.PenaltyTypeID] = ef
 	}
 
-	// Process each fee
+	// Process each fee (game_day_fees always updated; transactions only when not draft)
 	for _, fee := range req.Fees {
 		if fee.Count <= 0 || math.IsNaN(fee.Count) || math.IsInf(fee.Count, 0) {
-			// Check if there's an existing fee and transaction to delete
-			if existingFee, exists := existingFeeMap[fee.PenaltyTypeID]; exists {
-				// Try to get and delete the associated fee transaction (reverts player balance)
-				existingTx, err := h.TransactionRepo.GetByGameDayFee(ctx, existingFee.ID)
-				if err == nil && existingTx != nil {
-					if err := h.TransactionRepo.DeleteFeeTransaction(ctx, existingTx.ID); err != nil {
-						slog.Error("delete fee transaction", "error", err)
+			// Delete associated transaction only when game day is not draft
+			if !gd.IsDraft {
+				if existingFee, exists := existingFeeMap[fee.PenaltyTypeID]; exists {
+					existingTx, err := h.TransactionRepo.GetByGameDayFee(ctx, existingFee.ID)
+					if err == nil && existingTx != nil {
+						if err := h.TransactionRepo.DeleteFeeTransaction(ctx, existingTx.ID); err != nil {
+							slog.Error("delete fee transaction", "error", err)
+						}
 					}
 				}
 			}
@@ -680,37 +778,36 @@ func (h *Handler) HandleUpdateFees(c fiber.Ctx) error {
 			return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 		}
 
-		// Calculate transaction amount (negative = debt): price * count / scale (all integer)
-		amount := -(pt.Price * countStored / quantityScale)
+		// Create or update fee transaction only when game day is not draft
+		if !gd.IsDraft {
+			amount := -(pt.Price * countStored / quantityScale)
 
-		if isUpdate {
-			// Delete old fee transaction and create new one with updated amount (DeleteFeeTransaction reverts balance)
-			existingTx, err := h.TransactionRepo.GetByGameDayFee(ctx, existingFee.ID)
-			if err == nil && existingTx != nil {
-				if err := h.TransactionRepo.DeleteFeeTransaction(ctx, existingTx.ID); err != nil {
-					slog.Error("delete old fee transaction", "error", err)
+			if isUpdate {
+				existingTx, err := h.TransactionRepo.GetByGameDayFee(ctx, existingFee.ID)
+				if err == nil && existingTx != nil {
+					if err := h.TransactionRepo.DeleteFeeTransaction(ctx, existingTx.ID); err != nil {
+						slog.Error("delete old fee transaction", "error", err)
+					}
 				}
 			}
-		}
 
-		// Description: show quantity with decimals when scale > 1
-		quantityDesc := fmt.Sprintf("%d", countStored)
-		if quantityScale > 1 {
-			quantityDesc = fmt.Sprintf("%.2f", float64(countStored)/float64(quantityScale))
-		}
-		_, err = h.TransactionRepo.Create(ctx, transaction.CreateTransactionParams{
-			ClubID:           clubID,
-			PlayerID:         &playerID,
-			TransactionType:  transaction.TransactionTypeFee,
-			Amount:           amount,
-			Description:      fmt.Sprintf("%s ×%s", pt.Name, quantityDesc),
-			GameDayFeeID:     &createdFee.ID,
-			GameDayID:        &gameDayID,
-			TransactionDate:  gd.Date,
-		})
-		if err != nil {
-			slog.Error("create fee transaction", "error", err)
-			// Don't fail the request, just log the error
+			quantityDesc := fmt.Sprintf("%d", countStored)
+			if quantityScale > 1 {
+				quantityDesc = fmt.Sprintf("%.2f", float64(countStored)/float64(quantityScale))
+			}
+			_, err = h.TransactionRepo.Create(ctx, transaction.CreateTransactionParams{
+				ClubID:           clubID,
+				PlayerID:         &playerID,
+				TransactionType:  transaction.TransactionTypeFee,
+				Amount:           amount,
+				Description:      fmt.Sprintf("%s ×%s", pt.Name, quantityDesc),
+				GameDayFeeID:     &createdFee.ID,
+				GameDayID:        &gameDayID,
+				TransactionDate:  gd.Date,
+			})
+			if err != nil {
+				slog.Error("create fee transaction", "error", err)
+			}
 		}
 	}
 

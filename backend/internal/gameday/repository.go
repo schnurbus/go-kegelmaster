@@ -23,9 +23,10 @@ func NewRepository(dbConn *sql.DB) *Repository {
 // ==================== GAME DAY OPERATIONS ====================
 
 type CreateGameDayParams struct {
-	ClubID string
-	Date   time.Time
-	Notes  string
+	ClubID  string
+	Date    time.Time
+	Notes   string
+	IsDraft bool
 }
 
 func (r *Repository) Create(ctx context.Context, params CreateGameDayParams) (GameDay, error) {
@@ -39,6 +40,7 @@ func (r *Repository) Create(ctx context.Context, params CreateGameDayParams) (Ga
 		ClubID:    params.ClubID,
 		Date:      params.Date,
 		Notes:     notes,
+		IsDraft:   params.IsDraft,
 		CreatedAt: now,
 		UpdatedAt: now,
 	})
@@ -76,9 +78,10 @@ func (r *Repository) GetByClubID(ctx context.Context, clubID string) ([]GameDay,
 }
 
 type UpdateGameDayParams struct {
-	ID    string
-	Date  time.Time
-	Notes string
+	ID      string
+	Date    time.Time
+	Notes   string
+	IsDraft bool
 }
 
 func (r *Repository) Update(ctx context.Context, params UpdateGameDayParams) (GameDay, error) {
@@ -90,6 +93,7 @@ func (r *Repository) Update(ctx context.Context, params UpdateGameDayParams) (Ga
 		ID:        params.ID,
 		Date:      params.Date,
 		Notes:     notes,
+		IsDraft:   params.IsDraft,
 		UpdatedAt: now,
 	})
 	if errors.Is(err, sql.ErrNoRows) {
@@ -475,6 +479,7 @@ func dbGameDayToGameDay(dbGD db.GameDay) GameDay {
 		ClubID:    dbGD.ClubID,
 		Date:      dbGD.Date,
 		Notes:     notes,
+		IsDraft:   dbGD.IsDraft,
 		CreatedAt: dbGD.CreatedAt,
 		UpdatedAt: dbGD.UpdatedAt,
 	}
@@ -535,6 +540,7 @@ func dbSummaryToSummary(dbS db.GetGameDaySummariesByClubIDRow) GameDaySummary {
 		ClubID:           dbS.ClubID,
 		Date:             dbS.Date,
 		Notes:            notes,
+		IsDraft:          dbS.IsDraft,
 		ParticipantCount: int(dbS.ParticipantCount),
 		PenaltyFeeTotal:  int(dbS.PenaltyFeeTotal),
 		CreatedAt:        dbS.CreatedAt,

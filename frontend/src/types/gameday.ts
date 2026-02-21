@@ -3,6 +3,7 @@ export interface GameDay {
   club_id: string;
   date: string;
   notes: string;
+  is_draft: boolean;
   created_at: string;
   updated_at: string;
 }

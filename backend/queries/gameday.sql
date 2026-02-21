@@ -1,8 +1,8 @@
 -- ==================== GAME DAYS ====================
 
 -- name: CreateGameDay :one
-INSERT INTO game_days (id, club_id, date, notes, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO game_days (id, club_id, date, notes, is_draft, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: GetGameDayByID :one
@@ -15,7 +15,7 @@ ORDER BY date DESC;
 
 -- name: UpdateGameDay :one
 UPDATE game_days 
-SET date = $2, notes = $3, updated_at = $4
+SET date = $2, notes = $3, is_draft = $4, updated_at = $5
 WHERE id = $1
 RETURNING *;
 
@@ -157,6 +157,7 @@ SELECT
     gd.club_id,
     gd.date,
     gd.notes,
+    gd.is_draft,
     gd.created_at,
     gd.updated_at,
     COALESCE(p.participant_count, 0)::int as participant_count,
