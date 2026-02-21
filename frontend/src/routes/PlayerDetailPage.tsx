@@ -330,6 +330,11 @@ function PlayerDetailPage() {
                       ⚠️ Achtung: Spieler hat positives Guthaben
                     </p>
                   )}
+                  {player.pair_balance != null && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Paar-Saldo (kumuliert): {formatCentsToEuro(player.pair_balance)}
+                    </p>
+                  )}
                 </div>
                 <Separator />
                 <div>
@@ -382,6 +387,7 @@ function PlayerDetailPage() {
         player={player}
         clubId={activeClub.id}
         roles={roles}
+        couplesModeEnabled={activeClub?.couples_mode_enabled ?? false}
         onSuccess={handleSuccess}
       />
 

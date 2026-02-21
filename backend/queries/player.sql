@@ -9,6 +9,7 @@ INSERT INTO players (
     start_balance,
     gender,
     inactive,
+    partner_id,
     created_at,
     updated_at
 ) VALUES (
@@ -22,7 +23,8 @@ INSERT INTO players (
     $8,
     $9,
     $10,
-    $11
+    $11,
+    $12
 )
 RETURNING *;
 
@@ -45,8 +47,9 @@ SET
     role_id = $5,
     gender = $6,
     inactive = $7,
-    updated_at = $8
-WHERE id = $9
+    partner_id = $8,
+    updated_at = $9
+WHERE id = $10
 RETURNING *;
 
 -- name: UpdatePlayerBalance :exec

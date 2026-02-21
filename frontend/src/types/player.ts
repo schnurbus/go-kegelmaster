@@ -10,6 +10,8 @@ export type Player = {
   start_balance: number; // in Cent
   gender?: Gender | null;
   inactive: boolean;
+  partner_id?: string | null;
+  pair_balance?: number | null; // only set when player has partner (own + partner balance)
   created_at: string;
   updated_at: string;
 };
@@ -32,6 +34,7 @@ export type UpdatePlayerRequest = {
   role_id: string; // Required
   gender?: Gender | null;
   inactive?: boolean;
+  partner_id?: string | null; // optional partner (Paar-Modus)
 };
 
 // Re-export Role from role.ts to avoid breaking existing imports

@@ -103,6 +103,7 @@ type Player struct {
 	StartBalance int32          `json:"start_balance"`
 	Gender       sql.NullString `json:"gender"`
 	Inactive     bool           `json:"inactive"`
+	PartnerID    *string        `json:"partner_id"`
 	CreatedAt    time.Time      `json:"created_at"`
 	UpdatedAt    time.Time      `json:"updated_at"`
 }

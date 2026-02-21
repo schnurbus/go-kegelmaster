@@ -191,6 +191,7 @@ function PlayersPage() {
         player={selectedPlayer}
         clubId={activeClub.id}
         roles={roles}
+        couplesModeEnabled={activeClub?.couples_mode_enabled ?? false}
         onSuccess={handleSuccess}
       />
 
