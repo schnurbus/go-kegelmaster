@@ -502,10 +502,35 @@ func (h *Handler) HandleDeleteGameDay(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusNotFound, "Spieltag nicht gefunden")
 	}
 
+	// Collect affected player IDs before delete (CASCADE will remove transactions)
+	txs, err := h.TransactionRepo.ListByGameDay(ctx, gameDayID)
+	if err != nil {
+		slog.Error("list transactions by game day", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+	affectedPlayerIDs := make(map[string]struct{})
+	for _, tx := range txs {
+		if tx.PlayerID != nil && *tx.PlayerID != "" {
+			affectedPlayerIDs[*tx.PlayerID] = struct{}{}
+		}
+	}
+
 	err = h.GameDayRepo.Delete(ctx, gameDayID)
 	if err != nil {
 		slog.Error("delete game day", "error", err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+
+	// Recalculate balances after CASCADE removed transactions
+	for playerID := range affectedPlayerIDs {
+		if err := h.TransactionRepo.RecalculatePlayerBalance(ctx, playerID); err != nil {
+			slog.Error("recalculate player balance after game day delete", "player_id", playerID, "error", err)
+			// Continue with other players and club
+		}
+	}
+	if err := h.TransactionRepo.RecalculateClubBalance(ctx, existing.ClubID); err != nil {
+		slog.Error("recalculate club balance after game day delete", "error", err)
+		// Already returned 204; balance will be wrong until next recalc
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
