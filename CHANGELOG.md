@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.3.0](https://github.com/schnurbus/go-kegelmaster/compare/v0.2.1...v0.3.0) (2026-02-23)
+
+
+### Features
+
+* **footer:** add Buy Me a Coffee link via public config endpoint ([#44](https://github.com/schnurbus/go-kegelmaster/issues/44)) ([23a6560](https://github.com/schnurbus/go-kegelmaster/commit/23a6560f58995888a63570523ef9bb233c2f8ae9))
+* **frontend:** show money inputs with two decimal places ([#43](https://github.com/schnurbus/go-kegelmaster/issues/43)) ([73dd254](https://github.com/schnurbus/go-kegelmaster/commit/73dd254fc415e2e429e13947c34e1724e0814d68))
+
+
+### Bug Fixes
+
+* **frontend:** fixed double v character ([#41](https://github.com/schnurbus/go-kegelmaster/issues/41)) ([0014929](https://github.com/schnurbus/go-kegelmaster/commit/0014929aba5794cbe8155d1bf57b78b1924793cb))
+* **frontend:** Seitenmenü-Flackern durch persistentes Dashboard-Layout beheben ([#45](https://github.com/schnurbus/go-kegelmaster/issues/45)) ([ef0baf0](https://github.com/schnurbus/go-kegelmaster/commit/ef0baf08958a877c01cced7aef2747d4102272db))
+
 ## [0.2.1](https://github.com/schnurbus/go-kegelmaster/compare/v0.2.0...v0.2.1) (2026-02-21)
 
 
