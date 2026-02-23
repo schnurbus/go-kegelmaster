@@ -1,25 +1,20 @@
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 
-function getHealthzUrl(): string {
-  const base = import.meta.env.VITE_BACKEND_URL;
-  if (base) {
-    return `${String(base).replace(/\/$/, "")}/healthz`;
-  }
-  return "/healthz";
-}
-
 export function AppFooter({ className = "" }: { className?: string }) {
   const [version, setVersion] = useState<string | null>(null);
+  const [buyMeACoffeeUrl, setBuyMeACoffeeUrl] = useState<string | null>(null);
   const year = new Date().getFullYear();
 
   useEffect(() => {
-    const url = getHealthzUrl();
-    fetch(url)
+    fetch("/api/config/public")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data && typeof data.version === "string") {
-          setVersion(data.version);
+        if (data) {
+          if (typeof data.version === "string") setVersion(data.version);
+          if (typeof data.buy_me_a_coffee_url === "string" && data.buy_me_a_coffee_url) {
+            setBuyMeACoffeeUrl(data.buy_me_a_coffee_url);
+          }
         }
       })
       .catch(() => setVersion(null));
@@ -33,6 +28,19 @@ export function AppFooter({ className = "" }: { className?: string }) {
           <>
             <span aria-hidden>·</span>
             <span>{version}</span>
+          </>
+        )}
+        {buyMeACoffeeUrl != null && (
+          <>
+            <span aria-hidden>·</span>
+            <a
+              href={buyMeACoffeeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:no-underline"
+            >
+              Buy Me a Coffee
+            </a>
           </>
         )}
         <span aria-hidden>·</span>
