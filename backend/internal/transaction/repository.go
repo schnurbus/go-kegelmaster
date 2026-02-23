@@ -305,7 +305,7 @@ func (r *Repository) CreateWithAutoTip(ctx context.Context, params CreateTransac
 }
 
 // CreateDepositCouplesMode creates deposit transaction(s) for multiple players (Paar-Modus).
-// Total amount is split equally; each player gets deposit until balance 0; remainder is tip (first player) or split as deposit (all).
+// Total amount is used as a pool: each player gets at most their debt as deposit; the remainder is auto-tip (or surplus deposit if auto-tip disabled).
 func (r *Repository) CreateDepositCouplesMode(ctx context.Context, clubID string, playerIDs []string, totalAmount int, description string, txDate time.Time, autoTipEnabled bool) ([]Transaction, error) {
 	n := len(playerIDs)
 	if n < 2 {
@@ -332,16 +332,6 @@ func (r *Repository) CreateDepositCouplesMode(ctx context.Context, clubID string
 		players = append(players, p)
 	}
 
-	baseShare := totalAmount / n
-	remainderCents := totalAmount % n
-	shares := make([]int, n)
-	for i := 0; i < n; i++ {
-		shares[i] = baseShare
-		if i < remainderCents {
-			shares[i]++
-		}
-	}
-
 	tx, err := r.database.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
@@ -357,19 +347,21 @@ func (r *Repository) CreateDepositCouplesMode(ctx context.Context, clubID string
 	var results []Transaction
 	totalDeposited := 0
 	playerBalances := make([]int, n)
+	debts := make([]int, n)
 	for i := range playerBalances {
 		playerBalances[i] = players[i].Balance
+		if playerBalances[i] < 0 {
+			debts[i] = -playerBalances[i]
+		}
 	}
 
+	remaining := totalAmount
 	for i := 0; i < n; i++ {
-		debt := 0
-		if playerBalances[i] < 0 {
-			debt = -playerBalances[i]
+		depositToZero := debts[i]
+		if depositToZero > remaining {
+			depositToZero = remaining
 		}
-		depositToZero := shares[i]
-		if depositToZero > debt {
-			depositToZero = debt
-		}
+		remaining -= depositToZero
 		if depositToZero <= 0 {
 			continue
 		}
