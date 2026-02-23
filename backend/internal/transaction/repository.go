@@ -722,20 +722,16 @@ func (r *Repository) DeleteFeeTransaction(ctx context.Context, id string) error 
 	return nil
 }
 
-// Delete deletes a transaction and reverts balances
+// Delete deletes a manual transaction and recalculates affected player and club balances from remaining transactions.
 func (r *Repository) Delete(ctx context.Context, id string) error {
-	// Get transaction first
 	tx, err := r.GetByID(ctx, id)
 	if err != nil {
 		return err
 	}
-
-	// Check if it's a manual transaction
 	if !tx.TransactionType.IsManual() {
 		return ErrNotManual
 	}
 
-	// Begin database transaction
 	dbTx, err := r.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -743,78 +739,22 @@ func (r *Repository) Delete(ctx context.Context, id string) error {
 	defer dbTx.Rollback()
 
 	qtx := r.queries.WithTx(dbTx)
-
-	// Revert balances
-	// For deposits: player balance increases (more debt), club balance decreases
-	// For tips: club balance decreases
-	// For expenses: club balance increases
-
-	if tx.PlayerID != nil {
-		playerEntity, err := r.playerRepo.GetByID(ctx, *tx.PlayerID)
-		if err != nil {
-			return fmt.Errorf("failed to get player: %w", err)
-		}
-
-		var newBalance int
-		if tx.TransactionType == TransactionTypeDeposit {
-			// Revert deposit: subtract the amount (restore previous debt)
-			newBalance = playerEntity.Balance - tx.Amount
-		}
-		// Tips and expenses don't affect player balance
-
-		if tx.TransactionType == TransactionTypeDeposit {
-			err = qtx.UpdatePlayerBalance(ctx, db.UpdatePlayerBalanceParams{
-				ID:        playerEntity.ID,
-				Balance:   int32(newBalance),
-				UpdatedAt: time.Now(),
-			})
-			if err != nil {
-				return fmt.Errorf("failed to update player balance: %w", err)
-			}
-		}
-	}
-
-	// Update club balance
-	clubEntity, err := r.clubRepo.GetByID(ctx, tx.ClubID)
-	if err != nil {
-		return fmt.Errorf("failed to get club: %w", err)
-	}
-
-	var newClubBalance int
-	switch tx.TransactionType {
-	case TransactionTypeDeposit, TransactionTypeTip:
-		// Revert: subtract the amount
-		newClubBalance = clubEntity.Balance - tx.Amount
-	case TransactionTypeExpense:
-		// Revert: subtract the negative amount (add back)
-		newClubBalance = clubEntity.Balance - tx.Amount
-	}
-
-	_, err = qtx.UpdateClub(ctx, db.UpdateClubParams{
-		ID:                 clubEntity.ID,
-		Name:               clubEntity.Name,
-		Balance:            int32(newClubBalance),
-		StartBalance:       int32(clubEntity.StartBalance),
-		BaseFee:            int32(clubEntity.BaseFee),
-		AutoTipEnabled:     clubEntity.AutoTipEnabled,
-		CouplesModeEnabled: clubEntity.CouplesModeEnabled,
-		UpdatedAt:          time.Now(),
-	})
-	if err != nil {
-		return fmt.Errorf("failed to update club balance: %w", err)
-	}
-
-	// Delete transaction
-	err = qtx.DeleteTransaction(ctx, id)
-	if err != nil {
+	if err := qtx.DeleteTransaction(ctx, id); err != nil {
 		return fmt.Errorf("failed to delete transaction: %w", err)
 	}
-
-	// Commit
 	if err := dbTx.Commit(); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
+		return fmt.Errorf("failed to commit: %w", err)
 	}
 
+	// Recalculate balances so they match the sum of remaining transactions
+	if tx.PlayerID != nil {
+		if err := r.RecalculatePlayerBalance(ctx, *tx.PlayerID); err != nil {
+			return fmt.Errorf("failed to recalculate player balance: %w", err)
+		}
+	}
+	if err := r.RecalculateClubBalance(ctx, tx.ClubID); err != nil {
+		return fmt.Errorf("failed to recalculate club balance: %w", err)
+	}
 	return nil
 }
 
