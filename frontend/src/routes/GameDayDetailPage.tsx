@@ -1,6 +1,5 @@
 import * as React from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { AppLayout } from "@/components/AppLayout";
 import { useClub } from "@/context/ClubContext";
 import { usePermissions } from "@/hooks/use-permissions";
 import {
@@ -645,27 +644,22 @@ function GameDayDetailPage() {
 
   if (!activeClub) {
     return (
-      <AppLayout>
-        <div className="p-6">
-          <p>Bitte wählen Sie einen Klub aus.</p>
-        </div>
-      </AppLayout>
+      <div className="p-6">
+        <p>Bitte wählen Sie einen Klub aus.</p>
+      </div>
     );
   }
 
   if (isLoading) {
     return (
-      <AppLayout>
-        <div className="p-6">
-          <p>Laden...</p>
-        </div>
-      </AppLayout>
+      <div className="p-6">
+        <p>Laden...</p>
+      </div>
     );
   }
 
   return (
-    <AppLayout>
-      <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button
@@ -1185,8 +1179,7 @@ function GameDayDetailPage() {
             </CardContent>
           </Card>
         )}
-      </div>
-    </AppLayout>
+    </div>
   );
 }
 

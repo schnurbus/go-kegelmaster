@@ -1,4 +1,3 @@
-import { AppLayout } from "@/components/AppLayout";
 import {
   Card,
   CardContent,
@@ -7,8 +6,7 @@ import {
 } from "@/components/ui/card";
 function HelpPage() {
   return (
-    <AppLayout title="Hilfe">
-      <div className="flex flex-col gap-6 px-4 py-4 md:px-6 md:py-6">
+    <div className="flex flex-col gap-6 px-4 py-4 md:px-6 md:py-6">
         <p className="text-muted-foreground max-w-3xl">
           Diese Seite erklärt alle Funktionen der Kegelmaster-App in einfachen
           Worten. Sie können auch den Hilfe-Chat (Button unten rechts) nutzen,
@@ -237,8 +235,7 @@ function HelpPage() {
             </p>
           </CardContent>
         </Card>
-      </div>
-    </AppLayout>
+    </div>
   );
 }
 

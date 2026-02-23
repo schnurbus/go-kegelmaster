@@ -1,6 +1,5 @@
 import * as React from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { AppLayout } from "@/components/AppLayout";
 import { RoleDialog } from "@/components/role-dialog";
 import { DeleteRoleDialog } from "@/components/delete-role-dialog";
 import { PermissionsTable } from "@/components/permissions-table";
@@ -24,6 +23,7 @@ import {
   ShieldIcon,
   LockIcon,
 } from "lucide-react";
+import { usePageTitle } from "@/context/PageTitleContext";
 import { toast } from "sonner";
 
 import type { Role } from "@/types/role";
@@ -33,6 +33,7 @@ function RoleDetailPage() {
   const navigate = useNavigate();
   const { activeClub } = useClub();
   const { canUpdate, canDelete } = usePermissions(activeClub?.id ?? null);
+  const { setTitle } = usePageTitle();
   const [role, setRole] = React.useState<Role | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
@@ -75,6 +76,10 @@ function RoleDetailPage() {
     }
   }, [activeClub, fetchRole]);
 
+  React.useEffect(() => {
+    if (role) setTitle(role.name);
+  }, [role, setTitle]);
+
   const handleSuccess = () => {
     fetchRole();
   };
@@ -85,54 +90,47 @@ function RoleDetailPage() {
 
   if (!activeClub) {
     return (
-      <AppLayout title="Rollen Details">
-        <div className="flex flex-col items-center justify-center py-12">
-          <p className="text-muted-foreground">
-            Bitte wählen Sie einen Club aus.
-          </p>
-        </div>
-      </AppLayout>
+      <div className="flex flex-col items-center justify-center py-12">
+        <p className="text-muted-foreground">
+          Bitte wählen Sie einen Club aus.
+        </p>
+      </div>
     );
   }
 
   if (isLoading) {
     return (
-      <AppLayout title="Rollen Details">
-        <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-          <div className="px-4 lg:px-6">
-            <div className="mb-6">
-              <Skeleton className="h-10 w-32" />
-            </div>
-            <div className="grid gap-6 md:grid-cols-2">
-              <Skeleton className="h-[200px]" />
-              <Skeleton className="h-[200px]" />
-            </div>
+      <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+        <div className="px-4 lg:px-6">
+          <div className="mb-6">
+            <Skeleton className="h-10 w-32" />
+          </div>
+          <div className="grid gap-6 md:grid-cols-2">
+            <Skeleton className="h-[200px]" />
+            <Skeleton className="h-[200px]" />
           </div>
         </div>
-      </AppLayout>
+      </div>
     );
   }
 
   if (!role) {
     return (
-      <AppLayout title="Rollen Details">
-        <div className="flex flex-col items-center justify-center py-12">
-          <p className="text-muted-foreground">Rolle nicht gefunden</p>
-          <Button
-            variant="outline"
-            className="mt-4"
-            onClick={() => navigate("/app/roles")}
-          >
-            Zurück zur Übersicht
-          </Button>
-        </div>
-      </AppLayout>
+      <div className="flex flex-col items-center justify-center py-12">
+        <p className="text-muted-foreground">Rolle nicht gefunden</p>
+        <Button
+          variant="outline"
+          className="mt-4"
+          onClick={() => navigate("/app/roles")}
+        >
+          Zurück zur Übersicht
+        </Button>
+      </div>
     );
   }
 
   return (
-    <AppLayout title={role.name}>
-      <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+    <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
         <div className="px-4 lg:px-6">
           {/* Header with back button and actions */}
           <div className="mb-6 flex items-center justify-between">
@@ -236,7 +234,6 @@ function RoleDetailPage() {
             </CardContent>
           </Card>
         </div>
-      </div>
 
       <RoleDialog
         open={isEditDialogOpen}
@@ -253,7 +250,7 @@ function RoleDetailPage() {
         clubId={activeClub.id}
         onSuccess={handleDeleteSuccess}
       />
-    </AppLayout>
+    </div>
   );
 }
 

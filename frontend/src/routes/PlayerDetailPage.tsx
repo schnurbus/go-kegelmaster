@@ -1,6 +1,5 @@
 import * as React from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { AppLayout } from "@/components/AppLayout";
 import { PlayerDialog } from "@/components/player-dialog";
 import { DeletePlayerDialog } from "@/components/delete-player-dialog";
 import { useClub } from "@/context/ClubContext";
@@ -27,6 +26,7 @@ import {
   WalletIcon,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { usePageTitle } from "@/context/PageTitleContext";
 import { toast } from "sonner";
 
 import type { Player, Role } from "@/types/player";
@@ -38,6 +38,7 @@ function PlayerDetailPage() {
   const { activeClub } = useClub();
   const { canUpdate, canDelete } = usePermissions(activeClub?.id ?? null);
   const { csrfToken, refreshCsrf } = useAuth();
+  const { setTitle } = usePageTitle();
   const [player, setPlayer] = React.useState<Player | null>(null);
   const [roles, setRoles] = React.useState<Role[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -103,6 +104,10 @@ function PlayerDetailPage() {
     }
   }, [activeClub, fetchPlayer, fetchRoles]);
 
+  React.useEffect(() => {
+    if (player) setTitle(player.name);
+  }, [player, setTitle]);
+
   const getRoleName = (roleId: string | null) => {
     if (!roleId) return "Keine Rolle zugewiesen";
     const role = roles.find((r) => r.id === roleId);
@@ -119,54 +124,47 @@ function PlayerDetailPage() {
 
   if (!activeClub) {
     return (
-      <AppLayout title="Player Details">
-        <div className="flex flex-col items-center justify-center py-12">
-          <p className="text-muted-foreground">
-            Bitte wählen Sie einen Club aus.
-          </p>
-        </div>
-      </AppLayout>
+      <div className="flex flex-col items-center justify-center py-12">
+        <p className="text-muted-foreground">
+          Bitte wählen Sie einen Club aus.
+        </p>
+      </div>
     );
   }
 
   if (isLoading) {
     return (
-      <AppLayout title="Player Details">
-        <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-          <div className="px-4 lg:px-6">
-            <div className="mb-6">
-              <Skeleton className="h-10 w-32" />
-            </div>
-            <div className="grid gap-6 md:grid-cols-2">
-              <Skeleton className="h-[200px]" />
-              <Skeleton className="h-[200px]" />
-            </div>
+      <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+        <div className="px-4 lg:px-6">
+          <div className="mb-6">
+            <Skeleton className="h-10 w-32" />
+          </div>
+          <div className="grid gap-6 md:grid-cols-2">
+            <Skeleton className="h-[200px]" />
+            <Skeleton className="h-[200px]" />
           </div>
         </div>
-      </AppLayout>
+      </div>
     );
   }
 
   if (!player) {
     return (
-      <AppLayout title="Player Details">
-        <div className="flex flex-col items-center justify-center py-12">
-          <p className="text-muted-foreground">Player nicht gefunden</p>
-          <Button
-            variant="outline"
-            className="mt-4"
-            onClick={() => navigate("/app/players")}
-          >
-            Zurück zur Übersicht
-          </Button>
-        </div>
-      </AppLayout>
+      <div className="flex flex-col items-center justify-center py-12">
+        <p className="text-muted-foreground">Player nicht gefunden</p>
+        <Button
+          variant="outline"
+          className="mt-4"
+          onClick={() => navigate("/app/players")}
+        >
+          Zurück zur Übersicht
+        </Button>
+      </div>
     );
   }
 
   return (
-    <AppLayout title={player.name}>
-      <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+    <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
         <div className="px-4 lg:px-6">
           {/* Header with back button and actions */}
           <div className="mb-6 flex items-center justify-between">
@@ -379,7 +377,6 @@ function PlayerDetailPage() {
             </CardContent>
           </Card>
         </div>
-      </div>
 
       <PlayerDialog
         open={isEditDialogOpen}
@@ -398,7 +395,7 @@ function PlayerDetailPage() {
         clubId={activeClub.id}
         onSuccess={handleDeleteSuccess}
       />
-    </AppLayout>
+    </div>
   );
 }
 

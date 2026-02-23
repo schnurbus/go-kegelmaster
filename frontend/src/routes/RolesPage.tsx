@@ -1,6 +1,5 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
-import { AppLayout } from "@/components/AppLayout";
 import { RolesDataTable } from "@/components/roles-data-table";
 import { RoleDialog } from "@/components/role-dialog";
 import { DeleteRoleDialog } from "@/components/delete-role-dialog";
@@ -75,33 +74,29 @@ function RolesPage() {
 
   if (!activeClub) {
     return (
-      <AppLayout title="Rollen">
-        <div className="flex flex-col items-center justify-center py-12">
-          <p className="text-muted-foreground">
-            Bitte wählen Sie einen Club aus, um die Rollen zu sehen.
-          </p>
-        </div>
-      </AppLayout>
+      <div className="flex flex-col items-center justify-center py-12">
+        <p className="text-muted-foreground">
+          Bitte wählen Sie einen Club aus, um die Rollen zu sehen.
+        </p>
+      </div>
     );
   }
 
   return (
-    <AppLayout title="Rollen">
-      <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-        <div className="px-4 lg:px-6">
-          <RolesDataTable
-            roles={roles}
-            onView={handleView}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            onCreate={handleCreate}
-            isLoading={isLoading}
-            clubId={activeClub.id}
-            canCreate={canCreate("roles")}
-            canUpdate={canUpdate("roles")}
-            canDelete={canDelete("roles")}
-          />
-        </div>
+    <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+      <div className="px-4 lg:px-6">
+        <RolesDataTable
+          roles={roles}
+          onView={handleView}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          onCreate={handleCreate}
+          isLoading={isLoading}
+          clubId={activeClub.id}
+          canCreate={canCreate("roles")}
+          canUpdate={canUpdate("roles")}
+          canDelete={canDelete("roles")}
+        />
       </div>
 
       <RoleDialog
@@ -119,7 +114,7 @@ function RolesPage() {
         clubId={activeClub.id}
         onSuccess={handleSuccess}
       />
-    </AppLayout>
+    </div>
   );
 }
 

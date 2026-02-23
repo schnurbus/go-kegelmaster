@@ -23,6 +23,7 @@ import ResetPasswordPage from "./routes/ResetPasswordPage.tsx";
 import ImpressumPage from "./routes/ImpressumPage.tsx";
 import DatenschutzPage from "./routes/DatenschutzPage.tsx";
 import RequireAuth from "./components/RequireAuth.tsx";
+import { DashboardLayout } from "./components/DashboardLayout.tsx";
 import { AuthProvider } from "./context/AuthContext.tsx";
 import { ClubProvider } from "./context/ClubContext.tsx";
 import { ThemeProvider } from "./components/theme-provider.tsx";
@@ -44,18 +45,24 @@ const router = createBrowserRouter([
       {
         element: <RequireAuth />,
         children: [
-          { path: "/app", element: <DashboardPage /> },
-          { path: "/app/players", element: <PlayersPage /> },
-          { path: "/app/players/:id", element: <PlayerDetailPage /> },
-          { path: "/app/roles", element: <RolesPage /> },
-          { path: "/app/roles/:id", element: <RoleDetailPage /> },
-          { path: "/app/penalty-types", element: <PenaltyTypesPage /> },
-          { path: "/app/competitions", element: <CompetitionsPage /> },
-          { path: "/app/gamedays", element: <GameDaysPage /> },
-          { path: "/app/gamedays/:id", element: <GameDayDetailPage /> },
-          { path: "/app/transactions", element: <TransactionsPage /> },
-          { path: "/app/club/:clubId", element: <ClubEditPage /> },
-          { path: "/app/help", element: <HelpPage /> },
+          {
+            path: "/app",
+            element: <DashboardLayout />,
+            children: [
+              { index: true, element: <DashboardPage />, handle: { title: "Dashboard" } },
+              { path: "players", element: <PlayersPage />, handle: { title: "Spieler" } },
+              { path: "players/:id", element: <PlayerDetailPage />, handle: { title: "Spieler" } },
+              { path: "roles", element: <RolesPage />, handle: { title: "Rollen" } },
+              { path: "roles/:id", element: <RoleDetailPage />, handle: { title: "Rollen Details" } },
+              { path: "penalty-types", element: <PenaltyTypesPage />, handle: { title: "Strafentypen" } },
+              { path: "competitions", element: <CompetitionsPage />, handle: { title: "Wettbewerbe" } },
+              { path: "gamedays", element: <GameDaysPage />, handle: { title: "Spieltage" } },
+              { path: "gamedays/:id", element: <GameDayDetailPage />, handle: { title: "Spieltag" } },
+              { path: "transactions", element: <TransactionsPage />, handle: { title: "Transaktionen" } },
+              { path: "club/:clubId", element: <ClubEditPage />, handle: { title: "Club bearbeiten" } },
+              { path: "help", element: <HelpPage />, handle: { title: "Hilfe" } },
+            ],
+          },
         ],
       },
     ],

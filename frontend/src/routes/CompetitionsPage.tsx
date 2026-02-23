@@ -1,5 +1,4 @@
 import * as React from "react";
-import { AppLayout } from "@/components/AppLayout";
 import { CompetitionsDataTable } from "@/components/competitions-data-table";
 import { CompetitionDialog } from "@/components/competition-dialog";
 import { DeleteCompetitionDialog } from "@/components/delete-competition-dialog";
@@ -78,19 +77,16 @@ function CompetitionsPage() {
 
   if (!activeClub) {
     return (
-      <AppLayout>
-        <div className="flex h-full items-center justify-center">
-          <p className="text-muted-foreground">
-            Bitte wählen Sie einen Club aus.
-          </p>
-        </div>
-      </AppLayout>
+      <div className="flex h-full items-center justify-center">
+        <p className="text-muted-foreground">
+          Bitte wählen Sie einen Club aus.
+        </p>
+      </div>
     );
   }
 
   return (
-    <AppLayout>
-      <div className="flex flex-col gap-6 p-6">
+    <div className="flex flex-col gap-6 p-6">
         <div>
           <h1 className="text-3xl font-bold">Wettbewerbe</h1>
           <p className="text-muted-foreground">
@@ -125,8 +121,7 @@ function CompetitionsPage() {
           clubId={activeClub.id}
           onSuccess={handleDeleteSuccess}
         />
-      </div>
-    </AppLayout>
+    </div>
   );
 }
 
