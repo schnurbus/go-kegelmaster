@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.3.1](https://github.com/schnurbus/go-kegelmaster/compare/v0.3.0...v0.3.1) (2026-02-23)
+
+
+### Bug Fixes
+
+* **transactions:** correct auto-tip calculation in Paar-Modus (pool allocation) ([#46](https://github.com/schnurbus/go-kegelmaster/issues/46)) ([4ad1b3e](https://github.com/schnurbus/go-kegelmaster/commit/4ad1b3e708ae94e59743f25588f1fdd870f8356f))
+* **transactions:** update player and club balance when deleting game day or transaction ([#47](https://github.com/schnurbus/go-kegelmaster/issues/47)) ([c547a7a](https://github.com/schnurbus/go-kegelmaster/commit/c547a7aad1008ed38cbb10ffa0c8b8ca2fa1655d))
+
 ## [0.3.0](https://github.com/schnurbus/go-kegelmaster/compare/v0.2.1...v0.3.0) (2026-02-23)
 
 
