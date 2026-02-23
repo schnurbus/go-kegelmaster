@@ -1,5 +1,4 @@
 import * as React from "react";
-import { AppLayout } from "@/components/AppLayout";
 import { PenaltyTypesDataTable } from "@/components/penalty-types-data-table";
 import { PenaltyTypeDialog } from "@/components/penalty-type-dialog";
 import { DeletePenaltyTypeDialog } from "@/components/delete-penalty-type-dialog";
@@ -113,19 +112,16 @@ function PenaltyTypesPage() {
 
   if (!activeClub) {
     return (
-      <AppLayout>
-        <div className="flex h-full items-center justify-center">
-          <p className="text-muted-foreground">
-            Bitte wählen Sie einen Club aus.
-          </p>
-        </div>
-      </AppLayout>
+      <div className="flex h-full items-center justify-center">
+        <p className="text-muted-foreground">
+          Bitte wählen Sie einen Club aus.
+        </p>
+      </div>
     );
   }
 
   return (
-    <AppLayout>
-      <div className="flex flex-col gap-6 p-6">
+    <div className="flex flex-col gap-6 p-6">
         <div>
           <h1 className="text-3xl font-bold">Strafentypen</h1>
           <p className="text-muted-foreground">
@@ -160,8 +156,7 @@ function PenaltyTypesPage() {
           clubId={activeClub.id}
           onSuccess={handleDeleteSuccess}
         />
-      </div>
-    </AppLayout>
+    </div>
   );
 }
 

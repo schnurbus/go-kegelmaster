@@ -1,6 +1,5 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
-import { AppLayout } from "@/components/AppLayout";
 import { PlayersDataTable } from "@/components/players-data-table";
 import { PlayerDialog } from "@/components/player-dialog";
 import { DeletePlayerDialog } from "@/components/delete-player-dialog";
@@ -121,55 +120,50 @@ function PlayersPage() {
 
   if (!activeClub) {
     return (
-      <AppLayout title="Spieler">
-        <div className="flex flex-col items-center justify-center py-12">
-          <p className="text-muted-foreground">
-            Bitte wählen Sie einen Club aus, um die Spieler zu sehen.
-          </p>
-        </div>
-      </AppLayout>
+      <div className="flex flex-col items-center justify-center py-12">
+        <p className="text-muted-foreground">
+          Bitte wählen Sie einen Club aus, um die Spieler zu sehen.
+        </p>
+      </div>
     );
   }
 
   // Show empty state only if roles loaded successfully and list is empty (not on 403)
   if (!isRolesLoading && roles.length === 0 && !rolesForbidden) {
     return (
-      <AppLayout title="Spieler">
-        <div className="flex flex-col items-center justify-center py-12 px-4">
-          <Card className="max-w-md">
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-muted">
-                <ShieldIcon className="size-6 text-muted-foreground" />
-              </div>
-              <CardTitle>Keine Rollen vorhanden</CardTitle>
-              <CardDescription>
-                Bevor Sie Spieler erstellen können, müssen Sie mindestens eine
-                Rolle definieren. Rollen bestimmen die Berechtigungen und
-                Eigenschaften der Spieler.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex justify-center">
-              <Button onClick={() => navigate("/app/roles")}>
-                Erste Rolle erstellen
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </AppLayout>
+      <div className="flex flex-col items-center justify-center py-12 px-4">
+        <Card className="max-w-md">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-muted">
+              <ShieldIcon className="size-6 text-muted-foreground" />
+            </div>
+            <CardTitle>Keine Rollen vorhanden</CardTitle>
+            <CardDescription>
+              Bevor Sie Spieler erstellen können, müssen Sie mindestens eine
+              Rolle definieren. Rollen bestimmen die Berechtigungen und
+              Eigenschaften der Spieler.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex justify-center">
+            <Button onClick={() => navigate("/app/roles")}>
+              Erste Rolle erstellen
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
   return (
-    <AppLayout title="Spieler">
-      <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-        <div className="px-4 lg:px-6">
-          {rolesForbidden && (
-            <p className="mb-4 text-sm text-muted-foreground">
-              Rollen konnten nicht geladen werden. Die Zuweisung von Rollen im
-              Spieler-Dialog ist eingeschränkt.
-            </p>
-          )}
-          <PlayersDataTable
+    <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+      <div className="px-4 lg:px-6">
+        {rolesForbidden && (
+          <p className="mb-4 text-sm text-muted-foreground">
+            Rollen konnten nicht geladen werden. Die Zuweisung von Rollen im
+            Spieler-Dialog ist eingeschränkt.
+          </p>
+        )}
+        <PlayersDataTable
             players={players}
             roles={roles}
             onView={handleView}
@@ -183,7 +177,6 @@ function PlayersPage() {
             canDelete={canDelete("players")}
           />
         </div>
-      </div>
 
       <PlayerDialog
         open={isDialogOpen}
@@ -202,7 +195,7 @@ function PlayersPage() {
         clubId={activeClub.id}
         onSuccess={handleSuccess}
       />
-    </AppLayout>
+    </div>
   );
 }
 

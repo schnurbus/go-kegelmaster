@@ -1,6 +1,5 @@
 import * as React from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { AppLayout } from "@/components/AppLayout";
 import { useClub } from "@/context/ClubContext";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -150,17 +149,14 @@ function ClubEditPage() {
 
   if (isLoading) {
     return (
-      <AppLayout title="Club bearbeiten">
-        <div className="flex items-center justify-center py-12">
-          <Loader2Icon className="size-8 animate-spin text-muted-foreground" />
-        </div>
-      </AppLayout>
+      <div className="flex items-center justify-center py-12">
+        <Loader2Icon className="size-8 animate-spin text-muted-foreground" />
+      </div>
     );
   }
 
   return (
-    <AppLayout title="Club bearbeiten">
-      <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6">
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
@@ -390,8 +386,7 @@ function ClubEditPage() {
             />
           </>
         )}
-      </div>
-    </AppLayout>
+    </div>
   );
 }
 

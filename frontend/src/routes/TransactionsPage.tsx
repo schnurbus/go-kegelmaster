@@ -1,6 +1,5 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
-import { AppLayout } from "@/components/AppLayout";
 import { TransactionDialog } from "@/components/transaction-dialog";
 import { useClub } from "@/context/ClubContext";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -438,19 +437,16 @@ function TransactionsPage() {
 
   if (!activeClub) {
     return (
-      <AppLayout title="Transaktionen">
-        <div className="flex flex-col items-center justify-center py-12">
-          <p className="text-muted-foreground">
-            Bitte wählen Sie einen Club aus, um die Transaktionen zu sehen.
-          </p>
-        </div>
-      </AppLayout>
+      <div className="flex flex-col items-center justify-center py-12">
+        <p className="text-muted-foreground">
+          Bitte wählen Sie einen Club aus, um die Transaktionen zu sehen.
+        </p>
+      </div>
     );
   }
 
   return (
-    <AppLayout title="Transaktionen">
-      <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+    <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
         <div className="px-4 lg:px-6">
           <div className="flex flex-col gap-4">
             {/* Header with filters */}
@@ -641,7 +637,6 @@ function TransactionsPage() {
             </div>
           </div>
         </div>
-      </div>
 
       <TransactionDialog
         open={isDialogOpen}
@@ -649,7 +644,7 @@ function TransactionsPage() {
         clubId={activeClub.id}
         onSuccess={handleSuccess}
       />
-    </AppLayout>
+    </div>
   );
 }
 

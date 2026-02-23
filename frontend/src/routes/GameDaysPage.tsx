@@ -1,6 +1,5 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
-import { AppLayout } from "@/components/AppLayout";
 import { useClub } from "@/context/ClubContext";
 import { usePermissions } from "@/hooks/use-permissions";
 import { GameDaysDataTable } from "@/components/game-days-data-table";
@@ -96,17 +95,14 @@ function GameDaysPage() {
 
   if (!activeClub) {
     return (
-      <AppLayout>
-        <div className="p-6">
-          <p>Bitte wählen Sie einen Klub aus.</p>
-        </div>
-      </AppLayout>
+      <div className="p-6">
+        <p>Bitte wählen Sie einen Klub aus.</p>
+      </div>
     );
   }
 
   return (
-    <AppLayout>
-      <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6">
         <div>
           <h1 className="text-3xl font-bold">Spieltage</h1>
           <p className="text-muted-foreground">
@@ -125,8 +121,7 @@ function GameDaysPage() {
           canUpdate={canUpdate("game_days")}
           canDelete={canDelete("game_days")}
         />
-      </div>
-    </AppLayout>
+    </div>
   );
 }
 
