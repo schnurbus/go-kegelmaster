@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 )
 
 // Config aggregates runtime configuration for the backend HTTP server.
@@ -33,6 +34,8 @@ type Config struct {
 	LegalDatenschutzPath string
 	ImpressumHTML        string
 	DatenschutzHTML      string
+	// BuyMeACoffeeURL: wenn gesetzt, wird im Footer ein "Buy Me a Coffee"-Link angezeigt.
+	BuyMeACoffeeURL string
 }
 
 // Load builds a Config from process environment variables, applying defaults
@@ -61,6 +64,7 @@ func Load() Config {
 		LegalDatenschutzPath:        os.Getenv("LEGAL_DATENSCHUTZ_PATH"),
 		ImpressumHTML:               os.Getenv("IMPRESSUM_HTML"),
 		DatenschutzHTML:             os.Getenv("DATENSCHUTZ_HTML"),
+		BuyMeACoffeeURL:             strings.TrimSpace(os.Getenv("BUY_ME_A_COFFEE_URL")),
 	}
 
 	return cfg

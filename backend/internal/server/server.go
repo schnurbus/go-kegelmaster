@@ -136,6 +136,14 @@ func (s *Server) registerRoutes() {
 			"message": "backend placeholder",
 		})
 	})
+	// Public config for frontend (version, optional buy-me-a-coffee URL); no auth
+	api.Get("/config/public", func(c fiber.Ctx) error {
+		m := fiber.Map{"version": s.cfg.Version}
+		if s.cfg.BuyMeACoffeeURL != "" {
+			m["buy_me_a_coffee_url"] = s.cfg.BuyMeACoffeeURL
+		}
+		return c.JSON(m)
+	})
 	chatLimiter := limiter.New(limiter.Config{
 		Max:        s.cfg.ChatRateLimitMax,
 		Expiration: time.Duration(s.cfg.ChatRateLimitWindowMin) * time.Minute,

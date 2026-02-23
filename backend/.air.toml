@@ -1,6 +1,7 @@
 root = "."
 testdata_dir = "testdata"
 tmp_dir = "tmp"
+env_files = [".env.development", ".env"]
 
 [build]
   args_bin = []
