@@ -8,6 +8,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
+	"github.com/schnurbus/go-kegelmaster/backend/internal/audit"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/user"
 )
@@ -81,6 +82,7 @@ func (h *Handler) HandleCreateClub(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
+	audit.LogAudit(c, u.ID, audit.ActionClubCreated, "club_id", clubEntity.ID)
 	return c.Status(fiber.StatusCreated).JSON(ClubResponseFromEntity(clubEntity))
 }
 
@@ -218,6 +220,7 @@ func (h *Handler) HandleUpdateClub(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
+	audit.LogAudit(c, u.ID, audit.ActionClubUpdated, "club_id", clubID)
 	return c.JSON(ClubResponseFromEntity(updatedClub))
 }
 
@@ -282,6 +285,7 @@ func (h *Handler) HandleDeleteClub(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
+	audit.LogAudit(c, u.ID, audit.ActionClubDeleted, "club_id", clubID)
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
@@ -371,6 +375,7 @@ func (h *Handler) HandleTransferClubOwner(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
+	audit.LogAudit(c, u.ID, audit.ActionClubOwnerTransferred, "club_id", clubID, "new_owner_id", newOwner.ID)
 	return c.JSON(ClubResponseFromEntity(updatedClub))
 }
 
@@ -417,5 +422,6 @@ func (h *Handler) HandleRecalculateClubBalance(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
+	audit.LogAudit(c, u.ID, audit.ActionClubBalanceRecalc, "club_id", clubID)
 	return c.JSON(ClubResponseFromEntity(updatedClub))
 }

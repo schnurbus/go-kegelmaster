@@ -8,6 +8,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
+	"github.com/schnurbus/go-kegelmaster/backend/internal/audit"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/competition"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/role"
@@ -163,6 +164,7 @@ func (h *Handler) HandleCreateCompetition(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
+	audit.LogAudit(c, u.ID, audit.ActionCompetitionCreated, "club_id", clubID, "competition_id", comp.ID)
 	return c.Status(fiber.StatusCreated).JSON(CompetitionResponseFromEntity(comp))
 }
 
@@ -255,6 +257,7 @@ func (h *Handler) HandleUpdateCompetition(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
+	audit.LogAudit(c, u.ID, audit.ActionCompetitionUpdated, "club_id", clubID, "competition_id", competitionID)
 	return c.JSON(CompetitionResponseFromEntity(comp))
 }
 
@@ -310,5 +313,6 @@ func (h *Handler) HandleDeleteCompetition(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
+	audit.LogAudit(c, u.ID, audit.ActionCompetitionDeleted, "club_id", clubID, "competition_id", competitionID)
 	return c.SendStatus(fiber.StatusNoContent)
 }

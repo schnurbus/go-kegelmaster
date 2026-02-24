@@ -36,6 +36,8 @@ type Config struct {
 	DatenschutzHTML      string
 	// BuyMeACoffeeURL: wenn gesetzt, wird im Footer ein "Buy Me a Coffee"-Link angezeigt.
 	BuyMeACoffeeURL string
+	// LogLevel: "debug" loggt auch GET/HEAD-Requests; "info" (oder leer) nur Mutationen und Fehler.
+	LogLevel string
 }
 
 // Load builds a Config from process environment variables, applying defaults
@@ -65,9 +67,15 @@ func Load() Config {
 		ImpressumHTML:               os.Getenv("IMPRESSUM_HTML"),
 		DatenschutzHTML:             os.Getenv("DATENSCHUTZ_HTML"),
 		BuyMeACoffeeURL:             strings.TrimSpace(os.Getenv("BUY_ME_A_COFFEE_URL")),
+		LogLevel:                    getEnv("LOG_LEVEL", "info"),
 	}
 
 	return cfg
+}
+
+// DebugLogRequests returns true if read-only requests (GET/HEAD) should be logged.
+func (c Config) DebugLogRequests() bool {
+	return strings.ToLower(c.LogLevel) == "debug"
 }
 
 func getEnvBool(key string, fallback bool) bool {

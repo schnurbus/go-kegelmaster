@@ -9,6 +9,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
+	"github.com/schnurbus/go-kegelmaster/backend/internal/audit"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/role"
 )
@@ -212,6 +213,7 @@ func (h *Handler) HandleCreateRole(c fiber.Ctx) error {
 		perms = append(perms, perm)
 	}
 
+	audit.LogAudit(c, u.ID, audit.ActionRoleCreated, "club_id", clubID, "role_id", roleEntity.ID)
 	return c.Status(fiber.StatusCreated).JSON(RoleResponseFromEntity(roleEntity, perms, 0))
 }
 
@@ -301,6 +303,7 @@ func (h *Handler) HandleUpdateRole(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
+	audit.LogAudit(c, u.ID, audit.ActionRoleUpdated, "club_id", clubID, "role_id", roleID)
 	return c.JSON(RoleResponseFromEntity(updatedRole, perms, 0))
 }
 
@@ -357,6 +360,7 @@ func (h *Handler) HandleDeleteRole(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
+	audit.LogAudit(c, u.ID, audit.ActionRoleDeleted, "club_id", clubID, "role_id", roleID)
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
@@ -438,6 +442,7 @@ func (h *Handler) HandleAddPermission(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
+	audit.LogAudit(c, u.ID, audit.ActionPermissionAdded, "club_id", clubID, "role_id", roleID, "entity_type", req.EntityType, "permission_type", req.PermissionType)
 	return c.Status(fiber.StatusCreated).JSON(PermissionResponseFromEntity(perm))
 }
 
@@ -518,6 +523,7 @@ func (h *Handler) HandleRemovePermission(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
+	audit.LogAudit(c, u.ID, audit.ActionPermissionRemoved, "club_id", clubID, "role_id", roleID, "entity_type", req.EntityType, "permission_type", req.PermissionType)
 	return c.SendStatus(fiber.StatusNoContent)
 }
 

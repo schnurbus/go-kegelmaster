@@ -10,6 +10,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
+	"github.com/schnurbus/go-kegelmaster/backend/internal/audit"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/player"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/role"
@@ -95,6 +96,7 @@ func (h *Handler) HandleCreatePlayer(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
+	audit.LogAudit(c, u.ID, audit.ActionPlayerCreated, "club_id", clubID, "player_id", playerEntity.ID)
 	return c.Status(fiber.StatusCreated).JSON(PlayerResponseFromEntity(playerEntity))
 }
 
@@ -457,6 +459,7 @@ func (h *Handler) HandleUpdatePlayer(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
+	audit.LogAudit(c, u.ID, audit.ActionPlayerUpdated, "club_id", clubID, "player_id", playerID)
 	resp := PlayerResponseFromEntity(updatedPlayer)
 	h.enrichPlayerResponseWithPairBalance(ctx, updatedPlayer, &resp)
 	return c.JSON(resp)
@@ -516,6 +519,7 @@ func (h *Handler) HandleDeletePlayer(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
+	audit.LogAudit(c, u.ID, audit.ActionPlayerDeleted, "club_id", clubID, "player_id", playerID)
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
@@ -577,5 +581,6 @@ func (h *Handler) HandleRecalculatePlayerBalance(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
+	audit.LogAudit(c, u.ID, audit.ActionPlayerBalanceRecalc, "club_id", clubID, "player_id", playerID)
 	return c.JSON(PlayerResponseFromEntity(updatedPlayer))
 }
