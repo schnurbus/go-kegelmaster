@@ -15,6 +15,7 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/limiter"
 
 	"github.com/schnurbus/go-kegelmaster/backend/internal/auth"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/middleware"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/competition"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/config"
@@ -95,6 +96,19 @@ func New(cfg config.Config, deps Dependencies) *Server {
 		AllowHeaders:     []string{"Content-Type", "X-CSRF-Token"},
 		AllowCredentials: true,
 	}))
+
+	userIDExtractor := func(c fiber.Ctx) string {
+		token := strings.TrimSpace(c.Cookies("auth_token"))
+		if token == "" {
+			return ""
+		}
+		claims, err := deps.AuthService.ParseToken(token)
+		if err != nil {
+			return ""
+		}
+		return claims.UserID
+	}
+	app.Use(middleware.RequestLog(middleware.RequestLogFromConfig(cfg, userIDExtractor)))
 
 	handler := handlers.NewHandler(cfg, handlers.Dependencies{
 		UserRepo:        deps.UserRepo,

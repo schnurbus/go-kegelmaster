@@ -8,6 +8,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
+	"github.com/schnurbus/go-kegelmaster/backend/internal/audit"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/invitation"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/player"
@@ -119,6 +120,7 @@ func (h *Handler) HandleInvitePlayer(c fiber.Ctx) error {
 		slog.Error("create invitation failed", "error", err, "player_id", playerID, "email", req.Email)
 		return fiber.NewError(fiber.StatusInternalServerError, "Fehler beim Erstellen der Einladung")
 	}
+	audit.LogAudit(c, u.ID, audit.ActionPlayerInvited, "club_id", clubID, "player_id", playerID, "invitation_id", inv.ID)
 	slog.Info("invitation created", "invitation_id", inv.ID, "player_id", playerID, "email", inv.Email, "expires_at", inv.ExpiresAt)
 
 	// Get club name for email (optional, for better email content)
@@ -308,12 +310,13 @@ func (h *Handler) HandleAcceptInvitation(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Fehler beim Akzeptieren der Einladung")
 	}
 
-	slog.Info("invitation accepted successfully", 
-		"invitation_id", inv.ID, 
+	audit.LogAudit(c, u.ID, audit.ActionInvitationAccepted, "player_id", inv.PlayerID, "invitation_id", inv.ID)
+	slog.Info("invitation accepted successfully",
+		"invitation_id", inv.ID,
 		"user_id", u.ID,
 		"player_id", inv.PlayerID,
 		"email", inv.Email)
-	
+
 	return c.JSON(fiber.Map{
 		"player_id": inv.PlayerID,
 		"message":   "Einladung erfolgreich akzeptiert",

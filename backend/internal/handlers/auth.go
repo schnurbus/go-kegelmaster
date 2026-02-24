@@ -10,6 +10,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 
+	"github.com/schnurbus/go-kegelmaster/backend/internal/audit"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/passwordreset"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/user"
 )
@@ -83,6 +84,7 @@ func (h *Handler) HandleRegister(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
+	audit.LogAudit(c, u.ID, audit.ActionUserRegistered, "user_id", u.ID)
 	return c.Status(fiber.StatusCreated).JSON(UserResponseFromEntity(u))
 }
 
@@ -130,6 +132,7 @@ func (h *Handler) HandleLogin(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
+	audit.LogAudit(c, u.ID, audit.ActionUserLogin, "user_id", u.ID)
 	return c.JSON(UserResponseFromEntity(u))
 }
 
@@ -261,6 +264,7 @@ func (h *Handler) HandleResetPassword(c fiber.Ctx) error {
 		slog.Error("delete password reset token", "error", err)
 	}
 
+	audit.LogAudit(c, pr.UserID, audit.ActionUserPasswordReset, "user_id", pr.UserID)
 	return c.SendStatus(fiber.StatusNoContent)
 }
 

@@ -8,6 +8,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
+	"github.com/schnurbus/go-kegelmaster/backend/internal/audit"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/penaltytype"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/role"
@@ -166,6 +167,7 @@ func (h *Handler) HandleCreatePenaltyType(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
+	audit.LogAudit(c, u.ID, audit.ActionPenaltyTypeCreated, "club_id", clubID, "penalty_type_id", penaltyType.ID)
 	return c.Status(fiber.StatusCreated).JSON(PenaltyTypeResponseFromEntity(penaltyType))
 }
 
@@ -258,6 +260,7 @@ func (h *Handler) HandleUpdatePenaltyType(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
+	audit.LogAudit(c, u.ID, audit.ActionPenaltyTypeUpdated, "club_id", clubID, "penalty_type_id", penaltyTypeID)
 	return c.JSON(PenaltyTypeResponseFromEntity(updatedPenaltyType))
 }
 
@@ -315,6 +318,7 @@ func (h *Handler) HandleDeletePenaltyType(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
+	audit.LogAudit(c, u.ID, audit.ActionPenaltyTypeDeleted, "club_id", clubID, "penalty_type_id", penaltyTypeID)
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
@@ -389,6 +393,7 @@ func (h *Handler) HandleUpdatePenaltyTypeDisplayOrder(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
+	audit.LogAudit(c, u.ID, audit.ActionPenaltyTypeOrder, "club_id", clubID, "penalty_type_id", penaltyTypeID)
 	return c.SendStatus(fiber.StatusNoContent)
 }
 

@@ -190,6 +190,7 @@ func TestRepository_Create(t *testing.T) {
 - `IMPRESSUM_HTML`: (optional) Inhalt für das Impressum (HTML-String). Überschreibt Datei, wenn gesetzt.
 - `DATENSCHUTZ_HTML`: (optional) Inhalt für die Datenschutzerklärung (HTML-String). Überschreibt Datei, wenn gesetzt.
 - `BUY_ME_A_COFFEE_URL`: (optional) URL für „Buy Me a Coffee“. Wenn gesetzt, wird im App-Footer ein entsprechender Link angezeigt; ausgegeben unter `GET /api/config/public` als `buy_me_a_coffee_url`.
+- `LOG_LEVEL`: (optional) Log-Level (`debug`, `info`, `warn`, `error`). Bei `debug` werden auch Leseanfragen (GET/HEAD) im Request-Log erfasst; sonst nur Mutationen und Fehler. Default: `info`.
 
 ### GitHub Actions / Release Please
 - **RELEASE_PLEASE_TOKEN:** (Repository-Secret) Personal Access Token (PAT) mit mindestens Scope `repo`. Wird vom Workflow `.github/workflows/release-please.yaml` verwendet. Ohne dieses Secret nutzt Release Please den Standard-`GITHUB_TOKEN`; dann lösen von Release Please erzeugte Events (z. B. „release published“) keine weiteren Workflows aus – der Workflow `docker-release` würde nach einem Release nicht starten. Secret unter Settings → Secrets and variables → Actions anlegen (z. B. Name `RELEASE_PLEASE_TOKEN`).

@@ -10,6 +10,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
+	"github.com/schnurbus/go-kegelmaster/backend/internal/audit"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/player"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/role"
@@ -279,6 +280,10 @@ func (h *Handler) HandleCreateTransaction(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Fehler beim Erstellen der Transaktion")
 	}
 
+	if len(transactions) > 0 {
+		audit.LogAudit(c, u.ID, audit.ActionTransactionCreated, "club_id", clubID, "transaction_id", transactions[0].ID, "count", len(transactions))
+	}
+
 	// Return array of created transactions
 	responses := TransactionsResponseFromEntities(transactions)
 
@@ -348,6 +353,7 @@ func (h *Handler) HandleDeleteTransaction(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Fehler beim Löschen der Transaktion")
 	}
 
+	audit.LogAudit(c, u.ID, audit.ActionTransactionDeleted, "club_id", clubID, "transaction_id", txID)
 	return c.SendStatus(fiber.StatusNoContent)
 }
 

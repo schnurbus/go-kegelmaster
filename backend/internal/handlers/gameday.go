@@ -11,6 +11,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
+	"github.com/schnurbus/go-kegelmaster/backend/internal/audit"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/competition"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/gameday"
@@ -178,6 +179,7 @@ func (h *Handler) HandleCreateGameDay(c fiber.Ctx) error {
 		}
 	}
 
+	audit.LogAudit(c, u.ID, audit.ActionGameDayCreated, "club_id", clubID, "gameday_id", gameDayEntity.ID)
 	return c.Status(fiber.StatusCreated).JSON(GameDayResponseFromEntity(gameDayEntity))
 }
 
@@ -454,6 +456,7 @@ func (h *Handler) HandleUpdateGameDay(c fiber.Ctx) error {
 		}
 	}
 
+	audit.LogAudit(c, u.ID, audit.ActionGameDayUpdated, "club_id", clubID, "gameday_id", gameDayID)
 	return c.JSON(GameDayResponseFromEntity(updated))
 }
 
@@ -533,6 +536,7 @@ func (h *Handler) HandleDeleteGameDay(c fiber.Ctx) error {
 		// Already returned 204; balance will be wrong until next recalc
 	}
 
+	audit.LogAudit(c, u.ID, audit.ActionGameDayDeleted, "club_id", clubID, "gameday_id", gameDayID)
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
@@ -596,6 +600,7 @@ func (h *Handler) HandleAddParticipant(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
+	audit.LogAudit(c, u.ID, audit.ActionParticipantAdded, "club_id", clubID, "gameday_id", gameDayID, "player_id", req.PlayerID)
 	return c.Status(fiber.StatusCreated).JSON(ParticipantResponseFromEntity(participant))
 }
 
@@ -654,6 +659,7 @@ func (h *Handler) HandleRemoveParticipant(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
+	audit.LogAudit(c, u.ID, audit.ActionParticipantRemoved, "club_id", clubID, "gameday_id", gameDayID, "player_id", playerID)
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
@@ -843,6 +849,7 @@ func (h *Handler) HandleUpdateFees(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
+	audit.LogAudit(c, u.ID, audit.ActionFeesUpdated, "club_id", clubID, "gameday_id", gameDayID, "player_id", playerID)
 	return c.JSON(FeesResponseFromEntities(fees))
 }
 
@@ -940,5 +947,6 @@ func (h *Handler) HandleUpdateCompetitionValues(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
+	audit.LogAudit(c, u.ID, audit.ActionCompetitionValues, "club_id", clubID, "gameday_id", gameDayID, "player_id", playerID)
 	return c.JSON(CompetitionValuesResponseFromEntities(competitionValues))
 }
