@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.4.1](https://github.com/schnurbus/go-kegelmaster/compare/v0.4.0...v0.4.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* commit timeouts fixed ([#52](https://github.com/schnurbus/go-kegelmaster/issues/52)) ([af3e067](https://github.com/schnurbus/go-kegelmaster/commit/af3e067523e4ce3585f3690b4cfc22d6fd7bb3fd))
+
 ## [0.4.0](https://github.com/schnurbus/go-kegelmaster/compare/v0.3.1...v0.4.0) (2026-02-24)
 
 
