@@ -88,6 +88,12 @@ SELECT * FROM game_day_fees
 WHERE game_day_participant_id = $1
 ORDER BY penalty_type_name ASC;
 
+-- name: GetGameDayFeesByParticipantForUpdate :many
+SELECT * FROM game_day_fees
+WHERE game_day_participant_id = $1
+ORDER BY penalty_type_name ASC
+FOR UPDATE;
+
 -- name: GetGameDayFeesByGameDay :many
 SELECT gdf.*, gdp.player_id, p.name as player_name
 FROM game_day_fees gdf

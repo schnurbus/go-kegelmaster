@@ -62,6 +62,7 @@ type Querier interface {
 	GetGameDayCompetitionValuesByParticipant(ctx context.Context, gameDayParticipantID string) ([]GameDayCompetitionValue, error)
 	GetGameDayFeesByGameDay(ctx context.Context, gameDayID string) ([]GetGameDayFeesByGameDayRow, error)
 	GetGameDayFeesByParticipant(ctx context.Context, gameDayParticipantID string) ([]GameDayFee, error)
+	GetGameDayFeesByParticipantForUpdate(ctx context.Context, gameDayParticipantID string) ([]GameDayFee, error)
 	GetGameDayParticipants(ctx context.Context, gameDayID string) ([]GetGameDayParticipantsRow, error)
 	// ==================== SUMMARIES ====================
 	GetGameDaySummariesByClubID(ctx context.Context, clubID string) ([]GetGameDaySummariesByClubIDRow, error)
@@ -74,6 +75,7 @@ type Querier interface {
 	GetPenaltyTypeByID(ctx context.Context, id string) (PenaltyType, error)
 	GetPenaltyTypesByClubID(ctx context.Context, clubID string) ([]PenaltyType, error)
 	GetPlayerByID(ctx context.Context, id string) (Player, error)
+	GetPlayerByIDForUpdate(ctx context.Context, id string) (Player, error)
 	GetPlayerByUserIDAndClubID(ctx context.Context, arg GetPlayerByUserIDAndClubIDParams) (Player, error)
 	// ==================== PLAYER COMPETITION HISTORY (DASHBOARD) ====================
 	GetPlayerCompetitionHistoryByClubAndPlayer(ctx context.Context, arg GetPlayerCompetitionHistoryByClubAndPlayerParams) ([]GetPlayerCompetitionHistoryByClubAndPlayerRow, error)
@@ -83,6 +85,7 @@ type Querier interface {
 	// ==================== PLAYER PENALTY HISTORY (DASHBOARD) ====================
 	GetPlayerPenaltyHistoryByClubAndPlayer(ctx context.Context, arg GetPlayerPenaltyHistoryByClubAndPlayerParams) ([]GetPlayerPenaltyHistoryByClubAndPlayerRow, error)
 	GetPlayersByClubID(ctx context.Context, clubID string) ([]Player, error)
+	GetPlayersByClubIDForUpdate(ctx context.Context, clubID string) ([]Player, error)
 	GetRoleByID(ctx context.Context, id string) (Role, error)
 	GetRolePermissions(ctx context.Context, roleID string) ([]RolePermission, error)
 	GetRolesByClubID(ctx context.Context, clubID string) ([]Role, error)

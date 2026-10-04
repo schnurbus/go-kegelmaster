@@ -1,9 +1,9 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
 	"math"
 	"strings"
@@ -113,69 +113,30 @@ func (h *Handler) HandleCreateGameDay(c fiber.Ctx) error {
 		isDraft = *req.IsDraft
 	}
 
-	gameDayEntity, err := h.GameDayRepo.Create(ctx, gameday.CreateGameDayParams{
-		ClubID:  clubID,
-		Date:    date,
-		Notes:   req.Notes,
-		IsDraft: isDraft,
-	})
-	if err != nil {
-		slog.Error("create game day", "error", err)
-		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
-	}
-
-	// Create base fee transactions only when game day is not draft
-	if !gameDayEntity.IsDraft {
-		clubEntity, err := h.ClubRepo.GetByID(ctx, clubID)
+	var gameDayEntity gameday.GameDay
+	if isDraft {
+		gameDayEntity, err = h.GameDayRepo.Create(ctx, gameday.CreateGameDayParams{
+			ClubID:  clubID,
+			Date:    date,
+			Notes:   req.Notes,
+			IsDraft: true,
+		})
 		if err != nil {
-			slog.Error("get club for base fee", "error", err)
-		} else if clubEntity.BaseFee > 0 {
-			// Get all players for this club
-			players, err := h.PlayerRepo.GetByClubID(ctx, clubID)
-			if err != nil {
-				slog.Error("get players for base fee", "error", err)
-			} else {
-				// Process each player
-				for _, player := range players {
-					// Inactive players do not pay base fee
-					if player.Inactive {
-						continue
-					}
-					// Check if player has a role
-					if player.RoleID == nil {
-						continue
-					}
-
-					// Get the role
-					playerRole, err := h.RoleRepo.GetByID(ctx, *player.RoleID)
-					if err != nil {
-						slog.Error("get player role for base fee", "player", player.ID, "error", err)
-						continue
-					}
-
-					// Check if role pays base fee
-					if !playerRole.PaysBaseFee {
-						continue
-					}
-
-					// Create base fee transaction (negative = debt)
-					playerID := player.ID
-					gameDayID := gameDayEntity.ID
-					_, err = h.TransactionRepo.Create(ctx, transaction.CreateTransactionParams{
-						ClubID:           clubID,
-						PlayerID:         &playerID,
-						TransactionType:  transaction.TransactionTypeBaseFee,
-						Amount:           -clubEntity.BaseFee, // Negative for debt
-						Description:      fmt.Sprintf("Grundgebühr für %s", date.Format("02.01.2006")),
-						GameDayID:        &gameDayID,
-						TransactionDate:  gameDayEntity.Date,
-					})
-					if err != nil {
-						slog.Error("create base fee transaction", "player", player.ID, "error", err)
-						// Continue with other players
-					}
-				}
-			}
+			slog.Error("create game day", "error", err)
+			return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+		}
+	} else {
+		// Publishing books every base fee in the same transaction as the game day.
+		// A failure rolls the insert back, so the day cannot exist with missing fees.
+		gameDayEntity, err = h.TransactionRepo.SaveGameDayWithCharges(ctx, transaction.SaveGameDayWithChargesParams{
+			ClubID:     clubID,
+			Date:       date,
+			Notes:      req.Notes,
+			IsDraft:    false,
+			ChargeFees: true,
+		})
+		if err != nil {
+			return gameDayChargeError(err)
 		}
 	}
 
@@ -362,102 +323,51 @@ func (h *Handler) HandleUpdateGameDay(c fiber.Ctx) error {
 		isDraft = *req.IsDraft
 	}
 
-	updated, err := h.GameDayRepo.Update(ctx, gameday.UpdateGameDayParams{
-		ID:      gameDayID,
-		Date:    date,
-		Notes:   req.Notes,
-		IsDraft: isDraft,
-	})
-	if err != nil {
-		slog.Error("update game day", "error", err)
-		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
-	}
-
-	// When transitioning from draft to final: create base fee + all penalty fee transactions
-	if existing.IsDraft && !updated.IsDraft {
-		// 1) Base fee transactions for eligible players
-		clubEntity, err := h.ClubRepo.GetByID(ctx, clubID)
+	publishing := existing.IsDraft && !isDraft
+	var updated gameday.GameDay
+	if publishing {
+		// Status change and every fee share one transaction. On error the day stays a draft.
+		updated, err = h.TransactionRepo.SaveGameDayWithCharges(ctx, transaction.SaveGameDayWithChargesParams{
+			ID:         gameDayID,
+			ClubID:     clubID,
+			Date:       date,
+			Notes:      req.Notes,
+			IsDraft:    false,
+			ChargeFees: true,
+		})
 		if err != nil {
-			slog.Error("get club for base fee on finalize", "error", err)
-		} else if clubEntity.BaseFee > 0 {
-			existingTxs, err := h.TransactionRepo.ListByGameDay(ctx, updated.ID)
-			if err != nil {
-				slog.Error("list transactions for base fee skip check", "error", err)
-			}
-			baseFeePlayerIDs := make(map[string]struct{})
-			if err == nil {
-				for _, tx := range existingTxs {
-					if tx.TransactionType == transaction.TransactionTypeBaseFee && tx.PlayerID != nil {
-						baseFeePlayerIDs[*tx.PlayerID] = struct{}{}
-					}
-				}
-			}
-			players, err := h.PlayerRepo.GetByClubID(ctx, clubID)
-			if err != nil {
-				slog.Error("get players for base fee on finalize", "error", err)
-			} else {
-				for _, player := range players {
-					if player.Inactive || player.RoleID == nil {
-						continue
-					}
-					if _, exists := baseFeePlayerIDs[player.ID]; exists {
-						continue // already has base fee for this game day
-					}
-					playerRole, err := h.RoleRepo.GetByID(ctx, *player.RoleID)
-					if err != nil || !playerRole.PaysBaseFee {
-						continue
-					}
-					playerID := player.ID
-					gameDayID := updated.ID
-					_, _ = h.TransactionRepo.Create(ctx, transaction.CreateTransactionParams{
-						ClubID:           clubID,
-						PlayerID:         &playerID,
-						TransactionType:  transaction.TransactionTypeBaseFee,
-						Amount:           -clubEntity.BaseFee,
-						Description:      fmt.Sprintf("Grundgebühr für %s", updated.Date.Format("02.01.2006")),
-						GameDayID:        &gameDayID,
-						TransactionDate:  updated.Date,
-					})
-				}
-			}
+			return gameDayChargeError(err)
 		}
-
-		// 2) Fee transactions for all existing game_day_fees
-		detail, err := h.GameDayRepo.GetGameDayWithDetails(ctx, gameDayID)
+	} else {
+		updated, err = h.GameDayRepo.Update(ctx, gameday.UpdateGameDayParams{
+			ID:      gameDayID,
+			Date:    date,
+			Notes:   req.Notes,
+			IsDraft: isDraft,
+		})
 		if err != nil {
-			slog.Error("get game day details for fee transactions", "error", err)
-		} else {
-			for _, pwf := range detail.Participants {
-				playerID := pwf.Participant.PlayerID
-				for _, fee := range pwf.Fees {
-					_, err := h.TransactionRepo.GetByGameDayFee(ctx, fee.ID)
-					if err == nil {
-						continue // transaction already exists
-					}
-					amount := -(fee.PenaltyTypePrice * fee.Count / fee.QuantityScale)
-					quantityDesc := fmt.Sprintf("%d", fee.Count)
-					if fee.QuantityScale > 1 {
-						quantityDesc = fmt.Sprintf("%.2f", float64(fee.Count)/float64(fee.QuantityScale))
-					}
-					gameDayID := updated.ID
-					feeID := fee.ID
-					_, _ = h.TransactionRepo.Create(ctx, transaction.CreateTransactionParams{
-						ClubID:           clubID,
-						PlayerID:         &playerID,
-						TransactionType:  transaction.TransactionTypeFee,
-						Amount:           amount,
-						Description:      fmt.Sprintf("%s ×%s", fee.PenaltyTypeName, quantityDesc),
-						GameDayFeeID:     &feeID,
-						GameDayID:        &gameDayID,
-						TransactionDate:  updated.Date,
-					})
-				}
+			slog.Error("update game day", "error", err)
+			if errors.Is(err, gameday.ErrNotFound) {
+				return fiber.NewError(fiber.StatusNotFound, "Spieltag nicht gefunden")
 			}
+			return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 		}
 	}
 
 	audit.LogAudit(c, u.ID, audit.ActionGameDayUpdated, "club_id", clubID, "gameday_id", gameDayID)
 	return c.JSON(GameDayResponseFromEntity(updated))
+}
+
+func gameDayChargeError(err error) error {
+	var chargeErr *transaction.ChargeError
+	if errors.As(err, &chargeErr) {
+		return fiber.NewError(fiber.StatusBadRequest, chargeErr.Message)
+	}
+	if errors.Is(err, gameday.ErrNotFound) {
+		return fiber.NewError(fiber.StatusNotFound, "Spieltag nicht gefunden")
+	}
+	slog.Error("save game day with charges", "error", err)
+	return fiber.NewError(fiber.StatusInternalServerError, "Die Gebühren konnten nicht vollständig gebucht werden. Es wurde nichts geändert.")
 }
 
 func (h *Handler) HandleDeleteGameDay(c fiber.Ctx) error {
@@ -724,122 +634,24 @@ func (h *Handler) HandleUpdateFees(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
-	// Get existing fees to check what needs updating
-	existingFees, err := h.GameDayRepo.GetFeesByParticipant(ctx, participant.ID)
+	changes, err := h.participantFeeChanges(ctx, clubID, req.Fees)
 	if err != nil {
-		slog.Error("get existing fees", "error", err)
-		existingFees = []gameday.GameDayFee{} // Continue with empty list
+		return err
 	}
 
-	// Create a map of existing fees by penalty type ID
-	existingFeeMap := make(map[string]gameday.GameDayFee)
-	for _, ef := range existingFees {
-		existingFeeMap[ef.PenaltyTypeID] = ef
-	}
-
-	// Process each fee (game_day_fees always updated; transactions only when not draft)
-	for _, fee := range req.Fees {
-		if fee.Count <= 0 || math.IsNaN(fee.Count) || math.IsInf(fee.Count, 0) {
-			// Delete associated transaction only when game day is not draft
-			if !gd.IsDraft {
-				if existingFee, exists := existingFeeMap[fee.PenaltyTypeID]; exists {
-					existingTx, err := h.TransactionRepo.GetByGameDayFee(ctx, existingFee.ID)
-					if err == nil && existingTx != nil {
-						if err := h.TransactionRepo.DeleteFeeTransaction(ctx, existingTx.ID); err != nil {
-							slog.Error("delete fee transaction", "error", err)
-						}
-					}
-				}
-			}
-
-			// Delete fee
-			err = h.GameDayRepo.DeleteFee(ctx, participant.ID, fee.PenaltyTypeID)
-			if err != nil {
-				slog.Error("delete fee", "error", err)
-				// Continue processing other fees
-			}
-			continue
-		}
-
-		// Fetch current penalty type to snapshot
-		pt, err := h.PenaltyTypeRepo.GetByID(ctx, fee.PenaltyTypeID)
-		if err != nil {
-			if errors.Is(err, penaltytype.ErrNotFound) {
-				return fiber.NewError(fiber.StatusBadRequest, "Strafentyp "+fee.PenaltyTypeID+" nicht gefunden")
-			}
-			slog.Error("get penalty type", "error", err)
-			return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
-		}
-
-		// Verify penalty type belongs to club
-		if pt.ClubID != clubID {
-			return fiber.NewError(fiber.StatusBadRequest, "Strafentyp gehört nicht zu diesem Klub")
-		}
-
-		// Verify penalty type is active (not deleted)
-		if pt.DeletedAt != nil {
-			return fiber.NewError(fiber.StatusBadRequest, "Strafentyp "+pt.Name+" ist inaktiv")
-		}
-
-		// Check if this is an update
-		existingFee, isUpdate := existingFeeMap[fee.PenaltyTypeID]
-
-		// Scale quantity: 100 when decimal allowed, else 1
-		quantityScale := 1
-		if pt.AllowsDecimalQuantity {
-			quantityScale = 100
-		}
-		countStored := int(math.Round(fee.Count * float64(quantityScale)))
-		if countStored <= 0 {
-			continue
-		}
-
-		// Upsert fee with snapshot
-		createdFee, err := h.GameDayRepo.UpsertFee(ctx, gameday.UpsertFeeParams{
-			ParticipantID:          participant.ID,
-			PenaltyTypeID:          pt.ID,
-			PenaltyTypeName:        pt.Name,
-			PenaltyTypeDescription: pt.Description,
-			PenaltyTypePrice:       pt.Price,
-			Count:                  countStored,
-			QuantityScale:          quantityScale,
-		})
-		if err != nil {
-			slog.Error("upsert fee", "error", err)
-			return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
-		}
-
-		// Create or update fee transaction only when game day is not draft
-		if !gd.IsDraft {
-			amount := -(pt.Price * countStored / quantityScale)
-
-			if isUpdate {
-				existingTx, err := h.TransactionRepo.GetByGameDayFee(ctx, existingFee.ID)
-				if err == nil && existingTx != nil {
-					if err := h.TransactionRepo.DeleteFeeTransaction(ctx, existingTx.ID); err != nil {
-						slog.Error("delete old fee transaction", "error", err)
-					}
-				}
-			}
-
-			quantityDesc := fmt.Sprintf("%d", countStored)
-			if quantityScale > 1 {
-				quantityDesc = fmt.Sprintf("%.2f", float64(countStored)/float64(quantityScale))
-			}
-			_, err = h.TransactionRepo.Create(ctx, transaction.CreateTransactionParams{
-				ClubID:           clubID,
-				PlayerID:         &playerID,
-				TransactionType:  transaction.TransactionTypeFee,
-				Amount:           amount,
-				Description:      fmt.Sprintf("%s ×%s", pt.Name, quantityDesc),
-				GameDayFeeID:     &createdFee.ID,
-				GameDayID:        &gameDayID,
-				TransactionDate:  gd.Date,
-			})
-			if err != nil {
-				slog.Error("create fee transaction", "error", err)
-			}
-		}
+	// One transaction per participant. The previous per-fee commit loop exceeded
+	// the request deadline when every player was saved at once.
+	if err := h.TransactionRepo.SyncParticipantFees(ctx, transaction.SyncParticipantFeesParams{
+		ClubID:             clubID,
+		PlayerID:           playerID,
+		GameDayID:          gameDayID,
+		ParticipantID:      participant.ID,
+		TransactionDate:    gd.Date,
+		RecordTransactions: !gd.IsDraft,
+		Fees:               changes,
+	}); err != nil {
+		slog.Error("sync participant fees", "error", err, "player_id", playerID, "gameday_id", gameDayID)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
 	// Return updated participant with fees
@@ -851,6 +663,89 @@ func (h *Handler) HandleUpdateFees(c fiber.Ctx) error {
 
 	audit.LogAudit(c, u.ID, audit.ActionFeesUpdated, "club_id", clubID, "gameday_id", gameDayID, "player_id", playerID)
 	return c.JSON(FeesResponseFromEntities(fees))
+}
+
+func (h *Handler) participantFeeChanges(ctx context.Context, clubID string, fees []feeInput) ([]transaction.ParticipantFeeChange, error) {
+	ordered := make([]feeInput, 0, len(fees))
+	index := make(map[string]int, len(fees))
+	needsTypes := false
+	for _, fee := range fees {
+		id := strings.TrimSpace(fee.PenaltyTypeID)
+		if id == "" {
+			return nil, fiber.NewError(fiber.StatusBadRequest, "Strafentyp-ID ist erforderlich")
+		}
+		fee.PenaltyTypeID = id
+		if i, ok := index[id]; ok {
+			ordered[i] = fee
+		} else {
+			index[id] = len(ordered)
+			ordered = append(ordered, fee)
+		}
+		if fee.Count > 0 && !math.IsNaN(fee.Count) && !math.IsInf(fee.Count, 0) {
+			needsTypes = true
+		}
+	}
+
+	byID := map[string]penaltytype.PenaltyType{}
+	if needsTypes {
+		penaltyTypes, err := h.PenaltyTypeRepo.GetByClubID(ctx, clubID)
+		if err != nil {
+			slog.Error("list penalty types", "error", err)
+			return nil, fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+		}
+		byID = make(map[string]penaltytype.PenaltyType, len(penaltyTypes))
+		for _, pt := range penaltyTypes {
+			byID[pt.ID] = pt
+		}
+	}
+
+	changes := make([]transaction.ParticipantFeeChange, 0, len(ordered))
+	for _, fee := range ordered {
+		if fee.Count <= 0 || math.IsNaN(fee.Count) || math.IsInf(fee.Count, 0) {
+			changes = append(changes, transaction.ParticipantFeeChange{
+				PenaltyTypeID: fee.PenaltyTypeID,
+				Count:         0,
+			})
+			continue
+		}
+
+		pt, ok := byID[fee.PenaltyTypeID]
+		if !ok {
+			loaded, err := h.PenaltyTypeRepo.GetByID(ctx, fee.PenaltyTypeID)
+			if err != nil {
+				if errors.Is(err, penaltytype.ErrNotFound) {
+					return nil, fiber.NewError(fiber.StatusBadRequest, "Strafentyp "+fee.PenaltyTypeID+" nicht gefunden")
+				}
+				slog.Error("get penalty type", "error", err)
+				return nil, fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+			}
+			pt = loaded
+		}
+		if pt.ClubID != clubID {
+			return nil, fiber.NewError(fiber.StatusBadRequest, "Strafentyp gehört nicht zu diesem Klub")
+		}
+		if pt.DeletedAt != nil {
+			return nil, fiber.NewError(fiber.StatusBadRequest, "Strafentyp "+pt.Name+" ist inaktiv")
+		}
+
+		quantityScale := 1
+		if pt.AllowsDecimalQuantity {
+			quantityScale = 100
+		}
+		countStored := int(math.Round(fee.Count * float64(quantityScale)))
+		if countStored <= 0 {
+			continue
+		}
+		changes = append(changes, transaction.ParticipantFeeChange{
+			PenaltyTypeID:          pt.ID,
+			PenaltyTypeName:        pt.Name,
+			PenaltyTypeDescription: pt.Description,
+			PenaltyTypePrice:       pt.Price,
+			Count:                  countStored,
+			QuantityScale:          quantityScale,
+		})
+	}
+	return changes, nil
 }
 
 type updateCompetitionValuesRequest struct {

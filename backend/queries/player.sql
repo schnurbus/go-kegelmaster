@@ -32,10 +32,21 @@ RETURNING *;
 SELECT * FROM players
 WHERE id = $1;
 
+-- name: GetPlayerByIDForUpdate :one
+SELECT * FROM players
+WHERE id = $1
+FOR UPDATE;
+
 -- name: GetPlayersByClubID :many
 SELECT * FROM players
 WHERE club_id = $1
 ORDER BY created_at DESC;
+
+-- name: GetPlayersByClubIDForUpdate :many
+SELECT * FROM players
+WHERE club_id = $1
+ORDER BY id
+FOR UPDATE;
 
 -- name: UpdatePlayer :one
 UPDATE players

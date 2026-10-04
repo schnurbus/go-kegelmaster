@@ -33,6 +33,32 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 
 const GAMEDAY_HIDE_INACTIVE_KEY_PREFIX = "kegelmaster_gameday_hide_inactive_";
+const FEE_SAVE_CONCURRENCY = 3;
+
+async function mapWithConcurrency<T>(
+  items: T[],
+  limit: number,
+  worker: (item: T) => Promise<void>,
+): Promise<void> {
+  const queue = items.slice();
+  let firstError: unknown;
+  const run = async () => {
+    while (firstError === undefined) {
+      const item = queue.shift();
+      if (item === undefined) return;
+      try {
+        await worker(item);
+      } catch (err) {
+        if (firstError === undefined) firstError = err;
+        return;
+      }
+    }
+  };
+  const workers = Math.min(Math.max(limit, 1), items.length);
+  if (workers === 0) return;
+  await Promise.all(Array.from({ length: workers }, () => run()));
+  if (firstError !== undefined) throw firstError;
+}
 
 function loadGamedayHideInactive(clubId: string): boolean {
   try {
@@ -414,6 +440,9 @@ function GameDayDetailPage() {
     } catch (error: any) {
       console.error("Error saving game day:", error);
       toast.error(error.message || "Fehler beim Speichern");
+      if (!isNew) {
+        await fetchGameDay();
+      }
     } finally {
       setIsSaving(false);
     }
@@ -543,8 +572,9 @@ function GameDayDetailPage() {
     try {
       const csrfToken = await fetchCSRFToken();
 
-      // Save fees for each participant: send ALL penalty types with count (0 = delete fee)
-      const savePromises = orderedParticipants.map(async (participant) => {
+      // Save fees for each participant: send ALL penalty types with count (0 = delete fee).
+      // A small concurrency limit avoids a burst of transactions that times out the API.
+      await mapWithConcurrency(orderedParticipants, FEE_SAVE_CONCURRENCY, async (participant) => {
         const playerId = participant.player_id;
         const playerFees = feeInputs.get(playerId) || new Map();
 
@@ -567,11 +597,10 @@ function GameDayDetailPage() {
         );
 
         if (!response.ok) {
-          throw new Error(`Fehler beim Speichern für ${participant.player_name}`);
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || `Fehler beim Speichern für ${participant.player_name}`);
         }
       });
-
-      await Promise.all(savePromises);
 
       toast.success("Strafen gespeichert");
 
