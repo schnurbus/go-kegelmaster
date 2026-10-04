@@ -160,6 +160,32 @@ func (q *Queries) GetPlayerByID(ctx context.Context, id string) (Player, error) 
 	return i, err
 }
 
+const getPlayerByIDForUpdate = `-- name: GetPlayerByIDForUpdate :one
+SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, partner_id, created_at, updated_at FROM players
+WHERE id = $1
+FOR UPDATE
+`
+
+func (q *Queries) GetPlayerByIDForUpdate(ctx context.Context, id string) (Player, error) {
+	row := q.db.QueryRowContext(ctx, getPlayerByIDForUpdate, id)
+	var i Player
+	err := row.Scan(
+		&i.ID,
+		&i.ClubID,
+		&i.UserID,
+		&i.RoleID,
+		&i.Name,
+		&i.Balance,
+		&i.StartBalance,
+		&i.Gender,
+		&i.Inactive,
+		&i.PartnerID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getPlayerByUserIDAndClubID = `-- name: GetPlayerByUserIDAndClubID :one
 SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, partner_id, created_at, updated_at FROM players
 WHERE user_id = $1 AND club_id = $2
@@ -198,6 +224,49 @@ ORDER BY created_at DESC
 
 func (q *Queries) GetPlayersByClubID(ctx context.Context, clubID string) ([]Player, error) {
 	rows, err := q.db.QueryContext(ctx, getPlayersByClubID, clubID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Player
+	for rows.Next() {
+		var i Player
+		if err := rows.Scan(
+			&i.ID,
+			&i.ClubID,
+			&i.UserID,
+			&i.RoleID,
+			&i.Name,
+			&i.Balance,
+			&i.StartBalance,
+			&i.Gender,
+			&i.Inactive,
+			&i.PartnerID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getPlayersByClubIDForUpdate = `-- name: GetPlayersByClubIDForUpdate :many
+SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, partner_id, created_at, updated_at FROM players
+WHERE club_id = $1
+ORDER BY id
+FOR UPDATE
+`
+
+func (q *Queries) GetPlayersByClubIDForUpdate(ctx context.Context, clubID string) ([]Player, error) {
+	rows, err := q.db.QueryContext(ctx, getPlayersByClubIDForUpdate, clubID)
 	if err != nil {
 		return nil, err
 	}

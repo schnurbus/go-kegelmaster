@@ -502,6 +502,47 @@ func (q *Queries) GetGameDayFeesByParticipant(ctx context.Context, gameDayPartic
 	return items, nil
 }
 
+const getGameDayFeesByParticipantForUpdate = `-- name: GetGameDayFeesByParticipantForUpdate :many
+SELECT id, game_day_participant_id, penalty_type_id, penalty_type_name, penalty_type_description, penalty_type_price, count, quantity_scale, created_at, updated_at FROM game_day_fees
+WHERE game_day_participant_id = $1
+ORDER BY penalty_type_name ASC
+FOR UPDATE
+`
+
+func (q *Queries) GetGameDayFeesByParticipantForUpdate(ctx context.Context, gameDayParticipantID string) ([]GameDayFee, error) {
+	rows, err := q.db.QueryContext(ctx, getGameDayFeesByParticipantForUpdate, gameDayParticipantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GameDayFee
+	for rows.Next() {
+		var i GameDayFee
+		if err := rows.Scan(
+			&i.ID,
+			&i.GameDayParticipantID,
+			&i.PenaltyTypeID,
+			&i.PenaltyTypeName,
+			&i.PenaltyTypeDescription,
+			&i.PenaltyTypePrice,
+			&i.Count,
+			&i.QuantityScale,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getGameDayParticipants = `-- name: GetGameDayParticipants :many
 SELECT gdp.id, gdp.game_day_id, gdp.player_id, gdp.created_at, p.name as player_name, p.gender as player_gender
 FROM game_day_participants gdp
