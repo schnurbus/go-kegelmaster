@@ -33,3 +33,10 @@ WHERE id = $1;
 SELECT * FROM player_invitations
 WHERE player_id = $1
 ORDER BY created_at DESC;
+
+-- name: MarkPlayerInvitationAccepted :execrows
+UPDATE player_invitations
+SET accepted_at = $1
+WHERE id = $2
+  AND accepted_at IS NULL
+  AND expires_at > $1;

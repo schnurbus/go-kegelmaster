@@ -12,6 +12,7 @@ type Querier interface {
 	AcceptPlayerInvitation(ctx context.Context, arg AcceptPlayerInvitationParams) error
 	AddRolePermission(ctx context.Context, arg AddRolePermissionParams) (RolePermission, error)
 	CheckGameDayExistsByClubAndDate(ctx context.Context, arg CheckGameDayExistsByClubAndDateParams) (bool, error)
+	ConsumePasswordResetToken(ctx context.Context, token string) (PasswordResetToken, error)
 	CountPlayersByRoleIDForClub(ctx context.Context, clubID string) ([]CountPlayersByRoleIDForClubRow, error)
 	CountTransactionsByClub(ctx context.Context, clubID string) (int64, error)
 	CountTransactionsByPlayer(ctx context.Context, arg CountTransactionsByPlayerParams) (int64, error)
@@ -94,11 +95,14 @@ type Querier interface {
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id string) (User, error)
 	HasRolePermission(ctx context.Context, arg HasRolePermissionParams) (bool, error)
+	IncrementClubBalance(ctx context.Context, arg IncrementClubBalanceParams) (int32, error)
+	LinkPlayerToUser(ctx context.Context, arg LinkPlayerToUserParams) (int64, error)
 	ListTransactionsByClub(ctx context.Context, arg ListTransactionsByClubParams) ([]ListTransactionsByClubRow, error)
 	ListTransactionsByGameDay(ctx context.Context, gameDayID *string) ([]ListTransactionsByGameDayRow, error)
 	ListTransactionsByPlayer(ctx context.Context, arg ListTransactionsByPlayerParams) ([]ListTransactionsByPlayerRow, error)
 	ListTransactionsByType(ctx context.Context, arg ListTransactionsByTypeParams) ([]ListTransactionsByTypeRow, error)
 	MarkPenaltyTypeAsReplaced(ctx context.Context, arg MarkPenaltyTypeAsReplacedParams) error
+	MarkPlayerInvitationAccepted(ctx context.Context, arg MarkPlayerInvitationAcceptedParams) (int64, error)
 	RemoveRolePermission(ctx context.Context, arg RemoveRolePermissionParams) error
 	SetPenaltyTypeReplacedBy(ctx context.Context, arg SetPenaltyTypeReplacedByParams) error
 	SumAmountByClub(ctx context.Context, clubID string) (int64, error)

@@ -76,22 +76,30 @@ func (r *Repository) GetByID(ctx context.Context, id string) (User, error) {
 	return dbUserToUser(dbUser), nil
 }
 
-func (r *Repository) UpdatePassword(ctx context.Context, userID string, passwordHash string) error {
+// UpdatePassword stores a new password hash and records the change time,
+// which invalidates every session issued before changedAt.
+func (r *Repository) UpdatePassword(ctx context.Context, userID string, passwordHash string, changedAt time.Time) error {
 	return r.queries.UpdateUserPassword(ctx, db.UpdateUserPasswordParams{
-		ID:           userID,
-		PasswordHash: passwordHash,
+		ID:                userID,
+		PasswordHash:      passwordHash,
+		PasswordChangedAt: sql.NullTime{Time: changedAt, Valid: true},
 	})
 }
 
 // dbUserToUser converts a db.User to a user.User
 func dbUserToUser(dbUser db.User) User {
-	return User{
+	u := User{
 		ID:           dbUser.ID,
 		Email:        dbUser.Email,
 		PasswordHash: dbUser.PasswordHash,
 		CreatedAt:    dbUser.CreatedAt,
 		UpdatedAt:    dbUser.UpdatedAt,
 	}
+	if dbUser.PasswordChangedAt.Valid {
+		changedAt := dbUser.PasswordChangedAt.Time
+		u.PasswordChangedAt = &changedAt
+	}
+	return u
 }
 
 func isUniqueViolation(err error) bool {

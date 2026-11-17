@@ -10,6 +10,25 @@ import (
 	"time"
 )
 
+const consumePasswordResetToken = `-- name: ConsumePasswordResetToken :one
+DELETE FROM password_reset_tokens
+WHERE token = $1
+RETURNING id, user_id, token, expires_at, created_at
+`
+
+func (q *Queries) ConsumePasswordResetToken(ctx context.Context, token string) (PasswordResetToken, error) {
+	row := q.db.QueryRowContext(ctx, consumePasswordResetToken, token)
+	var i PasswordResetToken
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Token,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createPasswordResetToken = `-- name: CreatePasswordResetToken :one
 INSERT INTO password_reset_tokens (
     id,

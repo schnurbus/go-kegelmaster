@@ -38,6 +38,12 @@ type Config struct {
 	BuyMeACoffeeURL string
 	// LogLevel: "debug" loggt auch GET/HEAD-Requests; "info" (oder leer) nur Mutationen und Fehler.
 	LogLevel string
+	// ProxyHeader: Header mit der Client-IP hinter einem Reverse Proxy (z. B. "X-Forwarded-For").
+	// Wird nur ausgewertet, wenn die Anfrage von einem Proxy aus TrustedProxies kommt.
+	ProxyHeader string
+	// TrustedProxies: kommagetrennte IPs/CIDRs vertrauenswürdiger Proxies; zusätzlich
+	// die Schlüsselwörter "private", "loopback" und "linklocal".
+	TrustedProxies string
 }
 
 // Load builds a Config from process environment variables, applying defaults
@@ -68,6 +74,8 @@ func Load() Config {
 		DatenschutzHTML:             os.Getenv("DATENSCHUTZ_HTML"),
 		BuyMeACoffeeURL:             strings.TrimSpace(os.Getenv("BUY_ME_A_COFFEE_URL")),
 		LogLevel:                    getEnv("LOG_LEVEL", "info"),
+		ProxyHeader:                 strings.TrimSpace(os.Getenv("PROXY_HEADER")),
+		TrustedProxies:              os.Getenv("TRUSTED_PROXIES"),
 	}
 
 	return cfg
@@ -83,7 +91,7 @@ func getEnvBool(key string, fallback bool) bool {
 	if value == "" {
 		return fallback
 	}
-	switch value {
+	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "1", "true", "on", "yes":
 		return true
 	}

@@ -74,3 +74,9 @@ RETURNING *;
 DELETE FROM clubs
 WHERE id = $1;
 
+
+-- name: IncrementClubBalance :one
+UPDATE clubs
+SET balance = balance + $1, updated_at = $2
+WHERE id = $3
+RETURNING balance;

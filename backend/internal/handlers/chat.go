@@ -8,8 +8,10 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	neturl "net/url"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/gofiber/fiber/v3"
 )
@@ -18,11 +20,12 @@ import (
 var assistantContext string
 
 const (
-	maxChatMessageLength   = 2000
-	maxChatHistoryEntries  = 5
-	geminiRequestTimeout   = 30 * time.Second
-	defaultGeminiModel     = "gemini-2.5-flash"
-	geminiMaxRetries       = 1
+	maxChatMessageLength  = 2000
+	maxChatHistoryEntries = 5
+	maxChatPageLength     = 200
+	geminiRequestTimeout  = 30 * time.Second
+	defaultGeminiModel    = "gemini-2.5-flash"
+	geminiMaxRetries      = 1
 )
 
 type chatHistoryEntry struct {
@@ -31,9 +34,9 @@ type chatHistoryEntry struct {
 }
 
 type chatRequest struct {
-	Message     string            `json:"message"`
+	Message     string             `json:"message"`
 	History     []chatHistoryEntry `json:"history"`
-	CurrentPage string            `json:"current_page"`
+	CurrentPage string             `json:"current_page"`
 }
 
 type chatResponse struct {
@@ -71,7 +74,9 @@ func (h *Handler) HandleChat(c fiber.Ctx) error {
 		return err
 	}
 
-	ctx, cancel := h.RequestContext()
+	// The default 5 s request context is far shorter than a Gemini answer takes;
+	// allow every attempt its full timeout.
+	ctx, cancel := context.WithTimeout(context.Background(), geminiRequestTimeout*(geminiMaxRetries+1))
 	defer cancel()
 
 	_, err := h.UserFromCookie(ctx, c)
@@ -108,9 +113,12 @@ func (h *Handler) HandleChat(c fiber.Ctx) error {
 			r = "user"
 		}
 		history[i].Role = r
+		// History comes from the client; cap it like the message itself so a
+		// request cannot inflate the prompt sent to the paid API.
+		history[i].Text = truncateRunes(strings.TrimSpace(history[i].Text), maxChatMessageLength)
 	}
 
-	currentPage := strings.TrimSpace(req.CurrentPage)
+	currentPage := truncateRunes(strings.TrimSpace(req.CurrentPage), maxChatPageLength)
 
 	reply, err := h.callGemini(ctx, msg, history, currentPage)
 	if err != nil {
@@ -158,7 +166,9 @@ func (h *Handler) callGemini(ctx context.Context, userMessage string, history []
 	if model == "" {
 		model = defaultGeminiModel
 	}
-	url := "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + h.Config.GeminiAPIKey
+	// The key goes into a header: in the query string it would end up in
+	// *url.Error messages and from there in the logs.
+	url := "https://generativelanguage.googleapis.com/v1beta/models/" + neturl.PathEscape(model) + ":generateContent"
 
 	var lastErr error
 	for attempt := 0; attempt <= geminiMaxRetries; attempt++ {
@@ -167,9 +177,9 @@ func (h *Handler) callGemini(ctx context.Context, userMessage string, history []
 			return "", err
 		}
 		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("x-goog-api-key", h.Config.GeminiAPIKey)
 
-		client := &http.Client{Timeout: geminiRequestTimeout}
-		resp, err := client.Do(req)
+		resp, err := geminiHTTPClient.Do(req)
 		if err != nil {
 			lastErr = err
 			continue
@@ -198,4 +208,16 @@ func (h *Handler) callGemini(ctx context.Context, userMessage string, history []
 		return geminiResp.Candidates[0].Content.Parts[0].Text, nil
 	}
 	return "", lastErr
+}
+
+// geminiHTTPClient is shared so connections to the API are reused.
+var geminiHTTPClient = &http.Client{Timeout: geminiRequestTimeout}
+
+// truncateRunes shortens s to at most n runes without splitting a character.
+func truncateRunes(s string, n int) string {
+	if utf8.RuneCountInString(s) <= n {
+		return s
+	}
+	r := []rune(s)
+	return string(r[:n])
 }

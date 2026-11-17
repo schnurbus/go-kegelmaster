@@ -91,6 +91,8 @@ paths:
           description: Erfolgreich eingeloggt
         "401":
           description: Anmeldung fehlgeschlagen
+        "429":
+          description: Zu viele Anmeldeversuche (Rate-Limit pro Client-IP)
   /api/auth/logout:
     post:
       summary: Logout (Cookie löschen)
@@ -647,6 +649,10 @@ paths:
           description: Account erstellt und eingeloggt
         "400":
           description: Ungültig oder abgelaufen
+        "409":
+          description: Spieler ist bereits verknüpft oder der User hat im Klub bereits einen Spieler
+        "410":
+          description: Einladung abgelaufen oder bereits angenommen
   /api/clubs/{clubId}/penalty-types:
     get:
       summary: Strafentypen des Clubs

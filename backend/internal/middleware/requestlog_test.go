@@ -2,8 +2,8 @@ package middleware
 
 import (
 	"context"
-	"net/http"
 	"log/slog"
+	"net/http"
 	"sync"
 	"testing"
 
@@ -181,5 +181,48 @@ func TestRequestLog_userIDExtractor(t *testing.T) {
 	})
 	if userID != "user-123" {
 		t.Errorf("user_id: got %q", userID)
+	}
+}
+
+// Handlers report failures by returning an error; those requests must be
+// logged with the error's status even though the app's error handler sets
+// the response status only later.
+func TestRequestLog_ReturnedErrorIsLogged(t *testing.T) {
+	cap := &captureHandler{}
+	oldLogger := slog.Default()
+	slog.SetDefault(slog.New(cap))
+	defer slog.SetDefault(oldLogger)
+
+	app := fiber.New()
+	app.Use(RequestLog(RequestLogConfig{DebugLogRequests: false}))
+	app.Get("/forbidden", func(c fiber.Ctx) error {
+		return fiber.NewError(fiber.StatusForbidden, "nope")
+	})
+
+	req, _ := http.NewRequest(http.MethodGet, "/forbidden", nil)
+	resp, err := app.Test(req, fiber.TestConfig{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != fiber.StatusForbidden {
+		t.Fatalf("expected 403, got %d", resp.StatusCode)
+	}
+
+	records := cap.getRecords()
+	if len(records) != 1 {
+		t.Fatalf("expected 1 log record, got %d", len(records))
+	}
+	var status int64
+	records[0].Attrs(func(a slog.Attr) bool {
+		if a.Key == "status" {
+			status = a.Value.Int64()
+		}
+		return true
+	})
+	if status != fiber.StatusForbidden {
+		t.Errorf("expected logged status 403, got %d", status)
+	}
+	if records[0].Level != slog.LevelWarn {
+		t.Errorf("expected warn level, got %v", records[0].Level)
 	}
 }

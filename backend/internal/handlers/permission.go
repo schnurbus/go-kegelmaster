@@ -75,15 +75,21 @@ func (h *Handler) HandleGetMyPermissions(c fiber.Ctx) error {
 		return c.JSON(MyPermissionsResponse{IsOwner: false, Permissions: []PermissionEntry{}})
 	}
 
-	perms := make([]PermissionEntry, 0)
+	// One query for the role's permissions instead of a HasPermission call
+	// (three queries each) for every entity/permission combination.
+	rolePerms, err := h.RoleRepo.GetPermissions(ctx, *playerEntity.RoleID)
+	if err != nil {
+		slog.Error("get role permissions", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+	granted := make(map[[2]string]struct{}, len(rolePerms))
+	for _, rp := range rolePerms {
+		granted[[2]string{string(rp.EntityType), string(rp.PermissionType)}] = struct{}{}
+	}
+	perms := make([]PermissionEntry, 0, len(granted))
 	for _, et := range role.ValidEntityTypes() {
 		for _, pt := range role.ValidPermissionTypes() {
-			has, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, et, pt)
-			if err != nil {
-				slog.Error("check permission", "entity_type", et, "permission_type", pt, "error", err)
-				continue
-			}
-			if has {
+			if _, ok := granted[[2]string{string(et), string(pt)}]; ok {
 				perms = append(perms, PermissionEntry{
 					EntityType:     string(et),
 					PermissionType: string(pt),

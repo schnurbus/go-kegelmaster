@@ -153,3 +153,24 @@ func (q *Queries) GetPlayerInvitationsByPlayerID(ctx context.Context, playerID s
 	}
 	return items, nil
 }
+
+const markPlayerInvitationAccepted = `-- name: MarkPlayerInvitationAccepted :execrows
+UPDATE player_invitations
+SET accepted_at = $1
+WHERE id = $2
+  AND accepted_at IS NULL
+  AND expires_at > $1
+`
+
+type MarkPlayerInvitationAcceptedParams struct {
+	AcceptedAt sql.NullTime `json:"accepted_at"`
+	ID         string       `json:"id"`
+}
+
+func (q *Queries) MarkPlayerInvitationAccepted(ctx context.Context, arg MarkPlayerInvitationAcceptedParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, markPlayerInvitationAccepted, arg.AcceptedAt, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}

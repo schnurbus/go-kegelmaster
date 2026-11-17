@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"crypto/subtle"
 	"errors"
 	"strings"
 	"time"
@@ -26,7 +27,7 @@ func (h *Handler) RequestContext() (context.Context, context.CancelFunc) {
 func (h *Handler) ValidateCSRF(c fiber.Ctx) error {
 	header := strings.TrimSpace(c.Get("X-CSRF-Token"))
 	cookie := strings.TrimSpace(c.Cookies(csrfCookieName))
-	if header == "" || cookie == "" || header != cookie {
+	if header == "" || cookie == "" || subtle.ConstantTimeCompare([]byte(header), []byte(cookie)) != 1 {
 		return fiber.NewError(fiber.StatusForbidden, "CSRF-Token ungültig")
 	}
 	return nil
@@ -44,8 +45,18 @@ func (h *Handler) UserFromCookie(ctx context.Context, c fiber.Ctx) (user.User, e
 		return user.User{}, err
 	}
 
-	return h.UserRepo.GetByID(ctx, claims.UserID)
+	u, err := h.UserRepo.GetByID(ctx, claims.UserID)
+	if err != nil {
+		return user.User{}, err
+	}
+	// Tokens issued before the last password reset are no longer accepted.
+	if claims.IssuedAt == nil || !u.SessionValid(claims.IssuedAt.Time) {
+		return user.User{}, errSessionRevoked
+	}
+	return u, nil
 }
+
+var errSessionRevoked = errors.New("session issued before last password change")
 
 // IssueAuthCookie sets the authentication cookie for the user.
 // When rememberMe is false, the cookie has no Expires (session cookie); when true, it lasts RememberMeDays.
@@ -117,4 +128,3 @@ func (h *Handler) ClearCSRFCookie(c fiber.Ctx) {
 		Path:     "/",
 	})
 }
-

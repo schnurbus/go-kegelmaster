@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -13,13 +14,15 @@ import (
 )
 
 type Repository struct {
-	queries      *db.Queries
-	playerRepo   *player.Repository
+	queries    *db.Queries
+	database   *sql.DB
+	playerRepo *player.Repository
 }
 
 func NewRepository(dbConn *sql.DB, playerRepo *player.Repository) *Repository {
 	return &Repository{
 		queries:    db.New(dbConn),
+		database:   dbConn,
 		playerRepo: playerRepo,
 	}
 }
@@ -33,7 +36,7 @@ type CreateInvitationParams struct {
 // The invitation expires after 7 days.
 func (r *Repository) Create(ctx context.Context, params CreateInvitationParams) (PlayerInvitation, error) {
 	slog.Debug("creating invitation", "player_id", params.PlayerID, "email", params.Email)
-	
+
 	token, err := GenerateToken()
 	if err != nil {
 		slog.Error("failed to generate token", "error", err)
@@ -73,7 +76,7 @@ func min(a, b int) int {
 // GetByToken retrieves an invitation by its token.
 func (r *Repository) GetByToken(ctx context.Context, token string) (PlayerInvitation, error) {
 	slog.Debug("getting invitation by token", "token_preview", token[:min(8, len(token))]+"...")
-	
+
 	dbInvitation, err := r.queries.GetPlayerInvitationByToken(ctx, token)
 	if errors.Is(err, sql.ErrNoRows) {
 		slog.Warn("invitation not found by token", "token_preview", token[:min(8, len(token))]+"...")
@@ -104,74 +107,78 @@ func (r *Repository) GetByToken(ctx context.Context, token string) (PlayerInvita
 }
 
 // Accept marks an invitation as accepted and links the player to the user.
+// Everything runs in one database transaction with conditional updates, so an
+// invitation can be used only once, a player that already has a user is never
+// re-linked, and the player's balance is not touched.
 func (r *Repository) Accept(ctx context.Context, invitationID, userID string) error {
-	slog.Info("accepting invitation", "invitation_id", invitationID, "user_id", userID)
-	
-	// Get invitation to verify it exists and get player ID
-	dbInvitation, err := r.queries.GetPlayerInvitationByID(ctx, invitationID)
+	tx, err := r.database.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+	qtx := r.queries.WithTx(tx)
+
+	dbInvitation, err := qtx.GetPlayerInvitationByID(ctx, invitationID)
 	if errors.Is(err, sql.ErrNoRows) {
-		slog.Warn("invitation not found by ID", "invitation_id", invitationID)
 		return ErrNotFound
 	}
 	if err != nil {
-		slog.Error("failed to get invitation by ID", "error", err, "invitation_id", invitationID)
-		return err
+		return fmt.Errorf("get invitation: %w", err)
+	}
+	inv := dbInvitationToInvitation(dbInvitation)
+
+	playerRow, err := qtx.GetPlayerByIDForUpdate(ctx, inv.PlayerID)
+	if err != nil {
+		return fmt.Errorf("get player: %w", err)
+	}
+	if playerRow.UserID != nil {
+		return ErrPlayerAlreadyLinked
+	}
+	uid := userID
+	if _, err := qtx.GetPlayerByUserIDAndClubID(ctx, db.GetPlayerByUserIDAndClubIDParams{UserID: &uid, ClubID: playerRow.ClubID}); err == nil {
+		return ErrUserAlreadyInClub
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("check existing player: %w", err)
 	}
 
-	invitation := dbInvitationToInvitation(dbInvitation)
-	slog.Debug("invitation retrieved", "invitation_id", invitation.ID, "player_id", invitation.PlayerID, "email", invitation.Email)
-
-	// Check if expired
-	if time.Now().UTC().After(invitation.ExpiresAt) {
-		slog.Warn("invitation expired", "invitation_id", invitation.ID, "expires_at", invitation.ExpiresAt)
-		return ErrExpired
-	}
-
-	// Check if already accepted
-	if invitation.AcceptedAt != nil {
-		slog.Warn("invitation already accepted", "invitation_id", invitation.ID, "accepted_at", invitation.AcceptedAt)
-		return ErrAlreadyAccepted
-	}
-
-	// Mark invitation as accepted
 	now := time.Now().UTC()
-	slog.Debug("marking invitation as accepted", "invitation_id", invitationID, "accepted_at", now)
-	err = r.queries.AcceptPlayerInvitation(ctx, db.AcceptPlayerInvitationParams{
+	n, err := qtx.MarkPlayerInvitationAccepted(ctx, db.MarkPlayerInvitationAcceptedParams{
 		AcceptedAt: sql.NullTime{Time: now, Valid: true},
 		ID:         invitationID,
 	})
 	if err != nil {
-		slog.Error("failed to mark invitation as accepted", "error", err, "invitation_id", invitationID)
-		return err
+		return fmt.Errorf("mark invitation accepted: %w", err)
 	}
-	slog.Debug("invitation marked as accepted", "invitation_id", invitationID)
-
-	// Update player to link with user
-	slog.Debug("updating player to link with user", "player_id", invitation.PlayerID, "user_id", userID)
-	existingPlayer, err := r.playerRepo.GetByID(ctx, invitation.PlayerID)
-	if err != nil {
-		slog.Error("failed to get player for linking", "error", err, "player_id", invitation.PlayerID)
-		return err
+	if n == 0 {
+		if inv.AcceptedAt != nil {
+			return ErrAlreadyAccepted
+		}
+		if now.After(inv.ExpiresAt) {
+			return ErrExpired
+		}
+		// Accepted concurrently by another request.
+		return ErrAlreadyAccepted
 	}
 
-	_, err = r.playerRepo.Update(ctx, player.UpdatePlayerParams{
-		ID:           existingPlayer.ID,
-		Name:         existingPlayer.Name,
-		Balance:      existingPlayer.Balance,
-		StartBalance: existingPlayer.StartBalance,
-		UserID:       &userID,
-		RoleID:       existingPlayer.RoleID,
+	n, err = qtx.LinkPlayerToUser(ctx, db.LinkPlayerToUserParams{
+		UserID:    &uid,
+		UpdatedAt: now,
+		ID:        inv.PlayerID,
 	})
 	if err != nil {
-		slog.Error("failed to update player with user", "error", err, "player_id", invitation.PlayerID, "user_id", userID)
-		return err
+		return fmt.Errorf("link player: %w", err)
 	}
-	
-	slog.Info("invitation accepted and player linked", 
-		"invitation_id", invitationID, 
-		"player_id", invitation.PlayerID, 
-		"user_id", userID,
-		"email", invitation.Email)
+	if n == 0 {
+		return ErrPlayerAlreadyLinked
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit: %w", err)
+	}
+	slog.Info("invitation accepted and player linked",
+		"invitation_id", invitationID,
+		"player_id", inv.PlayerID,
+		"user_id", userID)
 	return nil
 }
 

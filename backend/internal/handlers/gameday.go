@@ -13,9 +13,9 @@ import (
 
 	"github.com/schnurbus/go-kegelmaster/backend/internal/audit"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
-	"github.com/schnurbus/go-kegelmaster/backend/internal/competition"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/gameday"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/penaltytype"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/player"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/role"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/transaction"
 )
@@ -504,6 +504,20 @@ func (h *Handler) HandleAddParticipant(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusNotFound, "Spieltag nicht gefunden")
 	}
 
+	// Only players of this club may join; otherwise fee bookings would change
+	// the balance of a player in another club.
+	participantPlayer, err := h.PlayerRepo.GetByID(ctx, req.PlayerID)
+	if err != nil {
+		if errors.Is(err, player.ErrNotFound) {
+			return fiber.NewError(fiber.StatusBadRequest, "Spieler nicht gefunden")
+		}
+		slog.Error("get player", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+	if participantPlayer.ClubID != clubID {
+		return fiber.NewError(fiber.StatusBadRequest, "Spieler gehört nicht zu diesem Klub")
+	}
+
 	participant, err := h.GameDayRepo.AddParticipant(ctx, gameDayID, req.PlayerID)
 	if err != nil {
 		slog.Error("add participant", "error", err)
@@ -567,6 +581,13 @@ func (h *Handler) HandleRemoveParticipant(c fiber.Ctx) error {
 		}
 		slog.Error("remove participant", "error", err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+
+	// Removing a participant cascades to its fees and their transactions;
+	// rebuild the player balance from the remaining ledger.
+	if err := h.TransactionRepo.RecalculatePlayerBalance(ctx, playerID); err != nil {
+		slog.Error("recalculate player balance after participant removal", "player_id", playerID, "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Teilnehmer entfernt, Saldo konnte nicht neu berechnet werden")
 	}
 
 	audit.LogAudit(c, u.ID, audit.ActionParticipantRemoved, "club_id", clubID, "gameday_id", gameDayID, "player_id", playerID)
@@ -815,16 +836,24 @@ func (h *Handler) HandleUpdateCompetitionValues(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "Ungültige Anfrage")
 	}
 
+	// Load the club's competitions once instead of one query per value, and
+	// reject competitions of other clubs.
+	clubCompetitions, err := h.CompetitionRepo.GetByClubID(ctx, clubID)
+	if err != nil {
+		slog.Error("list competitions", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+	competitionIDs := make(map[string]struct{}, len(clubCompetitions))
+	for _, comp := range clubCompetitions {
+		competitionIDs[comp.ID] = struct{}{}
+	}
 	for _, v := range req.Values {
-		_, err := h.CompetitionRepo.GetByID(ctx, v.CompetitionID)
-		if err != nil {
-			if errors.Is(err, competition.ErrNotFound) {
-				return fiber.NewError(fiber.StatusBadRequest, "Wettbewerb "+v.CompetitionID+" nicht gefunden")
-			}
-			slog.Error("get competition", "error", err)
-			return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+		if _, ok := competitionIDs[v.CompetitionID]; !ok {
+			return fiber.NewError(fiber.StatusBadRequest, "Wettbewerb "+v.CompetitionID+" nicht gefunden")
 		}
+	}
 
+	for _, v := range req.Values {
 		_, err = h.GameDayRepo.UpsertCompetitionValue(ctx, gameday.UpsertCompetitionValueParams{
 			ParticipantID: participant.ID,
 			CompetitionID: v.CompetitionID,

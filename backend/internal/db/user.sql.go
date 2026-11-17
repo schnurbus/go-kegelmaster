@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"time"
 )
 
@@ -24,7 +25,7 @@ INSERT INTO users (
     $4,
     $5
 )
-RETURNING id, email, password_hash, created_at, updated_at
+RETURNING id, email, password_hash, created_at, updated_at, password_changed_at
 `
 
 type CreateUserParams struct {
@@ -50,12 +51,13 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.PasswordHash,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PasswordChangedAt,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, password_hash, created_at, updated_at FROM users
+SELECT id, email, password_hash, created_at, updated_at, password_changed_at FROM users
 WHERE email = $1
 `
 
@@ -68,12 +70,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.PasswordHash,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PasswordChangedAt,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, password_hash, created_at, updated_at FROM users
+SELECT id, email, password_hash, created_at, updated_at, password_changed_at FROM users
 WHERE id = $1
 `
 
@@ -86,22 +89,24 @@ func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
 		&i.PasswordHash,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PasswordChangedAt,
 	)
 	return i, err
 }
 
 const updateUserPassword = `-- name: UpdateUserPassword :exec
 UPDATE users
-SET password_hash = $2, updated_at = now()
+SET password_hash = $2, password_changed_at = $3, updated_at = $3
 WHERE id = $1
 `
 
 type UpdateUserPasswordParams struct {
-	ID           string `json:"id"`
-	PasswordHash string `json:"password_hash"`
+	ID                string       `json:"id"`
+	PasswordHash      string       `json:"password_hash"`
+	PasswordChangedAt sql.NullTime `json:"password_changed_at"`
 }
 
 func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error {
-	_, err := q.db.ExecContext(ctx, updateUserPassword, arg.ID, arg.PasswordHash)
+	_, err := q.db.ExecContext(ctx, updateUserPassword, arg.ID, arg.PasswordHash, arg.PasswordChangedAt)
 	return err
 }

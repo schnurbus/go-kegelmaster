@@ -3,6 +3,7 @@ package transaction
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"testing"
 	"time"
 
@@ -71,75 +72,83 @@ func TestCreateDepositCouplesMode_InvalidAmount(t *testing.T) {
 	}
 }
 
-func TestCreateDepositCouplesMode_PlayerNotInClub(t *testing.T) {
+// Fixed IDs keep the lock order (sorted by ID) deterministic.
+const (
+	testPlayerA = "00000000-0000-0000-0000-00000000000a"
+	testPlayerB = "00000000-0000-0000-0000-00000000000b"
+)
+
+func newTestRepo(t *testing.T) (*Repository, sqlmock.Sqlmock, func()) {
+	t.Helper()
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("create sqlmock: %v", err)
 	}
-	defer db.Close()
+	repo := NewRepository(db, player.NewRepository(db), club.NewRepository(db), nil)
+	return repo, mock, func() { db.Close() }
+}
 
-	clubRepo := club.NewRepository(db)
-	playerRepo := player.NewRepository(db)
-	repo := NewRepository(db, playerRepo, clubRepo, nil)
+func TestCreateDepositCouplesMode_PlayerNotInClub(t *testing.T) {
+	repo, mock, done := newTestRepo(t)
+	defer done()
 
-	ctx := context.Background()
 	clubID := uuid.NewString()
-	otherClubID := uuid.NewString()
-	player1ID := uuid.NewString()
-	player2ID := uuid.NewString()
 	now := time.Now().UTC()
 
-	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
-		WithArgs(clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID, "Club", 0, 0, 500, true, true, uuid.NewString(), now, now))
-	mock.ExpectQuery(`SELECT .* FROM players`).
-		WithArgs(player1ID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "partner_id", "created_at", "updated_at"}).
-			AddRow(player1ID, clubID, nil, nil, "Player 1", -500, 0, nil, false, nil, now, now))
-	mock.ExpectQuery(`SELECT .* FROM players`).
-		WithArgs(player2ID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "partner_id", "created_at", "updated_at"}).
-			AddRow(player2ID, otherClubID, nil, nil, "Player 2", -500, 0, nil, false, nil, now, now))
+	mock.ExpectBegin()
+	mock.ExpectQuery("GetPlayerByIDForUpdate").
+		WithArgs(testPlayerA).
+		WillReturnRows(playerRow(testPlayerA, clubID, -500, now))
+	mock.ExpectQuery("GetPlayerByIDForUpdate").
+		WithArgs(testPlayerB).
+		WillReturnRows(playerRow(testPlayerB, uuid.NewString(), -500, now))
+	mock.ExpectRollback()
 
-	_, err = repo.CreateDepositCouplesMode(ctx, clubID, []string{player1ID, player2ID}, 1000, "Einzahlung", time.Now(), true)
-	if err == nil {
-		t.Fatal("expected error for player not in club, got nil")
+	_, err := repo.CreateDepositCouplesMode(context.Background(), clubID, []string{testPlayerA, testPlayerB}, 1000, "Einzahlung", now, true)
+	if !errors.Is(err, ErrPlayerNotInClub) {
+		t.Fatalf("expected ErrPlayerNotInClub, got %v", err)
 	}
-	if err.Error() != "player "+player2ID+" does not belong to club" {
-		t.Errorf("unexpected error: %v", err)
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet expectations: %v", err)
 	}
+}
 
+func TestCreateDepositCouplesMode_DuplicatePlayer(t *testing.T) {
+	repo, mock, done := newTestRepo(t)
+	defer done()
+
+	_, err := repo.CreateDepositCouplesMode(context.Background(), uuid.NewString(), []string{testPlayerA, testPlayerA}, 1000, "Einzahlung", time.Now(), true)
+	if !errors.Is(err, ErrDuplicatePlayer) {
+		t.Fatalf("expected ErrDuplicatePlayer, got %v", err)
+	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("unmet expectations: %v", err)
 	}
 }
 
 func TestCreateDepositCouplesMode_ClubNotFound(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("create sqlmock: %v", err)
-	}
-	defer db.Close()
+	repo, mock, done := newTestRepo(t)
+	defer done()
 
-	clubRepo := club.NewRepository(db)
-	playerRepo := player.NewRepository(db)
-	repo := NewRepository(db, playerRepo, clubRepo, nil)
-
-	ctx := context.Background()
 	clubID := uuid.NewString()
-	player1ID := uuid.NewString()
-	player2ID := uuid.NewString()
+	now := time.Now().UTC()
 
-	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
-		WithArgs(clubID).
+	mock.ExpectBegin()
+	mock.ExpectQuery("GetPlayerByIDForUpdate").
+		WithArgs(testPlayerA).
+		WillReturnRows(playerRow(testPlayerA, clubID, -500, now))
+	mock.ExpectQuery("GetPlayerByIDForUpdate").
+		WithArgs(testPlayerB).
+		WillReturnRows(playerRow(testPlayerB, clubID, -500, now))
+	mock.ExpectQuery("IncrementClubBalance").
+		WithArgs(1000, sqlmock.AnyArg(), clubID).
 		WillReturnError(sql.ErrNoRows)
+	mock.ExpectRollback()
 
-	_, err = repo.CreateDepositCouplesMode(ctx, clubID, []string{player1ID, player2ID}, 1000, "Einzahlung", time.Now(), true)
-	if err == nil {
-		t.Fatal("expected error when club not found, got nil")
+	_, err := repo.CreateDepositCouplesMode(context.Background(), clubID, []string{testPlayerA, testPlayerB}, 1000, "Einzahlung", now, true)
+	if !errors.Is(err, club.ErrNotFound) {
+		t.Fatalf("expected club.ErrNotFound, got %v", err)
 	}
-
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("unmet expectations: %v", err)
 	}
@@ -147,97 +156,174 @@ func TestCreateDepositCouplesMode_ClubNotFound(t *testing.T) {
 
 // TestCreateDepositCouplesMode_AutoTipFromPoolAllocation verifies pool allocation: total amount
 // is applied to debts first; remainder is auto-tip. Example: A -10,40, B -10,00, pay 20,50
-// → A +10,40, B +10,00, Auto-Tip +0,10.
+// → A +10,40, B +10,00, Auto-Tip +0,10. Players are passed as [B, A] to check that the
+// allocation follows the request order while locks follow the ID order.
 func TestCreateDepositCouplesMode_AutoTipFromPoolAllocation(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("create sqlmock: %v", err)
-	}
-	defer db.Close()
+	repo, mock, done := newTestRepo(t)
+	defer done()
 
-	clubRepo := club.NewRepository(db)
-	playerRepo := player.NewRepository(db)
-	repo := NewRepository(db, playerRepo, clubRepo, nil)
-
-	ctx := context.Background()
 	clubID := uuid.NewString()
-	player1ID := uuid.NewString() // A: debt 1040
-	player2ID := uuid.NewString()  // B: debt 1000
 	now := time.Now().UTC()
 	txDate := time.Date(2025, 2, 20, 12, 0, 0, 0, time.UTC)
 
-	// Club
-	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
-		WithArgs(clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID, "Club", 0, 0, 500, true, true, uuid.NewString(), now, now))
-	// Player 1: balance -1040 (10,40 € debt)
-	mock.ExpectQuery(`SELECT .* FROM players`).
-		WithArgs(player1ID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "partner_id", "created_at", "updated_at"}).
-			AddRow(player1ID, clubID, nil, nil, "Player A", -1040, 0, nil, false, nil, now, now))
-	// Player 2: balance -1000 (10,00 € debt)
-	mock.ExpectQuery(`SELECT .* FROM players`).
-		WithArgs(player2ID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "partner_id", "created_at", "updated_at"}).
-			AddRow(player2ID, clubID, nil, nil, "Player B", -1000, 0, nil, false, nil, now, now))
-
-	txCols := []string{"id", "club_id", "player_id", "transaction_type", "amount", "description", "game_day_fee_id", "game_day_id", "player_balance_before", "player_balance_after", "club_balance_before", "club_balance_after", "transaction_date", "created_at", "updated_at"}
-	addTxRow := func(amount int32, txType string, playerID string, balanceBefore, balanceAfter int) *sqlmock.Rows {
-		return sqlmock.NewRows(txCols).
-			AddRow(uuid.NewString(), clubID, playerID, txType, amount, nil, nil, nil, balanceBefore, balanceAfter, 0, 2050, txDate, now, now)
-	}
-
 	mock.ExpectBegin()
-	// Deposit 1040 for player 1
-	mock.ExpectQuery(`INSERT INTO transactions`).
-		WithArgs(sqlmock.AnyArg(), clubID, player1ID, "deposit", 1040, sqlmock.AnyArg(), nil, nil, -1040, 0, 0, 2050, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
-		WillReturnRows(addTxRow(1040, "deposit", player1ID, -1040, 0))
-	mock.ExpectExec(`UPDATE players`).
-		WithArgs(0, sqlmock.AnyArg(), player1ID).
+	mock.ExpectQuery("GetPlayerByIDForUpdate").
+		WithArgs(testPlayerA).
+		WillReturnRows(playerRow(testPlayerA, clubID, -1000, now))
+	mock.ExpectQuery("GetPlayerByIDForUpdate").
+		WithArgs(testPlayerB).
+		WillReturnRows(playerRow(testPlayerB, clubID, -1040, now))
+	mock.ExpectQuery("IncrementClubBalance").
+		WithArgs(2050, sqlmock.AnyArg(), clubID).
+		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(2050))
+	// Deposit 1040 for B (first in request order)
+	mock.ExpectQuery("INSERT INTO transactions").
+		WithArgs(sqlmock.AnyArg(), clubID, testPlayerB, "deposit", 1040, sqlmock.AnyArg(), nil, nil, -1040, 0, 0, 2050, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnRows(couplesTxRow(clubID, testPlayerB, "deposit", 1040, -1040, 0, txDate, now))
+	mock.ExpectExec("UpdatePlayerBalance").
+		WithArgs(0, sqlmock.AnyArg(), testPlayerB).
 		WillReturnResult(sqlmock.NewResult(0, 1))
-	// Deposit 1000 for player 2
-	mock.ExpectQuery(`INSERT INTO transactions`).
-		WithArgs(sqlmock.AnyArg(), clubID, player2ID, "deposit", 1000, sqlmock.AnyArg(), nil, nil, -1000, 0, 0, 2050, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
-		WillReturnRows(addTxRow(1000, "deposit", player2ID, -1000, 0))
-	mock.ExpectExec(`UPDATE players`).
-		WithArgs(0, sqlmock.AnyArg(), player2ID).
+	// Deposit 1000 for A
+	mock.ExpectQuery("INSERT INTO transactions").
+		WithArgs(sqlmock.AnyArg(), clubID, testPlayerA, "deposit", 1000, sqlmock.AnyArg(), nil, nil, -1000, 0, 0, 2050, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnRows(couplesTxRow(clubID, testPlayerA, "deposit", 1000, -1000, 0, txDate, now))
+	mock.ExpectExec("UpdatePlayerBalance").
+		WithArgs(0, sqlmock.AnyArg(), testPlayerA).
 		WillReturnResult(sqlmock.NewResult(0, 1))
-	// Auto-tip 10
-	mock.ExpectQuery(`INSERT INTO transactions`).
-		WithArgs(sqlmock.AnyArg(), clubID, player1ID, "tip", 10, sqlmock.AnyArg(), nil, nil, 0, 0, 0, 2050, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
-		WillReturnRows(addTxRow(10, "tip", player1ID, 0, 0))
-	mock.ExpectQuery(`UPDATE clubs`).
-		WithArgs("Club", 2050, 0, 500, true, true, sqlmock.AnyArg(), clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID, "Club", 2050, 0, 500, true, true, uuid.NewString(), now, now))
+	// Auto-tip 10 on the first player; balance unchanged, so no update
+	mock.ExpectQuery("INSERT INTO transactions").
+		WithArgs(sqlmock.AnyArg(), clubID, testPlayerB, "tip", 10, sqlmock.AnyArg(), nil, nil, 0, 0, 0, 2050, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnRows(couplesTxRow(clubID, testPlayerB, "tip", 10, 0, 0, txDate, now))
 	mock.ExpectCommit()
 
-	results, err := repo.CreateDepositCouplesMode(ctx, clubID, []string{player1ID, player2ID}, 2050, "Einzahlung", txDate, true)
+	results, err := repo.CreateDepositCouplesMode(context.Background(), clubID, []string{testPlayerB, testPlayerA}, 2050, "Einzahlung", txDate, true)
 	if err != nil {
 		t.Fatalf("CreateDepositCouplesMode: %v", err)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("unmet expectations: %v", err)
 	}
-
-	// Expect 3 transactions: deposit 1040, deposit 1000, tip 10
 	if len(results) != 3 {
 		t.Fatalf("expected 3 transactions, got %d", len(results))
 	}
-	amounts := make([]int, len(results))
-	types := make([]string, len(results))
-	for i, tx := range results {
-		amounts[i] = tx.Amount
-		types[i] = string(tx.TransactionType)
+	want := []struct {
+		txType string
+		amount int
+	}{{"deposit", 1040}, {"deposit", 1000}, {"tip", 10}}
+	for i, w := range want {
+		if string(results[i].TransactionType) != w.txType || results[i].Amount != w.amount {
+			t.Errorf("tx %d: expected %s %d, got %s %d", i, w.txType, w.amount, results[i].TransactionType, results[i].Amount)
+		}
 	}
-	if amounts[0] != 1040 || types[0] != "deposit" {
-		t.Errorf("first tx: expected deposit 1040, got %s %d", types[0], amounts[0])
+}
+
+func TestCreate_RejectsPlayerOfOtherClub(t *testing.T) {
+	repo, mock, done := newTestRepo(t)
+	defer done()
+
+	clubID := uuid.NewString()
+	playerID := testPlayerA
+	now := time.Now().UTC()
+
+	mock.ExpectBegin()
+	mock.ExpectQuery("GetPlayerByIDForUpdate").
+		WithArgs(playerID).
+		WillReturnRows(playerRow(playerID, uuid.NewString(), -500, now))
+	mock.ExpectRollback()
+
+	_, err := repo.Create(context.Background(), CreateTransactionParams{
+		ClubID:          clubID,
+		PlayerID:        &playerID,
+		TransactionType: TransactionTypeDeposit,
+		Amount:          500,
+	})
+	if !errors.Is(err, ErrPlayerNotInClub) {
+		t.Fatalf("expected ErrPlayerNotInClub, got %v", err)
 	}
-	if amounts[1] != 1000 || types[1] != "deposit" {
-		t.Errorf("second tx: expected deposit 1000, got %s %d", types[1], amounts[1])
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet expectations: %v", err)
 	}
-	if amounts[2] != 10 || types[2] != "tip" {
-		t.Errorf("third tx: expected tip 10, got %s %d", types[2], amounts[2])
+}
+
+func TestCreate_RejectsTooLargeAmount(t *testing.T) {
+	repo, mock, done := newTestRepo(t)
+	defer done()
+
+	_, err := repo.Create(context.Background(), CreateTransactionParams{
+		ClubID:          uuid.NewString(),
+		TransactionType: TransactionTypeExpense,
+		Amount:          -(MaxAmount + 1),
+	})
+	if !errors.Is(err, ErrInvalidAmount) {
+		t.Fatalf("expected ErrInvalidAmount, got %v", err)
 	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet expectations: %v", err)
+	}
+}
+
+// Deposit and auto-tip are booked in one database transaction based on the
+// locked balance, and the club balance is changed by atomic increments.
+func TestCreateWithAutoTip_SplitsInOneTransaction(t *testing.T) {
+	repo, mock, done := newTestRepo(t)
+	defer done()
+
+	clubID := uuid.NewString()
+	playerID := testPlayerA
+	now := time.Now().UTC()
+	txDate := time.Date(2025, 2, 20, 12, 0, 0, 0, time.UTC)
+
+	mock.ExpectBegin()
+	mock.ExpectQuery("GetPlayerByIDForUpdate").
+		WithArgs(playerID).
+		WillReturnRows(playerRow(playerID, clubID, -300, now))
+	// Deposit 300
+	mock.ExpectQuery("GetPlayerByIDForUpdate").
+		WithArgs(playerID).
+		WillReturnRows(playerRow(playerID, clubID, -300, now))
+	mock.ExpectQuery("IncrementClubBalance").
+		WithArgs(300, sqlmock.AnyArg(), clubID).
+		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(1300))
+	mock.ExpectQuery("INSERT INTO transactions").
+		WithArgs(sqlmock.AnyArg(), clubID, playerID, "deposit", 300, sqlmock.AnyArg(), nil, nil, -300, 0, 1000, 1300, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnRows(couplesTxRow(clubID, playerID, "deposit", 300, -300, 0, txDate, now))
+	mock.ExpectExec("UpdatePlayerBalance").
+		WithArgs(0, sqlmock.AnyArg(), playerID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	// Tip 200
+	mock.ExpectQuery("GetPlayerByIDForUpdate").
+		WithArgs(playerID).
+		WillReturnRows(playerRow(playerID, clubID, 0, now))
+	mock.ExpectQuery("IncrementClubBalance").
+		WithArgs(200, sqlmock.AnyArg(), clubID).
+		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(1500))
+	mock.ExpectQuery("INSERT INTO transactions").
+		WithArgs(sqlmock.AnyArg(), clubID, playerID, "tip", 200, sqlmock.AnyArg(), nil, nil, 0, 0, 1300, 1500, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnRows(couplesTxRow(clubID, playerID, "tip", 200, 0, 0, txDate, now))
+	mock.ExpectCommit()
+
+	results, err := repo.CreateWithAutoTip(context.Background(), CreateTransactionParams{
+		ClubID:          clubID,
+		PlayerID:        &playerID,
+		TransactionType: TransactionTypeDeposit,
+		Amount:          500,
+		TransactionDate: txDate,
+	}, true)
+	if err != nil {
+		t.Fatalf("CreateWithAutoTip: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet expectations: %v", err)
+	}
+	if len(results) != 2 || results[0].Amount != 300 || results[1].Amount != 200 {
+		t.Fatalf("unexpected results: %+v", results)
+	}
+}
+
+func couplesTxRow(clubID, playerID, txType string, amount, before, after int, txDate, now time.Time) *sqlmock.Rows {
+	return sqlmock.NewRows([]string{
+		"id", "club_id", "player_id", "transaction_type", "amount", "description", "game_day_fee_id", "game_day_id",
+		"player_balance_before", "player_balance_after", "club_balance_before", "club_balance_after",
+		"transaction_date", "created_at", "updated_at",
+	}).AddRow(uuid.NewString(), clubID, playerID, txType, amount, nil, nil, nil, before, after, 0, 0, txDate, now, now)
 }

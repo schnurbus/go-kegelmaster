@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"errors"
 	"log/slog"
 	"time"
 
@@ -26,19 +27,26 @@ func RequestLog(cfg RequestLogConfig) fiber.Handler {
 		c.Locals(requestStartKey, start)
 
 		err := c.Next()
-		if err != nil {
-			return err
-		}
 
+		// Handlers report failures by returning an error; the app's error
+		// handler sets the status only after this middleware returns. Derive
+		// the status here so failed requests are logged as well.
 		status := c.Response().StatusCode()
+		if err != nil {
+			status = fiber.StatusInternalServerError
+			var fe *fiber.Error
+			if errors.As(err, &fe) {
+				status = fe.Code
+			}
+		}
 		method := c.Method()
 		path := c.Path()
 		ip := c.IP()
 		latency := time.Since(start).Milliseconds()
 
 		isReadOnly := method == "GET" || method == "HEAD"
-		if isReadOnly && !cfg.DebugLogRequests {
-			return nil
+		if isReadOnly && !cfg.DebugLogRequests && status < 400 {
+			return err
 		}
 
 		mutation := !isReadOnly
@@ -67,7 +75,7 @@ func RequestLog(cfg RequestLogConfig) fiber.Handler {
 		}
 		slog.Log(c.Context(), level, "request", attrs...)
 
-		return nil
+		return err
 	}
 }
 
