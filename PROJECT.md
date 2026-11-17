@@ -70,6 +70,7 @@ Weitere Features kommen mit der Zeit dazu
 - Logging: slog
 - Caching: redis
 - Migrationstool: go migrate
+- Deployment: Helm-4-Chart unter `helm/` (nur App; Postgres/Redis extern)
 
 **Aktueller Stand (25.11.2025)**
 - Fiber v3 Boilerplate mit `/healthz` und `/api` Platzhaltern
@@ -368,4 +369,19 @@ Weitere Entitäten kommen mit der Zeit dazu
 - Snapshot-Indikator im UI (zeigt historische vs. aktuelle Preise)
 - Transaktions-System für Balance-Updates
 - Repository-Tests
+
+---
+
+## Letzte Implementierung: Helm-4-Chart (14. September 2026)
+
+### Implementierte Komponenten
+
+- ✅ Chart unter `helm/` (Chart-API v2, Helm 4)
+- ✅ Deployment, Service, optionales Ingress/HTTPRoute/HPA
+- ✅ Eine ConfigMap für nicht-sensible Env-Vars
+- ✅ Ein Secret für `JWT_SECRET`, `DATABASE_URL` (optional Redis/API-Keys); Alternative `secrets.existingSecret`
+- ✅ Health-Probes auf `/healthz`
+- ✅ README mit Install-Beispiel
+
+Postgres und Redis werden nicht mitdeployt. `AUTO_MIGRATE` ist im Chart-Default aktiv; bei mehreren Replicas können Migrationen konkurrieren.
 

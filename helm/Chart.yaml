@@ -1,0 +1,14 @@
+apiVersion: v2
+name: kegelmaster
+description: Deploys Kegelmaster (Go API with embedded frontend) onto Kubernetes
+type: application
+version: 0.1.0
+appVersion: "0.4.0"
+kubeVersion: ">=1.28.0-0"
+home: https://github.com/schnurbus/go-kegelmaster
+sources:
+  - https://github.com/schnurbus/go-kegelmaster
+keywords:
+  - kegelmaster
+  - bowling
+  - clubs
