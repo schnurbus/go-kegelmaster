@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.5.0](https://github.com/schnurbus/go-kegelmaster/compare/v0.4.1...v0.5.0) (2026-11-17)
+
+
+### Features
+
+* **helm:** add Kubernetes Helm 4 chart for app deployment ([#51](https://github.com/schnurbus/go-kegelmaster/issues/51)) ([c527091](https://github.com/schnurbus/go-kegelmaster/commit/c527091029ff0344f02e80d0b3e02b520942cf90))
+
+
+### Bug Fixes
+
+* harden security and fix balance races found in code review ([#54](https://github.com/schnurbus/go-kegelmaster/issues/54)) ([dc17b6b](https://github.com/schnurbus/go-kegelmaster/commit/dc17b6b2d67c40cbea028a02f6a061c03839dc94))
+
 ## [0.4.1](https://github.com/schnurbus/go-kegelmaster/compare/v0.4.0...v0.4.1) (2026-10-04)
 
 
