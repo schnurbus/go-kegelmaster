@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.6.0](https://github.com/schnurbus/go-kegelmaster/compare/v0.5.0...v0.6.0) (2026-11-17)
+
+
+### Features
+
+* personal API tokens and MCP server for AI agents ([#56](https://github.com/schnurbus/go-kegelmaster/issues/56)) ([3a84126](https://github.com/schnurbus/go-kegelmaster/commit/3a841261dcb577b854cb82273bcf20a1b582dff9))
+
 ## [0.5.0](https://github.com/schnurbus/go-kegelmaster/compare/v0.4.1...v0.5.0) (2026-11-17)
 
 
