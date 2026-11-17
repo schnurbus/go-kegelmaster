@@ -5,11 +5,19 @@ import (
 	"time"
 )
 
+// MaxAmount caps a single booking (in cents) well below the int32 range of
+// the amount and balance columns.
+const MaxAmount = 10_000_000
+
 var (
 	ErrNotFound      = errors.New("transaction not found")
 	ErrInvalidAmount = errors.New("amount must be positive")
 	ErrInvalidType   = errors.New("invalid transaction type")
 	ErrNotManual     = errors.New("only manual transactions can be deleted")
+	// ErrPlayerNotInClub is returned when a booking names a player of another club.
+	ErrPlayerNotInClub = errors.New("player does not belong to club")
+	// ErrDuplicatePlayer is returned when a couples-mode deposit lists a player twice.
+	ErrDuplicatePlayer = errors.New("player listed more than once")
 )
 
 // TransactionType represents the type of transaction
@@ -62,14 +70,14 @@ type Transaction struct {
 
 // CreateTransactionParams for creating a new transaction
 type CreateTransactionParams struct {
-	ClubID           string
-	PlayerID         *string
-	TransactionType  TransactionType
-	Amount           int
-	Description      string
-	GameDayFeeID     *string
-	GameDayID        *string
-	TransactionDate  time.Time // for fee/base_fee = game day date; for manual = effective date
+	ClubID          string
+	PlayerID        *string
+	TransactionType TransactionType
+	Amount          int
+	Description     string
+	GameDayFeeID    *string
+	GameDayID       *string
+	TransactionDate time.Time // for fee/base_fee = game day date; for manual = effective date
 }
 
 // ListTransactionsParams for querying transactions

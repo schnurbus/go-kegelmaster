@@ -84,18 +84,35 @@ func (r *Repository) SyncParticipantFees(ctx context.Context, params SyncPartici
 
 	// Lock the player before the fee rows. Fee transactions also reference the
 	// player, and the opposite order deadlocks with a concurrent insert.
-	var running int
-	if params.RecordTransactions {
-		playerRow, err := qtx.GetPlayerByIDForUpdate(ctx, params.PlayerID)
-		if err != nil {
-			return fmt.Errorf("load player: %w", err)
-		}
-		running = int(playerRow.Balance)
+	playerRow, err := qtx.GetPlayerByIDForUpdate(ctx, params.PlayerID)
+	if err != nil {
+		return fmt.Errorf("load player: %w", err)
 	}
+	if playerRow.ClubID != params.ClubID {
+		return ErrPlayerNotInClub
+	}
+	running := int(playerRow.Balance)
 
 	existingFees, err := qtx.GetGameDayFeesByParticipantForUpdate(ctx, params.ParticipantID)
 	if err != nil {
 		return fmt.Errorf("load fees: %w", err)
+	}
+
+	// A game day that was published and then set back to draft still has its
+	// fee transactions. Editing it must keep them in sync; otherwise deleted
+	// fees cascade their transactions away without a balance update, and
+	// changed counts keep the old amount even after publishing again.
+	if !params.RecordTransactions {
+		for _, fee := range existingFees {
+			_, found, err := feeTransactionByFeeID(ctx, qtx, fee.ID)
+			if err != nil {
+				return err
+			}
+			if found {
+				params.RecordTransactions = true
+				break
+			}
+		}
 	}
 	existingByType := make(map[string]db.GameDayFee, len(existingFees))
 	for _, fee := range existingFees {

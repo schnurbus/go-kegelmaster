@@ -13,9 +13,9 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/cors"
 	"github.com/gofiber/fiber/v3/middleware/limiter"
+	"github.com/gofiber/fiber/v3/middleware/recover"
 
 	"github.com/schnurbus/go-kegelmaster/backend/internal/auth"
-	"github.com/schnurbus/go-kegelmaster/backend/internal/middleware"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/competition"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/config"
@@ -23,6 +23,7 @@ import (
 	"github.com/schnurbus/go-kegelmaster/backend/internal/gameday"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/handlers"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/invitation"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/middleware"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/passwordreset"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/penaltytype"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/permission"
@@ -35,16 +36,16 @@ import (
 
 // Dependencies aggregates components the HTTP server relies on.
 type Dependencies struct {
-	UserRepo        *user.Repository
-	ClubRepo        *club.Repository
-	RoleRepo        *role.Repository
-	PlayerRepo      *player.Repository
-	PenaltyTypeRepo *penaltytype.Repository
-	CompetitionRepo *competition.Repository
-	GameDayRepo     *gameday.Repository
-	TransactionRepo *transaction.Repository
-	AuthService     *auth.Service
-	PermissionCheck *permission.Checker
+	UserRepo          *user.Repository
+	ClubRepo          *club.Repository
+	RoleRepo          *role.Repository
+	PlayerRepo        *player.Repository
+	PenaltyTypeRepo   *penaltytype.Repository
+	CompetitionRepo   *competition.Repository
+	GameDayRepo       *gameday.Repository
+	TransactionRepo   *transaction.Repository
+	AuthService       *auth.Service
+	PermissionCheck   *permission.Checker
 	InvitationRepo    *invitation.Repository
 	EmailService      *email.Service
 	PasswordResetRepo *passwordreset.Repository
@@ -81,16 +82,10 @@ func New(cfg config.Config, deps Dependencies) *Server {
 		panic("game day repository dependency is required")
 	}
 
-	app := fiber.New(fiber.Config{
-		ErrorHandler: func(c fiber.Ctx, err error) error {
-			code := fiber.StatusInternalServerError
-			var e *fiber.Error
-			if errors.As(err, &e) {
-				code = e.Code
-			}
-			return c.Status(code).JSON(fiber.Map{"message": err.Error()})
-		},
-	})
+	app := fiber.New(newFiberConfig(cfg))
+	// A panic in one handler must not take the whole process down.
+	app.Use(recover.New())
+	app.Use(securityHeaders)
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:     splitAndTrim(cfg.CORSOrigins),
 		AllowHeaders:     []string{"Content-Type", "X-CSRF-Token"},
@@ -111,16 +106,16 @@ func New(cfg config.Config, deps Dependencies) *Server {
 	app.Use(middleware.RequestLog(middleware.RequestLogFromConfig(cfg, userIDExtractor)))
 
 	handler := handlers.NewHandler(cfg, handlers.Dependencies{
-		UserRepo:        deps.UserRepo,
-		ClubRepo:        deps.ClubRepo,
-		RoleRepo:        deps.RoleRepo,
-		PlayerRepo:      deps.PlayerRepo,
-		PenaltyTypeRepo: deps.PenaltyTypeRepo,
-		CompetitionRepo: deps.CompetitionRepo,
-		GameDayRepo:     deps.GameDayRepo,
-		TransactionRepo: deps.TransactionRepo,
-		AuthService:     deps.AuthService,
-		PermissionCheck: deps.PermissionCheck,
+		UserRepo:          deps.UserRepo,
+		ClubRepo:          deps.ClubRepo,
+		RoleRepo:          deps.RoleRepo,
+		PlayerRepo:        deps.PlayerRepo,
+		PenaltyTypeRepo:   deps.PenaltyTypeRepo,
+		CompetitionRepo:   deps.CompetitionRepo,
+		GameDayRepo:       deps.GameDayRepo,
+		TransactionRepo:   deps.TransactionRepo,
+		AuthService:       deps.AuthService,
+		PermissionCheck:   deps.PermissionCheck,
 		InvitationRepo:    deps.InvitationRepo,
 		EmailService:      deps.EmailService,
 		PasswordResetRepo: deps.PasswordResetRepo,
@@ -183,13 +178,20 @@ func (s *Server) registerRoutes() {
 	authGroup.Get("/csrf-token", s.handlers.HandleCSRFCookie)
 	authGroup.Get("/me", s.handlers.HandleCurrentUser)
 	authGroup.Post("/register", s.handlers.HandleRegister)
-	authGroup.Post("/login", s.handlers.HandleLogin)
+	// Brute-force protection: per client IP (see PROXY_HEADER behind a reverse proxy).
+	authGroup.Post("/login", limiter.New(limiter.Config{
+		Max:        10,
+		Expiration: 5 * time.Minute,
+	}), s.handlers.HandleLogin)
 	authGroup.Post("/logout", s.handlers.HandleLogout)
 	authGroup.Post("/forgot-password", limiter.New(limiter.Config{
 		Max:        5,
 		Expiration: 15 * time.Minute,
 	}), s.handlers.HandleForgotPassword)
-	authGroup.Post("/reset-password", s.handlers.HandleResetPassword)
+	authGroup.Post("/reset-password", limiter.New(limiter.Config{
+		Max:        10,
+		Expiration: 15 * time.Minute,
+	}), s.handlers.HandleResetPassword)
 
 	clubsGroup := api.Group("/clubs")
 	clubsGroup.Get("/", s.handlers.HandleGetClubs)
@@ -345,6 +347,62 @@ func (s *Server) handleLegalPage(name, filePath, inlineHTML, title string) func(
 		c.Set(fiber.HeaderContentType, fiber.MIMETextHTMLCharsetUTF8)
 		return c.SendString(body)
 	}
+}
+
+// newFiberConfig builds the Fiber config: error handler and reverse-proxy trust.
+func newFiberConfig(cfg config.Config) fiber.Config {
+	fc := fiber.Config{ErrorHandler: errorHandler}
+	if cfg.ProxyHeader != "" {
+		// Without this, c.IP() is the proxy address behind a reverse proxy and
+		// every rate limit is shared by all clients.
+		fc.ProxyHeader = cfg.ProxyHeader
+		fc.TrustProxy = true
+		for _, p := range splitList(cfg.TrustedProxies) {
+			switch strings.ToLower(p) {
+			case "private":
+				fc.TrustProxyConfig.Private = true
+			case "loopback":
+				fc.TrustProxyConfig.Loopback = true
+			case "linklocal":
+				fc.TrustProxyConfig.LinkLocal = true
+			default:
+				fc.TrustProxyConfig.Proxies = append(fc.TrustProxyConfig.Proxies, p)
+			}
+		}
+	}
+	return fc
+}
+
+// errorHandler returns the message of fiber errors to the client. Any other
+// error is logged and answered with a generic message, so database or driver
+// details never reach the client.
+func errorHandler(c fiber.Ctx, err error) error {
+	var e *fiber.Error
+	if errors.As(err, &e) {
+		return c.Status(e.Code).JSON(fiber.Map{"message": e.Message})
+	}
+	slog.Error("unhandled error", "method", c.Method(), "path", c.Path(), "error", err)
+	return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Interner Fehler"})
+}
+
+// securityHeaders sets conservative browser security headers on every response.
+func securityHeaders(c fiber.Ctx) error {
+	c.Set("X-Content-Type-Options", "nosniff")
+	c.Set("X-Frame-Options", "SAMEORIGIN")
+	c.Set("Referrer-Policy", "strict-origin-when-cross-origin")
+	return c.Next()
+}
+
+// splitList splits a comma-separated list and drops empty entries.
+func splitList(input string) []string {
+	values := strings.Split(input, ",")
+	result := make([]string, 0, len(values))
+	for _, v := range values {
+		if trimmed := strings.TrimSpace(v); trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
 }
 
 func splitAndTrim(input string) []string {

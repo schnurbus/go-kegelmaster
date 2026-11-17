@@ -235,6 +235,26 @@ func (q *Queries) GetClubsForUser(ctx context.Context, userID string) ([]Club, e
 	return items, nil
 }
 
+const incrementClubBalance = `-- name: IncrementClubBalance :one
+UPDATE clubs
+SET balance = balance + $1, updated_at = $2
+WHERE id = $3
+RETURNING balance
+`
+
+type IncrementClubBalanceParams struct {
+	Balance   int32     `json:"balance"`
+	UpdatedAt time.Time `json:"updated_at"`
+	ID        string    `json:"id"`
+}
+
+func (q *Queries) IncrementClubBalance(ctx context.Context, arg IncrementClubBalanceParams) (int32, error) {
+	row := q.db.QueryRowContext(ctx, incrementClubBalance, arg.Balance, arg.UpdatedAt, arg.ID)
+	var balance int32
+	err := row.Scan(&balance)
+	return balance, err
+}
+
 const updateClub = `-- name: UpdateClub :one
 UPDATE clubs
 SET

@@ -17,7 +17,11 @@ type PlayerInvitation struct {
 }
 
 var (
-	ErrNotFound       = errors.New("invitation not found")
-	ErrExpired        = errors.New("invitation expired")
+	ErrNotFound        = errors.New("invitation not found")
+	ErrExpired         = errors.New("invitation expired")
 	ErrAlreadyAccepted = errors.New("invitation already accepted")
+	// ErrPlayerAlreadyLinked is returned when the invited player already has a user.
+	ErrPlayerAlreadyLinked = errors.New("player already linked to a user")
+	// ErrUserAlreadyInClub is returned when the accepting user already has a player in the club.
+	ErrUserAlreadyInClub = errors.New("user already has a player in this club")
 )

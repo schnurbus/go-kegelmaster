@@ -77,6 +77,10 @@ func (h *Handler) HandleCreatePlayer(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 
+	if err := h.requireRoleInClub(ctx, req.RoleID, clubID); err != nil {
+		return err
+	}
+
 	inactive := false
 	if req.Inactive != nil {
 		inactive = *req.Inactive
@@ -331,8 +335,8 @@ type updatePlayerRequest struct {
 	StartBalance int     `json:"start_balance"`
 	UserID       *string `json:"user_id"`
 	RoleID       *string `json:"role_id"`
-	Gender       *string `json:"gender"`    // male, female, or nil
-	Inactive     *bool   `json:"inactive"`  // optional, keep existing if nil
+	Gender       *string `json:"gender"`     // male, female, or nil
+	Inactive     *bool   `json:"inactive"`   // optional, keep existing if nil
 	PartnerID    *string `json:"partner_id"` // optional; null or omit = keep, uuid = set, empty = clear
 }
 
@@ -410,6 +414,8 @@ func (h *Handler) HandleUpdatePlayer(c fiber.Ctx) error {
 	roleID := req.RoleID
 	if roleID == nil || *roleID == "" {
 		roleID = existingPlayer.RoleID
+	} else if err := h.requireRoleInClub(ctx, roleID, clubID); err != nil {
+		return err
 	}
 	inactive := existingPlayer.Inactive
 	if req.Inactive != nil {
@@ -583,4 +589,24 @@ func (h *Handler) HandleRecalculatePlayerBalance(c fiber.Ctx) error {
 
 	audit.LogAudit(c, u.ID, audit.ActionPlayerBalanceRecalc, "club_id", clubID, "player_id", playerID)
 	return c.JSON(PlayerResponseFromEntity(updatedPlayer))
+}
+
+// requireRoleInClub rejects role IDs of other clubs. Permissions are resolved
+// through the player's role, so a foreign role would grant that club's rights.
+func (h *Handler) requireRoleInClub(ctx context.Context, roleID *string, clubID string) error {
+	if roleID == nil || *roleID == "" {
+		return nil
+	}
+	r, err := h.RoleRepo.GetByID(ctx, *roleID)
+	if err != nil {
+		if errors.Is(err, role.ErrNotFound) {
+			return fiber.NewError(fiber.StatusBadRequest, "Rolle nicht gefunden")
+		}
+		slog.Error("get role", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+	if r.ClubID != clubID {
+		return fiber.NewError(fiber.StatusBadRequest, "Rolle gehört nicht zu diesem Klub")
+	}
+	return nil
 }

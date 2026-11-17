@@ -2,6 +2,7 @@ package transaction
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -272,11 +273,16 @@ func TestSyncParticipantFees_DraftDoesNotTouchTransactions(t *testing.T) {
 
 	repo := NewRepository(db, nil, nil, nil)
 	now := time.Now().UTC()
+	clubID := uuid.NewString()
+	playerID := uuid.NewString()
 	participantID := uuid.NewString()
 	penaltyTypeID := uuid.NewString()
 	feeID := uuid.NewString()
 
 	mock.ExpectBegin()
+	mock.ExpectQuery("GetPlayerByIDForUpdate").
+		WithArgs(playerID).
+		WillReturnRows(playerRow(playerID, clubID, 0, now))
 	mock.ExpectQuery("GetGameDayFeesByParticipantForUpdate").
 		WithArgs(participantID).
 		WillReturnRows(feeRows())
@@ -285,8 +291,8 @@ func TestSyncParticipantFees_DraftDoesNotTouchTransactions(t *testing.T) {
 	mock.ExpectCommit()
 
 	err = repo.SyncParticipantFees(context.Background(), SyncParticipantFeesParams{
-		ClubID:             uuid.NewString(),
-		PlayerID:           uuid.NewString(),
+		ClubID:             clubID,
+		PlayerID:           playerID,
 		GameDayID:          uuid.NewString(),
 		ParticipantID:      participantID,
 		RecordTransactions: false,
@@ -300,6 +306,99 @@ func TestSyncParticipantFees_DraftDoesNotTouchTransactions(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("sync: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+// A published day that was set back to draft keeps its transactions; deleting
+// a fee there must revert the booking instead of letting the cascade drop it.
+func TestSyncParticipantFees_RedraftedDayKeepsLedgerInSync(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewRepository(db, nil, nil, nil)
+	now := time.Now().UTC()
+	clubID := uuid.NewString()
+	playerID := uuid.NewString()
+	gameDayID := uuid.NewString()
+	participantID := uuid.NewString()
+	penaltyTypeID := uuid.NewString()
+	feeID := uuid.NewString()
+	oldTxID := uuid.NewString()
+
+	mock.ExpectBegin()
+	mock.ExpectQuery("GetPlayerByIDForUpdate").
+		WithArgs(playerID).
+		WillReturnRows(playerRow(playerID, clubID, -200, now))
+	mock.ExpectQuery("GetGameDayFeesByParticipantForUpdate").
+		WithArgs(participantID).
+		WillReturnRows(feeRows().AddRow(feeID, participantID, penaltyTypeID, "Pudel", nil, 100, 2, 1, now, now))
+	// Detection: the fee already has a transaction.
+	mock.ExpectQuery("GetTransactionByGameDayFee").
+		WithArgs(feeID).
+		WillReturnRows(txRow(oldTxID, clubID, playerID, feeID, gameDayID, -200, "Pudel ×2", 0, -200, now))
+	mock.ExpectQuery("GetTransactionByGameDayFee").
+		WithArgs(feeID).
+		WillReturnRows(txRow(oldTxID, clubID, playerID, feeID, gameDayID, -200, "Pudel ×2", 0, -200, now))
+	mock.ExpectExec("DeleteTransaction").
+		WithArgs(oldTxID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec("DeleteGameDayFeeByParticipantAndType").
+		WithArgs(participantID, penaltyTypeID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec("UpdatePlayerBalance").
+		WithArgs(0, sqlmock.AnyArg(), playerID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	err = repo.SyncParticipantFees(context.Background(), SyncParticipantFeesParams{
+		ClubID:             clubID,
+		PlayerID:           playerID,
+		GameDayID:          gameDayID,
+		ParticipantID:      participantID,
+		TransactionDate:    now,
+		RecordTransactions: false,
+		Fees:               []ParticipantFeeChange{{PenaltyTypeID: penaltyTypeID, Count: 0}},
+	})
+	if err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestSyncParticipantFees_RejectsPlayerOfOtherClub(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("create sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewRepository(db, nil, nil, nil)
+	now := time.Now().UTC()
+	playerID := uuid.NewString()
+
+	mock.ExpectBegin()
+	mock.ExpectQuery("GetPlayerByIDForUpdate").
+		WithArgs(playerID).
+		WillReturnRows(playerRow(playerID, uuid.NewString(), 0, now))
+	mock.ExpectRollback()
+
+	err = repo.SyncParticipantFees(context.Background(), SyncParticipantFeesParams{
+		ClubID:             uuid.NewString(),
+		PlayerID:           playerID,
+		GameDayID:          uuid.NewString(),
+		ParticipantID:      uuid.NewString(),
+		RecordTransactions: true,
+	})
+	if !errors.Is(err, ErrPlayerNotInClub) {
+		t.Fatalf("expected ErrPlayerNotInClub, got %v", err)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)

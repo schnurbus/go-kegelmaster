@@ -9,6 +9,19 @@ type User struct {
 	ID           string
 	Email        string
 	PasswordHash string
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	// PasswordChangedAt is set when the password was reset or changed.
+	// Sessions issued before this point are rejected.
+	PasswordChangedAt *time.Time
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+}
+
+// SessionValid reports whether a session issued at issuedAt is still valid,
+// i.e. it was not issued before the last password change. JWT timestamps
+// have second precision, so the comparison truncates to seconds.
+func (u User) SessionValid(issuedAt time.Time) bool {
+	if u.PasswordChangedAt == nil {
+		return true
+	}
+	return !issuedAt.Truncate(time.Second).Before(u.PasswordChangedAt.Truncate(time.Second))
 }

@@ -190,6 +190,8 @@ func TestRepository_Create(t *testing.T) {
 - `IMPRESSUM_HTML`: (optional) Inhalt für das Impressum (HTML-String). Überschreibt Datei, wenn gesetzt.
 - `DATENSCHUTZ_HTML`: (optional) Inhalt für die Datenschutzerklärung (HTML-String). Überschreibt Datei, wenn gesetzt.
 - `BUY_ME_A_COFFEE_URL`: (optional) URL für „Buy Me a Coffee“. Wenn gesetzt, wird im App-Footer ein entsprechender Link angezeigt; ausgegeben unter `GET /api/config/public` als `buy_me_a_coffee_url`.
+- `PROXY_HEADER`: (optional) Header mit der echten Client-IP hinter einem Reverse Proxy (z. B. `X-Forwarded-For`). Ohne diese Einstellung sehen Rate-Limits (Login, Passwort-Reset, Chat) nur die Proxy-IP und gelten damit für alle Nutzer gemeinsam.
+- `TRUSTED_PROXIES`: (optional, nur mit `PROXY_HEADER`) Kommagetrennte IPs/CIDRs der vertrauenswürdigen Proxies; zusätzlich `private`, `loopback`, `linklocal`. Nur von diesen Adressen wird `PROXY_HEADER` ausgewertet.
 - `LOG_LEVEL`: (optional) Log-Level (`debug`, `info`, `warn`, `error`). Bei `debug` werden auch Leseanfragen (GET/HEAD) im Request-Log erfasst; sonst nur Mutationen und Fehler. Default: `info`.
 
 ### GitHub Actions / Release Please

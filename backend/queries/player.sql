@@ -81,3 +81,9 @@ SELECT role_id, COUNT(*) AS count
 FROM players
 WHERE club_id = $1 AND role_id IS NOT NULL
 GROUP BY role_id;
+
+-- name: LinkPlayerToUser :execrows
+UPDATE players
+SET user_id = $1, updated_at = $2
+WHERE id = $3
+  AND user_id IS NULL;

@@ -25,8 +25,8 @@ func TestRegister_Success(t *testing.T) {
 
 	mock.ExpectQuery(`INSERT INTO users`).
 		WithArgs(sqlmock.AnyArg(), strings.ToLower(email), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
-			AddRow(userID, strings.ToLower(email), "hash", now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at", "password_changed_at"}).
+			AddRow(userID, strings.ToLower(email), "hash", now, now, nil))
 
 	body := `{"email":"` + email + `","password":"super-safe-123"}`
 	req := mustJSONRequest(t, http.MethodPost, "/api/auth/register", body)
@@ -147,8 +147,8 @@ func TestLogin_Success(t *testing.T) {
 
 	mock.ExpectQuery(`SELECT id, email, password_hash`).
 		WithArgs(strings.ToLower(email)).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
-			AddRow(userID, strings.ToLower(email), hash, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at", "password_changed_at"}).
+			AddRow(userID, strings.ToLower(email), hash, now, now, nil))
 
 	body := `{"email":"` + email + `","password":"password123"}`
 	req := mustJSONRequest(t, http.MethodPost, "/api/auth/login", body)
@@ -219,8 +219,8 @@ func TestLogin_WrongPassword(t *testing.T) {
 
 	mock.ExpectQuery(`SELECT id, email, password_hash`).
 		WithArgs(strings.ToLower(email)).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
-			AddRow(userID, strings.ToLower(email), hash, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at", "password_changed_at"}).
+			AddRow(userID, strings.ToLower(email), hash, now, now, nil))
 
 	req := mustJSONRequest(t, http.MethodPost, "/api/auth/login", `{"email":"`+email+`","password":"wrong"}`)
 	resp := doRequest(t, srv, req)
@@ -305,8 +305,8 @@ func TestCurrentUser_Success(t *testing.T) {
 
 	mock.ExpectQuery(`SELECT id, email, password_hash`).
 		WithArgs(userID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at"}).
-			AddRow(userID, email, "hash", now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at", "password_changed_at"}).
+			AddRow(userID, email, "hash", now, now, nil))
 
 	req, _ := http.NewRequest(http.MethodGet, "/api/auth/me", nil)
 	req.AddCookie(&http.Cookie{Name: authCookieName, Value: token})

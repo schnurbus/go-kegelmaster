@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/schnurbus/go-kegelmaster/backend/internal/audit"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/gameday"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/player"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/role"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/transaction"
@@ -161,6 +163,9 @@ func (r createTransactionRequest) validate() error {
 	if r.Amount <= 0 {
 		return errors.New("Betrag muss positiv sein")
 	}
+	if r.Amount > transaction.MaxAmount {
+		return errors.New("Betrag ist zu hoch")
+	}
 
 	// Deposits and tips require a player (single or multiple for deposit in couples mode)
 	if txType == transaction.TransactionTypeDeposit || txType == transaction.TransactionTypeTip {
@@ -254,12 +259,12 @@ func (h *Handler) HandleCreateTransaction(c fiber.Ctx) error {
 			return fiber.NewError(fiber.StatusBadRequest, "Paar-Modus ist für diesen Club nicht aktiviert")
 		}
 		params := transaction.CreateTransactionParams{
-			ClubID:           clubID,
-			PlayerID:         req.PlayerID,
-			TransactionType:  txType,
-			Amount:           req.Amount,
-			Description:      strings.TrimSpace(req.Description),
-			TransactionDate:  txDate,
+			ClubID:          clubID,
+			PlayerID:        req.PlayerID,
+			TransactionType: txType,
+			Amount:          req.Amount,
+			Description:     strings.TrimSpace(req.Description),
+			TransactionDate: txDate,
 		}
 		if txType == transaction.TransactionTypeExpense {
 			params.Amount = -params.Amount
@@ -276,6 +281,14 @@ func (h *Handler) HandleCreateTransaction(c fiber.Ctx) error {
 	}
 
 	if err != nil {
+		switch {
+		case errors.Is(err, transaction.ErrPlayerNotInClub), errors.Is(err, player.ErrNotFound):
+			return fiber.NewError(fiber.StatusBadRequest, "Spieler gehört nicht zu diesem Klub")
+		case errors.Is(err, transaction.ErrDuplicatePlayer):
+			return fiber.NewError(fiber.StatusBadRequest, "Ein Spieler wurde mehrfach ausgewählt")
+		case errors.Is(err, transaction.ErrInvalidAmount):
+			return fiber.NewError(fiber.StatusBadRequest, "Ungültiger Betrag")
+		}
 		slog.Error("create transaction", "error", err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Fehler beim Erstellen der Transaktion")
 	}
@@ -446,6 +459,11 @@ func (h *Handler) HandleListGameDayTransactions(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusForbidden, "Keine Berechtigung")
 	}
 
+	// The game day must belong to the club the permission was checked for.
+	if err := h.requireGameDayInClub(ctx, gameDayID, clubID); err != nil {
+		return err
+	}
+
 	// Get transactions
 	transactions, err := h.TransactionRepo.ListByGameDay(ctx, gameDayID)
 	if err != nil {
@@ -486,6 +504,11 @@ func (h *Handler) HandleGetGameDayTransactionSummary(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusForbidden, "Keine Berechtigung")
 	}
 
+	// The game day must belong to the club the permission was checked for.
+	if err := h.requireGameDayInClub(ctx, gameDayID, clubID); err != nil {
+		return err
+	}
+
 	// Get summary
 	summary, err := h.TransactionRepo.GetGameDaySummary(ctx, gameDayID)
 	if err != nil {
@@ -494,4 +517,20 @@ func (h *Handler) HandleGetGameDayTransactionSummary(c fiber.Ctx) error {
 	}
 
 	return c.JSON(GameDayTransactionSummaryResponseFromEntity(summary))
+}
+
+// requireGameDayInClub returns 404 unless the game day exists and belongs to clubID.
+func (h *Handler) requireGameDayInClub(ctx context.Context, gameDayID, clubID string) error {
+	gd, err := h.GameDayRepo.GetByID(ctx, gameDayID)
+	if err != nil {
+		if errors.Is(err, gameday.ErrNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "Spieltag nicht gefunden")
+		}
+		slog.Error("get game day", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+	if gd.ClubID != clubID {
+		return fiber.NewError(fiber.StatusNotFound, "Spieltag nicht gefunden")
+	}
+	return nil
 }

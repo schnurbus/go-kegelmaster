@@ -34,7 +34,7 @@ func (r invitePlayerRequest) validate() error {
 // HandleInvitePlayer sends an invitation email to link a user to a player.
 func (h *Handler) HandleInvitePlayer(c fiber.Ctx) error {
 	slog.Info("handle invite player request started")
-	
+
 	if err := h.ValidateCSRF(c); err != nil {
 		slog.Warn("CSRF validation failed", "error", err)
 		return err
@@ -52,7 +52,7 @@ func (h *Handler) HandleInvitePlayer(c fiber.Ctx) error {
 	clubID := c.Params("clubId")
 	playerID := c.Params("id")
 	slog.Info("invite player request", "user_id", u.ID, "club_id", clubID, "player_id", playerID)
-	
+
 	if clubID == "" || playerID == "" {
 		slog.Warn("missing parameters", "club_id", clubID, "player_id", playerID)
 		return fiber.NewError(fiber.StatusBadRequest, "Club-ID und Player-ID sind erforderlich")
@@ -108,7 +108,7 @@ func (h *Handler) HandleInvitePlayer(c fiber.Ctx) error {
 		slog.Warn("request validation failed", "error", err, "email", req.Email)
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
-	
+
 	slog.Info("creating invitation", "player_id", playerID, "email", req.Email)
 
 	// Create invitation
@@ -148,14 +148,14 @@ func (h *Handler) HandleInvitePlayer(c fiber.Ctx) error {
 			"warning":       "E-Mail-Service ist nicht konfiguriert. Bitte überprüfen Sie RESEND_API_KEY und RESEND_FROM_EMAIL",
 		})
 	}
-	
+
 	if err := h.EmailSvc.SendInvitationEmail(
 		inv.Email,
 		existingPlayer.Name,
 		invitationLink,
 	); err != nil {
-		slog.Error("send invitation email failed", 
-			"error", err, 
+		slog.Error("send invitation email failed",
+			"error", err,
 			"invitation_id", inv.ID,
 			"email", inv.Email,
 			"player", existingPlayer.Name,
@@ -167,15 +167,15 @@ func (h *Handler) HandleInvitePlayer(c fiber.Ctx) error {
 			"email":         inv.Email,
 			"expires_at":    inv.ExpiresAt,
 			"message":       "Einladung wurde erstellt, aber E-Mail konnte nicht versendet werden",
-			"warning":       err.Error(),
+			"warning":       "E-Mail-Versand fehlgeschlagen. Bitte später erneut versuchen.",
 		})
 	}
 
-	slog.Info("invite player request completed successfully", 
-		"invitation_id", inv.ID, 
-		"player_id", playerID, 
+	slog.Info("invite player request completed successfully",
+		"invitation_id", inv.ID,
+		"player_id", playerID,
 		"email", inv.Email)
-	
+
 	return c.JSON(fiber.Map{
 		"invitation_id": inv.ID,
 		"email":         inv.Email,
@@ -195,7 +195,7 @@ func (h *Handler) HandleGetInvitation(c fiber.Ctx) error {
 		tokenPreview = token[:8] + "..."
 	}
 	slog.Info("get invitation request", "token", tokenPreview)
-	
+
 	if token == "" {
 		slog.Warn("empty token in request")
 		return fiber.NewError(fiber.StatusBadRequest, "Token ist erforderlich")
@@ -248,7 +248,7 @@ func (h *Handler) HandleGetInvitation(c fiber.Ctx) error {
 // HandleAcceptInvitation accepts an invitation and links the player to the current user.
 func (h *Handler) HandleAcceptInvitation(c fiber.Ctx) error {
 	slog.Info("handle accept invitation request started")
-	
+
 	if err := h.ValidateCSRF(c); err != nil {
 		slog.Warn("CSRF validation failed", "error", err)
 		return err
@@ -269,7 +269,7 @@ func (h *Handler) HandleAcceptInvitation(c fiber.Ctx) error {
 		tokenPreview = token[:8] + "..."
 	}
 	slog.Info("accept invitation request", "user_id", u.ID, "token", tokenPreview)
-	
+
 	if token == "" {
 		slog.Warn("empty token in accept request")
 		return fiber.NewError(fiber.StatusBadRequest, "Token ist erforderlich")
@@ -302,9 +302,19 @@ func (h *Handler) HandleAcceptInvitation(c fiber.Ctx) error {
 
 	// Accept invitation (this will update the player's user_id)
 	if err := h.InvitationRepo.Accept(ctx, inv.ID, u.ID); err != nil {
-		slog.Error("accept invitation failed", 
-			"error", err, 
-			"invitation_id", inv.ID, 
+		switch {
+		case errors.Is(err, invitation.ErrExpired):
+			return fiber.NewError(fiber.StatusGone, "Einladung ist abgelaufen")
+		case errors.Is(err, invitation.ErrAlreadyAccepted):
+			return fiber.NewError(fiber.StatusGone, "Einladung wurde bereits akzeptiert")
+		case errors.Is(err, invitation.ErrPlayerAlreadyLinked):
+			return fiber.NewError(fiber.StatusConflict, "Dieser Spieler ist bereits mit einem Konto verknüpft")
+		case errors.Is(err, invitation.ErrUserAlreadyInClub):
+			return fiber.NewError(fiber.StatusConflict, "Dein Konto ist in diesem Klub bereits mit einem Spieler verknüpft")
+		}
+		slog.Error("accept invitation failed",
+			"error", err,
+			"invitation_id", inv.ID,
 			"user_id", u.ID,
 			"player_id", inv.PlayerID)
 		return fiber.NewError(fiber.StatusInternalServerError, "Fehler beim Akzeptieren der Einladung")

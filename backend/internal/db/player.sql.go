@@ -301,6 +301,27 @@ func (q *Queries) GetPlayersByClubIDForUpdate(ctx context.Context, clubID string
 	return items, nil
 }
 
+const linkPlayerToUser = `-- name: LinkPlayerToUser :execrows
+UPDATE players
+SET user_id = $1, updated_at = $2
+WHERE id = $3
+  AND user_id IS NULL
+`
+
+type LinkPlayerToUserParams struct {
+	UserID    *string   `json:"user_id"`
+	UpdatedAt time.Time `json:"updated_at"`
+	ID        string    `json:"id"`
+}
+
+func (q *Queries) LinkPlayerToUser(ctx context.Context, arg LinkPlayerToUserParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, linkPlayerToUser, arg.UserID, arg.UpdatedAt, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const updatePlayer = `-- name: UpdatePlayer :one
 UPDATE players
 SET
