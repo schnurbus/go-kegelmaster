@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"math"
 	"strings"
@@ -748,6 +749,9 @@ func (h *Handler) participantFeeChanges(ctx context.Context, clubID string, fees
 		if pt.DeletedAt != nil {
 			return nil, fiber.NewError(fiber.StatusBadRequest, "Strafentyp "+pt.Name+" ist inaktiv")
 		}
+		if err := validateFeeQuantity(pt, fee.Count); err != nil {
+			return nil, err
+		}
 
 		quantityScale := 1
 		if pt.AllowsDecimalQuantity {
@@ -873,4 +877,21 @@ func (h *Handler) HandleUpdateCompetitionValues(c fiber.Ctx) error {
 
 	audit.LogAudit(c, u.ID, audit.ActionCompetitionValues, "club_id", clubID, "gameday_id", gameDayID, "player_id", playerID)
 	return c.JSON(CompetitionValuesResponseFromEntities(competitionValues))
+}
+
+// validateFeeQuantity rejects quantities that would otherwise be rounded
+// silently when stored: fractions for penalty types without decimal
+// quantities, and more than two decimal places (quantity_scale is 100).
+func validateFeeQuantity(pt penaltytype.PenaltyType, count float64) error {
+	if !pt.AllowsDecimalQuantity {
+		if count != math.Trunc(count) {
+			return fiber.NewError(fiber.StatusBadRequest, fmt.Sprintf("Strafe %s erlaubt nur ganze Mengen", pt.Name))
+		}
+		return nil
+	}
+	scaled := count * 100
+	if math.Abs(scaled-math.Round(scaled)) > 1e-6 {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Sprintf("Strafe %s: höchstens zwei Nachkommastellen erlaubt", pt.Name))
+	}
+	return nil
 }

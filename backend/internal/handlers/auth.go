@@ -287,6 +287,14 @@ func (h *Handler) HandleResetPassword(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
+	// Tokens created before now are already rejected (see userFromAPIToken);
+	// deleting them keeps the token list in the UI truthful.
+	if h.APITokenRepo != nil {
+		if err := h.APITokenRepo.DeleteByUserID(ctx, pr.UserID); err != nil {
+			slog.Error("delete api tokens after password reset", "error", err)
+		}
+	}
+
 	audit.LogAudit(c, pr.UserID, audit.ActionUserPasswordReset, "user_id", pr.UserID)
 	return c.SendStatus(fiber.StatusNoContent)
 }

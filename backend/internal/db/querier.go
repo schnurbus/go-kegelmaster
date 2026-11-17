@@ -13,10 +13,12 @@ type Querier interface {
 	AddRolePermission(ctx context.Context, arg AddRolePermissionParams) (RolePermission, error)
 	CheckGameDayExistsByClubAndDate(ctx context.Context, arg CheckGameDayExistsByClubAndDateParams) (bool, error)
 	ConsumePasswordResetToken(ctx context.Context, token string) (PasswordResetToken, error)
+	CountAPITokensByUserID(ctx context.Context, userID string) (int64, error)
 	CountPlayersByRoleIDForClub(ctx context.Context, clubID string) ([]CountPlayersByRoleIDForClubRow, error)
 	CountTransactionsByClub(ctx context.Context, clubID string) (int64, error)
 	CountTransactionsByPlayer(ctx context.Context, arg CountTransactionsByPlayerParams) (int64, error)
 	CountTransactionsByType(ctx context.Context, arg CountTransactionsByTypeParams) (int64, error)
+	CreateAPIToken(ctx context.Context, arg CreateAPITokenParams) (ApiToken, error)
 	CreateClub(ctx context.Context, arg CreateClubParams) (Club, error)
 	CreateCompetition(ctx context.Context, arg CreateCompetitionParams) (Competition, error)
 	// ==================== GAME DAYS ====================
@@ -35,6 +37,8 @@ type Querier interface {
 	// ==================== TRANSACTIONS ====================
 	CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	DeleteAPIToken(ctx context.Context, arg DeleteAPITokenParams) (int64, error)
+	DeleteAPITokensByUserID(ctx context.Context, userID string) error
 	DeleteAllCompetitionValuesByParticipant(ctx context.Context, gameDayParticipantID string) error
 	DeleteAllFeesByParticipant(ctx context.Context, gameDayParticipantID string) error
 	DeleteAllParticipantsByGameDay(ctx context.Context, gameDayID string) error
@@ -52,6 +56,7 @@ type Querier interface {
 	DeletePlayer(ctx context.Context, id string) error
 	DeleteRole(ctx context.Context, id string) error
 	DeleteTransaction(ctx context.Context, id string) error
+	GetAPITokenByHash(ctx context.Context, tokenHash string) (ApiToken, error)
 	GetAllClubs(ctx context.Context) ([]Club, error)
 	GetClubByID(ctx context.Context, id string) (Club, error)
 	GetClubsByUserID(ctx context.Context, userID string) ([]Club, error)
@@ -97,6 +102,7 @@ type Querier interface {
 	HasRolePermission(ctx context.Context, arg HasRolePermissionParams) (bool, error)
 	IncrementClubBalance(ctx context.Context, arg IncrementClubBalanceParams) (int32, error)
 	LinkPlayerToUser(ctx context.Context, arg LinkPlayerToUserParams) (int64, error)
+	ListAPITokensByUserID(ctx context.Context, userID string) ([]ApiToken, error)
 	ListTransactionsByClub(ctx context.Context, arg ListTransactionsByClubParams) ([]ListTransactionsByClubRow, error)
 	ListTransactionsByGameDay(ctx context.Context, gameDayID *string) ([]ListTransactionsByGameDayRow, error)
 	ListTransactionsByPlayer(ctx context.Context, arg ListTransactionsByPlayerParams) ([]ListTransactionsByPlayerRow, error)
@@ -113,6 +119,8 @@ type Querier interface {
 	SumPlayerBalanceDelta(ctx context.Context, playerID *string) (int64, error)
 	SumTransactionsByClub(ctx context.Context, clubID string) (interface{}, error)
 	SumTransactionsByPlayer(ctx context.Context, playerID *string) (interface{}, error)
+	// Throttled to one write per minute per token so busy clients do not hammer the row.
+	TouchAPIToken(ctx context.Context, arg TouchAPITokenParams) error
 	UpdateClub(ctx context.Context, arg UpdateClubParams) (Club, error)
 	UpdateClubBalance(ctx context.Context, arg UpdateClubBalanceParams) error
 	UpdateClubOwner(ctx context.Context, arg UpdateClubOwnerParams) (Club, error)

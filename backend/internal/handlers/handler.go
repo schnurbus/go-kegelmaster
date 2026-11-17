@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"github.com/schnurbus/go-kegelmaster/backend/internal/apitoken"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/auth"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/competition"
@@ -33,6 +34,7 @@ type Handler struct {
 	InvitationRepo    *invitation.Repository
 	EmailSvc          *email.Service
 	PasswordResetRepo *passwordreset.Repository
+	APITokenRepo      *apitoken.Repository
 }
 
 // NewHandler creates a new handler instance with the given dependencies.
@@ -52,6 +54,7 @@ func NewHandler(cfg config.Config, deps Dependencies) *Handler {
 		InvitationRepo:    deps.InvitationRepo,
 		EmailSvc:          deps.EmailService,
 		PasswordResetRepo: deps.PasswordResetRepo,
+		APITokenRepo:      deps.APITokenRepo,
 	}
 }
 
@@ -70,4 +73,5 @@ type Dependencies struct {
 	InvitationRepo  *invitation.Repository
 	EmailService    *email.Service
 	PasswordResetRepo *passwordreset.Repository
+	APITokenRepo      *apitoken.Repository
 }

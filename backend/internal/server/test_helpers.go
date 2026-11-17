@@ -8,6 +8,7 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/gofiber/fiber/v3"
 
+	"github.com/schnurbus/go-kegelmaster/backend/internal/apitoken"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/auth"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/config"
@@ -67,6 +68,7 @@ func newTestServer(t *testing.T) (*Server, sqlmock.Sqlmock, *auth.Service) {
 		AuthService:       authSvc,
 		PermissionCheck:   permissionCheck,
 		PasswordResetRepo: passwordResetRepo,
+		APITokenRepo:      apitoken.NewRepository(db),
 	})
 
 	return srv, mock, authSvc

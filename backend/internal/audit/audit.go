@@ -11,6 +11,8 @@ const (
 	ActionUserRegistered       = "user_registered"
 	ActionUserLogin            = "user_login"
 	ActionUserPasswordReset    = "user_password_reset"
+	ActionAPITokenCreated      = "api_token_created"
+	ActionAPITokenDeleted      = "api_token_deleted"
 	ActionClubCreated          = "club_created"
 	ActionClubUpdated          = "club_updated"
 	ActionClubDeleted          = "club_deleted"

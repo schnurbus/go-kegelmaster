@@ -82,6 +82,8 @@ Weitere Features kommen mit der Zeit dazu
 - Endpunkte `/api/auth/register`, `/api/auth/login`, `/api/auth/logout`
 - Session-/Profil-Endpunkte `/api/auth/me`, `/api/auth/csrf-token`
 - CORS + Double-Submit CSRF-Token inklusive Cookie-/Header-Validierung
+- Persönliche API-Tokens (`internal/apitoken`) für Skripte/Agenten: `Authorization: Bearer kgm_…`, nur SHA-256-Hash gespeichert, kein CSRF nötig
+- MCP-Server (`internal/mcpserver`) unter `/mcp` für KI-Agenten: Streamable HTTP (zustandslos), Auth per API-Token; Tools rufen die REST-API in-process mit dem Token des Aufrufers auf
 - Migration `0001_create_users` angelegt
 - **Club Entity & Repository** (`internal/club`) mit vollständigem CRUD
 - **Club API Endpunkte**: `GET /api/clubs`, `GET /api/clubs/:id`, `POST /api/clubs`, `PUT /api/clubs/:id`, `DELETE /api/clubs/:id`
@@ -205,6 +207,11 @@ Weitere Entitäten kommen mit der Zeit dazu
 - Elemente: Sidebar mit Club Switcher, Navigation, Hauptinhalt
 - Interaktionen: Club-Auswahl, Navigation zwischen Bereichen
 
+**Screen:** API-Tokens
+- URL: /app/api-tokens (Benutzermenü unten links → „API-Tokens“)
+- Elemente: Tabelle der eigenen Tokens (Name, Präfix, erstellt, zuletzt genutzt, Ablauf), Dialog zum Erstellen (Name, Gültigkeit 30/90/365 Tage oder unbegrenzt)
+- Interaktionen: Token erstellen (Klartext wird einmalig angezeigt, kopierbar), Token widerrufen
+
 ### Navigationsstruktur
 - Public Routes: `/`, `/login`, `/register`
 - Private Routes: `/app` (Dashboard)
@@ -234,6 +241,11 @@ Weitere Entitäten kommen mit der Zeit dazu
 | POST | `/api/auth/logout` | Session-Cookie löschen | – | `204` |
 | GET | `/api/auth/csrf-token` | Double-Submit Token erzeugen (Cookie + JSON) | – | `{ csrf_token }` |
 | GET | `/api/auth/me` | Authentifizierten User zurückgeben | – | User JSON |
+| GET | `/api/auth/tokens` | Eigene API-Tokens auflisten (nur Browser-Session) | – | Token-Liste ohne Geheimnis |
+| POST | `/api/auth/tokens` | API-Token erstellen (nur Browser-Session, max. 20) | `{ name, expires_in_days? }` | `201` + Token inkl. Klartext (einmalig) |
+| DELETE | `/api/auth/tokens/:id` | API-Token widerrufen (nur Browser-Session) | – | `204` |
+
+**Authentifizierung per API-Token:** Alle geschützten Endpunkte akzeptieren alternativ zum Cookie den Header `Authorization: Bearer kgm_…`. Das Token hat die Rechte seines Users; ein CSRF-Header ist nicht nötig. Ist der Header gesetzt, wird nur das Token geprüft (kein Rückfall auf das Cookie). Tokens verfallen optional (1–365 Tage) und werden beim Zurücksetzen des Passworts widerrufen. Tokens können nicht mit einem Token verwaltet werden, damit ein geleaktes Token keine weiteren erzeugen kann.
 
 #### Clubs
 | Methode | Endpoint | Beschreibung | Request Body | Response | Berechtigung |
@@ -266,6 +278,7 @@ Weitere Entitäten kommen mit der Zeit dazu
 - Passwort-Hashing
 - Rate Limiting
 - CSRF-Schutz (Double-Submit Token) & CORS-Konfiguration
+- Persönliche API-Tokens: 256 Bit Zufall, nur Hash in der DB, optionaler Ablauf, Widerruf bei Passwort-Reset
 
 ### Performance
 - API < 200ms
@@ -303,6 +316,8 @@ Weitere Entitäten kommen mit der Zeit dazu
 #### Backend
 - ✅ User-Authentifizierung (Register, Login, Logout, Session-Management)
 - ✅ CSRF-Schutz mit Double-Submit Token
+- ✅ Persönliche API-Tokens (Bearer-Auth für Skripte/Agenten)
+- ✅ MCP-Server `/mcp` (Phase 1: 7 Lese-Tools, Spieltag als Entwurf erfassen, veröffentlichen, Buchung erfassen)
 - ✅ Club Entity mit vollständigem CRUD
 - ✅ Owner-basierte Berechtigungen für Club-Updates/Deletes
 - ✅ Unit-Tests für Club-Funktionalität (hohe Coverage)
@@ -385,3 +400,50 @@ Weitere Entitäten kommen mit der Zeit dazu
 
 Postgres und Redis werden nicht mitdeployt. `AUTO_MIGRATE` ist im Chart-Default aktiv; bei mehreren Replicas können Migrationen konkurrieren.
 
+---
+
+## Letzte Implementierung: Persönliche API-Tokens (17. November 2026)
+
+### Implementierte Komponenten
+
+- ✅ Migration `000026_create_api_tokens` (Tabelle `api_tokens`: Name, SHA-256-Hash, Anzeige-Präfix, `expires_at`, `last_used_at`)
+- ✅ Repository `internal/apitoken` (Token-Format `kgm_` + 43 Zeichen base64url)
+- ✅ `UserFromCookie` akzeptiert `Authorization: Bearer`; `ValidateCSRF` überspringt Bearer-Requests
+- ✅ Endpunkte `GET/POST /api/auth/tokens`, `DELETE /api/auth/tokens/:id` (nur Browser-Session)
+- ✅ `last_used_at` höchstens minütlich aktualisiert; Audit-Events `api_token_created` / `api_token_deleted`
+- ✅ Frontend-Seite `/app/api-tokens` (Benutzermenü)
+- ✅ OpenAPI: Security-Scheme `bearerAuth` für alle geschützten Endpunkte
+- ✅ Handler-Tests in `internal/server/api_token_handler_test.go`
+
+---
+
+## Letzte Implementierung: MCP-Server Phase 1 (17. November 2026)
+
+KI-Agenten (Claude Code, Claude Desktop, Agent-SDKs) können Kegelmaster über das Model Context Protocol bedienen.
+
+### Implementierte Komponenten
+
+- ✅ Paket `internal/mcpserver` mit offiziellem Go-SDK (`github.com/modelcontextprotocol/go-sdk`), eingehängt unter `/mcp` (Fiber-Adaptor)
+- ✅ Auth: nur persönliche API-Tokens (`Authorization: Bearer kgm_…`), Prüfung über `GET /api/auth/me`; 401 mit `WWW-Authenticate: Bearer`
+- ✅ Tools rufen die REST-API in-process (direkt im Fiber-Handler, ohne Netzwerk) mit dem Token des Aufrufers auf – Rechte, Validierung, Audit-Log und Saldo-Invarianten bleiben identisch
+- ✅ Lese-Tools: `klubs_auflisten`, `klub_ueberblick`, `spieltage_auflisten`, `spieltag_details` (inkl. Buchungsvorschau für Entwürfe), `spieler_konto`, `transaktionen_suchen`, `mein_spieler`
+- ✅ Schreib-Tools: `spieltag_erfassen` (immer Entwurf, bei Fehler wird der Entwurf verworfen), `spieltag_veroeffentlichen` (bucht Grundgebühren und Strafen, `destructiveHint`), `buchung_erfassen` (Einzahlung/Trinkgeld/Ausgabe, `destructiveHint`)
+- ✅ Beträge in Cent mit Euro-Text, IDs plus Namen in allen Ausgaben, deutsche Fehlermeldungen der API werden durchgereicht
+- ✅ Tests: `internal/mcpserver/server_test.go` (Fake-API), `internal/server/mcp_handler_test.go` (Auth über Fiber)
+
+### Einrichtung (Beispiel Claude Code)
+
+```bash
+claude mcp add --transport http kegelmaster https://<host>/mcp --header "Authorization: Bearer kgm_…"
+```
+
+### Nebenbei behoben
+
+- `PUT …/participants/:playerId/fees` lehnt Mengen jetzt mit 400 ab, statt sie still zu runden (1,5 bei Strafentypen ohne Dezimalmengen, mehr als zwei Nachkommastellen)
+
+### Geplant (Phase 2)
+
+- 📋 `spieltag_teilnehmer_aktualisieren`, `spieltag_entwurf_loeschen`, `buchung_stornieren`
+- 📋 Stammdaten: `spieler_speichern`, `strafentyp_speichern`
+- 📋 API-Tokens mit Scope (z. B. nur lesen)
+- 📋 OAuth für Custom Connectors auf claude.ai

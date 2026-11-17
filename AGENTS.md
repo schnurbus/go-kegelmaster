@@ -170,7 +170,9 @@ func TestRepository_Create(t *testing.T) {
 
 ### Authentication
 - JWT-based authentication
-- CSRF protection with double-submit tokens
+- CSRF protection with double-submit tokens (skipped for `Authorization: Bearer` requests)
+- Personal API tokens (`internal/apitoken`, table `api_tokens`) for scripts/agents: `Authorization: Bearer kgm_…`. `UserFromCookie` checks the bearer header first and never falls back to the cookie when it is present. Tokens are managed via `/api/auth/tokens` (browser session only).
+- MCP server (`internal/mcpserver`, mounted at `/mcp`): Streamable HTTP, stateless, API-token auth only. Tools never touch repositories directly; they call the REST API in-process via `InProcessAPI` (Fiber request handler) with the caller's token, so new tools get permissions, validation, audit and balance invariants for free. Tool names/descriptions are German; amounts are cents. Register tools in `tools.go`, test them in `server_test.go` against `fakeAPI`.
 - User context available in handlers
 - Owner-based authorization for clubs
 
