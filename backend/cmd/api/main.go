@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/schnurbus/go-kegelmaster/backend/internal/apitoken"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/automigrate"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/auth"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
@@ -74,6 +75,7 @@ func main() {
 	invitationRepo := invitation.NewRepository(db, playerRepo)
 	emailSvc := email.NewService(cfg.ResendAPIKey, cfg.ResendFromEmail)
 	passwordResetRepo := passwordreset.NewRepository(db)
+	apiTokenRepo := apitoken.NewRepository(db)
 
 	srv := server.New(cfg, server.Dependencies{
 		UserRepo:        userRepo,
@@ -89,6 +91,7 @@ func main() {
 		InvitationRepo:    invitationRepo,
 		EmailService:      emailSvc,
 		PasswordResetRepo: passwordResetRepo,
+		APITokenRepo:      apiTokenRepo,
 	})
 
 	errCh := make(chan error, 1)

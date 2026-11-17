@@ -11,10 +11,12 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/adaptor"
 	"github.com/gofiber/fiber/v3/middleware/cors"
 	"github.com/gofiber/fiber/v3/middleware/limiter"
 	"github.com/gofiber/fiber/v3/middleware/recover"
 
+	"github.com/schnurbus/go-kegelmaster/backend/internal/apitoken"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/auth"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/competition"
@@ -23,6 +25,7 @@ import (
 	"github.com/schnurbus/go-kegelmaster/backend/internal/gameday"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/handlers"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/invitation"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/mcpserver"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/middleware"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/passwordreset"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/penaltytype"
@@ -49,6 +52,7 @@ type Dependencies struct {
 	InvitationRepo    *invitation.Repository
 	EmailService      *email.Service
 	PasswordResetRepo *passwordreset.Repository
+	APITokenRepo      *apitoken.Repository
 }
 
 // Server wraps the Fiber application and its dependencies.
@@ -56,6 +60,7 @@ type Server struct {
 	cfg      config.Config
 	app      *fiber.App
 	handlers *handlers.Handler
+	mcpAPI   *mcpserver.InProcessAPI
 }
 
 // New configures the HTTP server with default middleware and routes.
@@ -93,6 +98,10 @@ func New(cfg config.Config, deps Dependencies) *Server {
 	}))
 
 	userIDExtractor := func(c fiber.Ctx) string {
+		// Set by the handler once it authenticated the user (covers API tokens).
+		if id, ok := c.Locals(handlers.LocalsUserID).(string); ok && id != "" {
+			return id
+		}
 		token := strings.TrimSpace(c.Cookies("auth_token"))
 		if token == "" {
 			return ""
@@ -119,15 +128,20 @@ func New(cfg config.Config, deps Dependencies) *Server {
 		InvitationRepo:    deps.InvitationRepo,
 		EmailService:      deps.EmailService,
 		PasswordResetRepo: deps.PasswordResetRepo,
+		APITokenRepo:      deps.APITokenRepo,
 	})
 
 	server := &Server{
 		cfg:      cfg,
 		app:      app,
 		handlers: handler,
+		mcpAPI:   mcpserver.NewInProcessAPI(),
 	}
 
 	server.registerRoutes()
+	// MCP tools call the REST API in-process; the handler is only complete
+	// once every route is registered.
+	server.mcpAPI.SetHandler(app.Handler())
 	return server
 }
 
@@ -138,6 +152,10 @@ func (s *Server) registerRoutes() {
 			"version": s.cfg.Version,
 		})
 	})
+
+	// MCP server (Streamable HTTP, stateless) for AI agents; authenticated with
+	// personal API tokens. See internal/mcpserver.
+	s.app.All("/mcp", adaptor.HTTPHandler(mcpserver.New(s.mcpAPI, s.cfg.Version)))
 
 	api := s.app.Group("/api")
 	api.Get("/", func(c fiber.Ctx) error {
@@ -184,6 +202,9 @@ func (s *Server) registerRoutes() {
 		Expiration: 5 * time.Minute,
 	}), s.handlers.HandleLogin)
 	authGroup.Post("/logout", s.handlers.HandleLogout)
+	authGroup.Get("/tokens", s.handlers.HandleListAPITokens)
+	authGroup.Post("/tokens", s.handlers.HandleCreateAPIToken)
+	authGroup.Delete("/tokens/:id", s.handlers.HandleDeleteAPIToken)
 	authGroup.Post("/forgot-password", limiter.New(limiter.Config{
 		Max:        5,
 		Expiration: 15 * time.Minute,

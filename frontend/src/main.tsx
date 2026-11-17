@@ -17,6 +17,7 @@ import GameDayDetailPage from "./routes/GameDayDetailPage.tsx";
 import TransactionsPage from "./routes/TransactionsPage.tsx";
 import ClubEditPage from "./routes/ClubEditPage.tsx";
 import HelpPage from "./routes/HelpPage.tsx";
+import ApiTokensPage from "./routes/ApiTokensPage.tsx";
 import InvitationPage from "./routes/InvitationPage.tsx";
 import ForgotPasswordPage from "./routes/ForgotPasswordPage.tsx";
 import ResetPasswordPage from "./routes/ResetPasswordPage.tsx";
@@ -61,6 +62,7 @@ const router = createBrowserRouter([
               { path: "transactions", element: <TransactionsPage />, handle: { title: "Transaktionen" } },
               { path: "club/:clubId", element: <ClubEditPage />, handle: { title: "Club bearbeiten" } },
               { path: "help", element: <HelpPage />, handle: { title: "Hilfe" } },
+              { path: "api-tokens", element: <ApiTokensPage />, handle: { title: "API-Tokens" } },
             ],
           },
         ],

@@ -1,12 +1,54 @@
 openapi: 3.0.3
 info:
   title: Kegelmaster API
-  description: API für die Kegelmaster-App (Spieler, Spieltage, Transaktionen, Clubs).
+  description: |
+    API für die Kegelmaster-App (Spieler, Spieltage, Transaktionen, Clubs).
+
+    **Authentifizierung** – zwei gleichwertige Wege:
+
+    * **Browser-Session:** `POST /api/auth/login` setzt das HTTP-Only-Cookie `auth_token`.
+      Mutationen (POST/PUT/PATCH/DELETE) brauchen zusätzlich den Header `X-CSRF-Token`
+      mit dem Wert des Cookies `csrf_token` (abrufbar über `GET /api/auth/csrf-token`).
+    * **Persönliches API-Token** (für Skripte und Agenten): in der Weboberfläche unter
+      „API-Tokens“ erstellen und als `Authorization: Bearer kgm_…` senden. Kein CSRF-Header
+      nötig. Das Token hat dieselben Rechte wie sein Benutzer. Ist der Header gesetzt, wird
+      ausschließlich das Token geprüft (kein Rückfall auf das Cookie). Tokens verfallen
+      optional nach 1–365 Tagen und werden beim Zurücksetzen des Passworts widerrufen.
+      Die Token-Verwaltung (`/api/auth/tokens`) ist nur mit Browser-Session möglich.
   version: 0.1.0
 servers:
   - url: ""
     description: App-Origin (Health unter /healthz, API unter /api)
 paths:
+  /mcp:
+    post:
+      summary: MCP-Server für KI-Agenten (Model Context Protocol)
+      description: |
+        Streamable-HTTP-Endpunkt (zustandslos, JSON-Antworten) des Model Context Protocol. Nur mit
+        persönlichem API-Token (`Authorization: Bearer kgm_…`); ein Session-Cookie reicht nicht.
+        Jedes Tool ruft intern die REST-API mit diesem Token auf – es gelten dieselben Rechte.
+
+        Tools: `klubs_auflisten`, `klub_ueberblick`, `spieltage_auflisten`, `spieltag_details`,
+        `spieler_konto`, `transaktionen_suchen`, `mein_spieler` (nur lesend), `spieltag_erfassen`
+        (legt einen Entwurf an, bucht nichts), `spieltag_veroeffentlichen` und `buchung_erfassen`
+        (buchen Geld).
+
+        Einrichtung z. B. in Claude Code:
+        `claude mcp add --transport http kegelmaster https://<host>/mcp --header "Authorization: Bearer kgm_…"`
+      tags: [MCP]
+      security: [bearerAuth: []]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: JSON-RPC-2.0-Nachricht gemäß MCP-Spezifikation
+      responses:
+        "200":
+          description: JSON-RPC-Antwort
+        "401":
+          description: Kein oder ungültiges API-Token
   /healthz:
     get:
       summary: Health Check
@@ -49,7 +91,7 @@ paths:
     get:
       summary: Angemeldeten User abrufen
       tags: [Auth]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       responses:
         "200":
           description: User-Objekt
@@ -100,6 +142,80 @@ paths:
       responses:
         "204":
           description: Erfolgreich abgemeldet
+  /api/auth/tokens:
+    get:
+      summary: Eigene API-Tokens auflisten
+      description: Liefert die Tokens des angemeldeten Users ohne Geheimnis. Nur mit Browser-Session (403 bei Bearer-Auth).
+      tags: [Auth]
+      security: [cookieAuth: []]
+      responses:
+        "200":
+          description: Liste der Tokens (neueste zuerst)
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/APIToken" }
+        "401":
+          description: Nicht angemeldet
+        "403":
+          description: Mit API-Token aufgerufen
+    post:
+      summary: API-Token erstellen
+      description: |
+        Erstellt ein persönliches API-Token. Das Klartext-Token steht nur in dieser Antwort und
+        kann später nicht erneut abgerufen werden. Maximal 20 Tokens pro User.
+        Nur mit Browser-Session (403 bei Bearer-Auth); X-CSRF-Token erforderlich.
+      tags: [Auth]
+      security: [cookieAuth: []]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, maxLength: 100, example: "Kassen-Agent" }
+                expires_in_days:
+                  type: integer
+                  minimum: 1
+                  maximum: 365
+                  nullable: true
+                  description: Gültigkeit in Tagen; weglassen oder null für unbegrenzt.
+      responses:
+        "201":
+          description: Token erstellt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CreatedAPIToken" }
+        "400":
+          description: Ungültiger Name oder ungültige Gültigkeit
+        "401":
+          description: Nicht angemeldet
+        "403":
+          description: CSRF-Token ungültig oder mit API-Token aufgerufen
+        "409":
+          description: Maximale Anzahl an Tokens erreicht
+  /api/auth/tokens/{id}:
+    delete:
+      summary: API-Token widerrufen
+      description: Löscht ein eigenes Token; es ist sofort ungültig. Nur mit Browser-Session; X-CSRF-Token erforderlich.
+      tags: [Auth]
+      security: [cookieAuth: []]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Widerrufen
+        "400":
+          description: Ungültige Token-ID
+        "401":
+          description: Nicht angemeldet
+        "403":
+          description: CSRF-Token ungültig oder mit API-Token aufgerufen
+        "404":
+          description: Token nicht gefunden (oder gehört einem anderen User)
   /api/auth/forgot-password:
     post:
       summary: Passwort vergessen (E-Mail mit Reset-Link)
@@ -139,7 +255,7 @@ paths:
     post:
       summary: Hilfe-Chat (Assistent)
       tags: [Chat]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       requestBody:
         content:
           application/json:
@@ -169,7 +285,7 @@ paths:
       tags: [Legal]
       responses:
         "200":
-          description: HTML-Inhalt (aus Konfiguration: Datei oder Umgebungsvariable)
+          description: "HTML-Inhalt (aus Konfiguration: Datei oder Umgebungsvariable)"
           content:
             text/html:
               schema:
@@ -180,7 +296,7 @@ paths:
       tags: [Legal]
       responses:
         "200":
-          description: HTML-Inhalt (aus Konfiguration: Datei oder Umgebungsvariable)
+          description: "HTML-Inhalt (aus Konfiguration: Datei oder Umgebungsvariable)"
           content:
             text/html:
               schema:
@@ -189,14 +305,14 @@ paths:
     get:
       summary: Alle Clubs des Users
       tags: [Clubs]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       responses:
         "200":
           description: Liste der Clubs
     post:
       summary: Club anlegen
       tags: [Clubs]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       requestBody:
         content:
           application/json:
@@ -211,7 +327,7 @@ paths:
     get:
       summary: Einzelnen Club abrufen
       tags: [Clubs]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: id
           in: path
@@ -225,7 +341,7 @@ paths:
     put:
       summary: Club aktualisieren (nur Owner)
       tags: [Clubs]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: id
           in: path
@@ -244,7 +360,7 @@ paths:
     delete:
       summary: Club löschen (nur Owner)
       tags: [Clubs]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: id
           in: path
@@ -259,7 +375,7 @@ paths:
     post:
       summary: Club-Saldo neu berechnen
       tags: [Clubs]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: id
           in: path
@@ -272,7 +388,7 @@ paths:
     post:
       summary: Besitzer übertragen
       tags: [Clubs]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: id
           in: path
@@ -295,7 +411,7 @@ paths:
     get:
       summary: Eigene Berechtigungen im Club
       tags: [Clubs]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -308,7 +424,7 @@ paths:
     get:
       summary: Rollen des Clubs
       tags: [Rollen]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -320,7 +436,7 @@ paths:
     post:
       summary: Rolle anlegen
       tags: [Rollen]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -341,7 +457,7 @@ paths:
     get:
       summary: Einzelne Rolle
       tags: [Rollen]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -357,7 +473,7 @@ paths:
     put:
       summary: Rolle aktualisieren
       tags: [Rollen]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -380,7 +496,7 @@ paths:
     delete:
       summary: Rolle löschen
       tags: [Rollen]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -397,7 +513,7 @@ paths:
     post:
       summary: Berechtigung zu Rolle hinzufügen
       tags: [Rollen]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -422,7 +538,7 @@ paths:
     delete:
       summary: Berechtigung von Rolle entfernen
       tags: [Rollen]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -448,7 +564,7 @@ paths:
     get:
       summary: Spieler des Clubs
       tags: [Spieler]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -460,7 +576,7 @@ paths:
     post:
       summary: Spieler anlegen
       tags: [Spieler]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -484,7 +600,7 @@ paths:
     get:
       summary: Eigenen Spieler-Datensatz (verknüpfter User)
       tags: [Spieler]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -497,7 +613,7 @@ paths:
     get:
       summary: Eigene Strafen-Historie
       tags: [Spieler]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -510,7 +626,7 @@ paths:
     get:
       summary: Eigene Wettbewerbs-Historie
       tags: [Spieler]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -523,7 +639,7 @@ paths:
     get:
       summary: Einzelnen Spieler
       tags: [Spieler]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -539,7 +655,7 @@ paths:
     put:
       summary: Spieler aktualisieren
       tags: [Spieler]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -566,7 +682,7 @@ paths:
     delete:
       summary: Spieler löschen
       tags: [Spieler]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -583,7 +699,7 @@ paths:
     post:
       summary: Spieler-Saldo neu berechnen
       tags: [Spieler]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -600,7 +716,7 @@ paths:
     post:
       summary: Einladung an Spieler senden
       tags: [Spieler]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -657,7 +773,7 @@ paths:
     get:
       summary: Strafentypen des Clubs
       tags: [Strafentypen]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -669,7 +785,7 @@ paths:
     post:
       summary: Strafentyp anlegen
       tags: [Strafentypen]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -691,7 +807,7 @@ paths:
     get:
       summary: Einzelnen Strafentyp
       tags: [Strafentypen]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -707,7 +823,7 @@ paths:
     put:
       summary: Strafentyp aktualisieren
       tags: [Strafentypen]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -731,7 +847,7 @@ paths:
     delete:
       summary: Strafentyp löschen
       tags: [Strafentypen]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -748,7 +864,7 @@ paths:
     put:
       summary: Anzeige-Reihenfolge Strafentyp
       tags: [Strafentypen]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -773,7 +889,7 @@ paths:
     get:
       summary: Wettbewerbe des Clubs
       tags: [Wettbewerbe]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -785,7 +901,7 @@ paths:
     post:
       summary: Wettbewerb anlegen
       tags: [Wettbewerbe]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -806,7 +922,7 @@ paths:
     get:
       summary: Einzelnen Wettbewerb
       tags: [Wettbewerbe]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -822,7 +938,7 @@ paths:
     put:
       summary: Wettbewerb aktualisieren
       tags: [Wettbewerbe]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -845,7 +961,7 @@ paths:
     delete:
       summary: Wettbewerb löschen
       tags: [Wettbewerbe]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -862,7 +978,7 @@ paths:
     get:
       summary: Spieltage des Clubs
       tags: [Spieltage]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -874,7 +990,7 @@ paths:
     post:
       summary: Spieltag anlegen
       tags: [Spieltage]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -898,7 +1014,7 @@ paths:
     get:
       summary: Spieltag-Kurzübersichten
       tags: [Spieltage]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -911,7 +1027,7 @@ paths:
     get:
       summary: Einzelnen Spieltag
       tags: [Spieltage]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -927,7 +1043,7 @@ paths:
     put:
       summary: Spieltag aktualisieren
       tags: [Spieltage]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -951,7 +1067,7 @@ paths:
     delete:
       summary: Spieltag löschen
       tags: [Spieltage]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -968,7 +1084,7 @@ paths:
     post:
       summary: Teilnehmer hinzufügen
       tags: [Spieltage]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -993,7 +1109,7 @@ paths:
     delete:
       summary: Teilnehmer entfernen
       tags: [Spieltage]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -1012,9 +1128,14 @@ paths:
           description: Entfernt
   /api/clubs/{clubId}/gamedays/{id}/participants/{playerId}/fees:
     put:
-      summary: Gebühren Teilnehmer (Teilnahme, Trinkgeld)
+      summary: Strafen eines Teilnehmers setzen
+      description: |
+        Ersetzt die Strafen des Teilnehmers. Ist der Spieltag bereits veröffentlicht, werden die
+        zugehörigen Buchungen angepasst. `count` ist die Menge; Dezimalwerte (höchstens zwei
+        Nachkommastellen) nur bei Strafentypen mit `allows_decimal_quantity`, sonst ganze Zahlen.
+        Eine Menge ≤ 0 entfernt die Strafe.
       tags: [Spieltage]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -1033,17 +1154,26 @@ paths:
           application/json:
             schema:
               type: object
+              required: [fees]
               properties:
-                base_fee: { type: integer }
-                tip: { type: integer }
+                fees:
+                  type: array
+                  items:
+                    type: object
+                    required: [penalty_type_id, count]
+                    properties:
+                      penalty_type_id: { type: string, format: uuid }
+                      count: { type: number, example: 2 }
       responses:
         "200":
-          description: Aktualisiert
+          description: Aktualisiert (aktuelle Strafen des Teilnehmers)
+        "400":
+          description: Ungültiger Strafentyp oder ungültige Menge (z. B. 1,5 bei einem Strafentyp ohne Dezimalmengen)
   /api/clubs/{clubId}/gamedays/{id}/participants/{playerId}/competition-values:
     put:
       summary: Wettbewerbs-Werte Teilnehmer
       tags: [Spieltage]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -1070,7 +1200,7 @@ paths:
     get:
       summary: Transaktionen des Clubs
       tags: [Transaktionen]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -1082,7 +1212,7 @@ paths:
     post:
       summary: Transaktion anlegen
       tags: [Transaktionen]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -1107,7 +1237,7 @@ paths:
     get:
       summary: Einzelne Transaktion
       tags: [Transaktionen]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -1123,7 +1253,7 @@ paths:
     delete:
       summary: Transaktion löschen
       tags: [Transaktionen]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -1140,7 +1270,7 @@ paths:
     get:
       summary: Transaktionen eines Spielers
       tags: [Transaktionen]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -1157,7 +1287,7 @@ paths:
     get:
       summary: Transaktionen eines Spieltags
       tags: [Transaktionen]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -1174,7 +1304,7 @@ paths:
     get:
       summary: Transaktions-Zusammenfassung Spieltag
       tags: [Transaktionen]
-      security: [cookieAuth: []]
+      security: [cookieAuth: [], bearerAuth: []]
       parameters:
         - name: clubId
           in: path
@@ -1194,7 +1324,28 @@ components:
       in: cookie
       name: auth_token
       description: JWT im HTTP-Only Cookie; für geschützte Endpunkte erforderlich. X-CSRF-Token Header bei Mutationen.
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Persönliches API-Token (`kgm_…`), erstellt unter „API-Tokens“. Kein CSRF-Header nötig.
   schemas:
+    APIToken:
+      type: object
+      required: [id, name, token_prefix, expires_at, last_used_at, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        token_prefix: { type: string, description: "Erste Zeichen des Tokens zur Wiedererkennung", example: "kgm_AbCdEfGh" }
+        expires_at: { type: string, format: date-time, nullable: true }
+        last_used_at: { type: string, format: date-time, nullable: true, description: "Höchstens minütlich aktualisiert" }
+        created_at: { type: string, format: date-time }
+    CreatedAPIToken:
+      allOf:
+        - $ref: "#/components/schemas/APIToken"
+        - type: object
+          required: [token]
+          properties:
+            token: { type: string, description: "Klartext-Token; wird nur einmal angezeigt", example: "kgm_…" }
     CreateClubRequest:
       type: object
       required: [name]

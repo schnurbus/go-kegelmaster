@@ -1,6 +1,7 @@
 import {
   BellIcon,
   CreditCardIcon,
+  KeyRoundIcon,
   LogOutIcon,
   MoreVerticalIcon,
   UserCircleIcon,
@@ -94,6 +95,10 @@ export function NavUser({
               <DropdownMenuItem>
                 <UserCircleIcon />
                 Account
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/app/api-tokens")}>
+                <KeyRoundIcon />
+                API-Tokens
               </DropdownMenuItem>
               <DropdownMenuItem>
                 <CreditCardIcon />
