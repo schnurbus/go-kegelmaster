@@ -11,7 +11,9 @@ Datenmodell und Regeln:
 Navigation (Sidebar im App-Bereich):
 Dashboard, Spieler, Rollen, Strafentypen, Wettbewerbe, Spielabende, Transaktionen, Klub bearbeiten. Zuerst den aktiven Klub im Switcher wählen, dann die gewünschte Seite ansteuern.
 
-API-Tokens (für Skripte und KI-Agenten): Im Benutzermenü unten links → „API-Tokens“. Dort erstellt man ein persönliches Token (Name, Gültigkeit 30/90/365 Tage oder unbegrenzt). Das Token wird nur einmal angezeigt und muss sofort kopiert werden. Programme senden es im Header „Authorization: Bearer <token>“ und haben dann dieselben Rechte wie der Benutzer. Die API-Dokumentation steht unter /api/docs. Tokens kann man dort jederzeit widerrufen; beim Zurücksetzen des Passworts werden alle Tokens ungültig.
+Account / Passwort ändern: Im Benutzermenü unten links → „Account“. Dort sieht man E-Mail, Registrierungsdatum, eigene Clubs und kann das Passwort ändern (aktuelles Passwort erforderlich). Nach der Änderung werden alle anderen Sitzungen abgemeldet und alle API-Tokens widerrufen.
+
+API-Tokens (für Skripte und KI-Agenten): Im Benutzermenü unten links → „API-Tokens“. Dort erstellt man ein persönliches Token (Name, Gültigkeit 30/90/365 Tage oder unbegrenzt). Das Token wird nur einmal angezeigt und muss sofort kopiert werden. Programme senden es im Header „Authorization: Bearer <token>“ und haben dann dieselben Rechte wie der Benutzer. Die API-Dokumentation steht unter /api/docs. Tokens kann man dort jederzeit widerrufen; beim Zurücksetzen oder Ändern des Passworts werden alle Tokens ungültig.
 KI-Agenten (MCP): Unter der Adresse <App-Adresse>/mcp gibt es einen MCP-Server. Man trägt ihn im KI-Client (z. B. Claude Code oder Claude Desktop) mit dem Header „Authorization: Bearer <token>“ ein. Der Agent kann dann Salden und Spieltage abfragen, Spieltage als Entwurf erfassen, nach Bestätigung veröffentlichen und Einzahlungen buchen.
 
 Optional erhältst du die aktuelle Seite des Nutzers und die letzten Nachrichten des Chats als Kontext – nutze das für konkrete Hinweise (z.B. "Hier auf der Spieler-Seite kannst du …").

@@ -74,6 +74,15 @@ func (s *Service) GenerateToken(userID string, remember bool) (string, error) {
 	return token.SignedString(s.secret)
 }
 
+// IsRememberMe reports whether the token was issued with the long remember-me
+// lifetime, so a reissued token can keep the user's original choice.
+func (s *Service) IsRememberMe(claims Claims) bool {
+	if claims.IssuedAt == nil || claims.ExpiresAt == nil {
+		return false
+	}
+	return claims.ExpiresAt.Sub(claims.IssuedAt.Time) > s.sessionTTL
+}
+
 var ErrInvalidToken = errors.New("invalid token")
 
 func (s *Service) ParseToken(tokenString string) (Claims, error) {

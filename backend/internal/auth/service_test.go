@@ -56,3 +56,20 @@ func TestGenerateTokenUsesTTL(t *testing.T) {
 		t.Fatalf("expected ttl of ~5m, got %s", diff)
 	}
 }
+
+func TestIsRememberMe(t *testing.T) {
+	svc := NewService("secret", 60, 30)
+	for _, remember := range []bool{true, false} {
+		token, err := svc.GenerateToken("user-remember", remember)
+		if err != nil {
+			t.Fatalf("generate token: %v", err)
+		}
+		claims, err := svc.ParseToken(token)
+		if err != nil {
+			t.Fatalf("parse token: %v", err)
+		}
+		if got := svc.IsRememberMe(claims); got != remember {
+			t.Fatalf("IsRememberMe = %v, want %v", got, remember)
+		}
+	}
+}

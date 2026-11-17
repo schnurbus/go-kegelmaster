@@ -207,6 +207,11 @@ Weitere Entitäten kommen mit der Zeit dazu
 - Elemente: Sidebar mit Club Switcher, Navigation, Hauptinhalt
 - Interaktionen: Club-Auswahl, Navigation zwischen Bereichen
 
+**Screen:** Mein Account
+- URL: /app/account (Benutzermenü unten links → „Account“)
+- Elemente: Kontodaten (E-Mail, registriert am, Passwort zuletzt geändert), Liste der eigenen Clubs (Eigentümer/Mitglied), Formular „Passwort ändern“ (aktuelles, neues, Bestätigung), Link zu den API-Tokens
+- Interaktionen: Passwort ändern (meldet alle anderen Sitzungen ab und widerruft alle API-Tokens; der aktuelle Browser bleibt angemeldet)
+
 **Screen:** API-Tokens
 - URL: /app/api-tokens (Benutzermenü unten links → „API-Tokens“)
 - Elemente: Tabelle der eigenen Tokens (Name, Präfix, erstellt, zuletzt genutzt, Ablauf), Dialog zum Erstellen (Name, Gültigkeit 30/90/365 Tage oder unbegrenzt)
@@ -241,11 +246,12 @@ Weitere Entitäten kommen mit der Zeit dazu
 | POST | `/api/auth/logout` | Session-Cookie löschen | – | `204` |
 | GET | `/api/auth/csrf-token` | Double-Submit Token erzeugen (Cookie + JSON) | – | `{ csrf_token }` |
 | GET | `/api/auth/me` | Authentifizierten User zurückgeben | – | User JSON |
+| POST | `/api/auth/change-password` | Eigenes Passwort ändern (nur Browser-Session; andere Sitzungen und API-Tokens werden ungültig, Cookie wird neu ausgestellt) | `{ current_password, new_password }` | `200` + User JSON |
 | GET | `/api/auth/tokens` | Eigene API-Tokens auflisten (nur Browser-Session) | – | Token-Liste ohne Geheimnis |
 | POST | `/api/auth/tokens` | API-Token erstellen (nur Browser-Session, max. 20) | `{ name, expires_in_days? }` | `201` + Token inkl. Klartext (einmalig) |
 | DELETE | `/api/auth/tokens/:id` | API-Token widerrufen (nur Browser-Session) | – | `204` |
 
-**Authentifizierung per API-Token:** Alle geschützten Endpunkte akzeptieren alternativ zum Cookie den Header `Authorization: Bearer kgm_…`. Das Token hat die Rechte seines Users; ein CSRF-Header ist nicht nötig. Ist der Header gesetzt, wird nur das Token geprüft (kein Rückfall auf das Cookie). Tokens verfallen optional (1–365 Tage) und werden beim Zurücksetzen des Passworts widerrufen. Tokens können nicht mit einem Token verwaltet werden, damit ein geleaktes Token keine weiteren erzeugen kann.
+**Authentifizierung per API-Token:** Alle geschützten Endpunkte akzeptieren alternativ zum Cookie den Header `Authorization: Bearer kgm_…`. Das Token hat die Rechte seines Users; ein CSRF-Header ist nicht nötig. Ist der Header gesetzt, wird nur das Token geprüft (kein Rückfall auf das Cookie). Tokens verfallen optional (1–365 Tage) und werden beim Zurücksetzen oder Ändern des Passworts widerrufen. Tokens können nicht mit einem Token verwaltet werden, damit ein geleaktes Token keine weiteren erzeugen kann.
 
 #### Clubs
 | Methode | Endpoint | Beschreibung | Request Body | Response | Berechtigung |
@@ -317,6 +323,7 @@ Weitere Entitäten kommen mit der Zeit dazu
 - ✅ User-Authentifizierung (Register, Login, Logout, Session-Management)
 - ✅ CSRF-Schutz mit Double-Submit Token
 - ✅ Persönliche API-Tokens (Bearer-Auth für Skripte/Agenten)
+- ✅ Account-Seite mit Passwort ändern
 - ✅ MCP-Server `/mcp` (Phase 1: 7 Lese-Tools, Spieltag als Entwurf erfassen, veröffentlichen, Buchung erfassen)
 - ✅ Club Entity mit vollständigem CRUD
 - ✅ Owner-basierte Berechtigungen für Club-Updates/Deletes
@@ -399,6 +406,19 @@ Weitere Entitäten kommen mit der Zeit dazu
 - ✅ README mit Install-Beispiel
 
 Postgres und Redis werden nicht mitdeployt. `AUTO_MIGRATE` ist im Chart-Default aktiv; bei mehreren Replicas können Migrationen konkurrieren.
+
+---
+
+## Letzte Implementierung: Account-Seite (17. November 2026)
+
+Die Platzhalter „Billing“ und „Notifications“ im Benutzermenü sind entfernt; „Account“ führt zur neuen Seite `/app/account`.
+
+- ✅ Endpunkt `POST /api/auth/change-password` (CSRF, nur Browser-Session, Rate-Limit, aktuelles Passwort erforderlich)
+- ✅ Setzt `password_changed_at` → alle anderen Sitzungen ungültig; API-Tokens werden gelöscht; Cookie wird mit gleicher Remember-me-Wahl neu ausgestellt
+- ✅ Audit-Event `user_password_changed`
+- ✅ User-JSON enthält `password_changed_at`
+- ✅ Frontend-Seite `/app/account` (Kontodaten, eigene Clubs, Passwort ändern, Link zu API-Tokens)
+- ✅ Handler-Tests in `internal/server/change_password_handler_test.go`, E2E-Test in `frontend/e2e/account.spec.ts`
 
 ---
 

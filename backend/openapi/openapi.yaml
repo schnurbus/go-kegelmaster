@@ -95,6 +95,9 @@ paths:
       responses:
         "200":
           description: User-Objekt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
         "401":
           description: Nicht angemeldet
   /api/auth/register:
@@ -142,6 +145,40 @@ paths:
       responses:
         "204":
           description: Erfolgreich abgemeldet
+  /api/auth/change-password:
+    post:
+      summary: Eigenes Passwort ändern
+      description: |
+        Prüft das aktuelle Passwort und setzt ein neues. Alle anderen Sitzungen werden abgemeldet
+        und alle API-Tokens widerrufen; das Auth-Cookie des aufrufenden Browsers wird neu ausgestellt
+        (inkl. neuem CSRF-Cookie). Nur mit Browser-Session (403 bei Bearer-Auth); X-CSRF-Token erforderlich.
+        Rate-Limit pro Client-IP wie beim Login.
+      tags: [Auth]
+      security: [cookieAuth: []]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [current_password, new_password]
+              properties:
+                current_password: { type: string, maxLength: 128 }
+                new_password: { type: string, minLength: 8, maxLength: 128 }
+      responses:
+        "200":
+          description: Passwort geändert; aktualisiertes User-Objekt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "400":
+          description: Aktuelles Passwort falsch oder neues Passwort ungültig
+        "401":
+          description: Nicht angemeldet
+        "403":
+          description: CSRF-Token ungültig oder mit API-Token aufgerufen
+        "429":
+          description: Zu viele Versuche (Rate-Limit pro Client-IP)
   /api/auth/tokens:
     get:
       summary: Eigene API-Tokens auflisten
@@ -1329,6 +1366,18 @@ components:
       scheme: bearer
       description: Persönliches API-Token (`kgm_…`), erstellt unter „API-Tokens“. Kein CSRF-Header nötig.
   schemas:
+    User:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        password_changed_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Zeitpunkt der letzten Passwortänderung bzw. des letzten Resets; null, falls nie geändert.
     APIToken:
       type: object
       required: [id, name, token_prefix, expires_at, last_used_at, created_at]

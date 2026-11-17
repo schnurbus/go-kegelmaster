@@ -18,14 +18,17 @@ type UserResponse struct {
 	Email     string    `json:"email"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+	// PasswordChangedAt is null until the password was changed or reset once.
+	PasswordChangedAt *time.Time `json:"password_changed_at"`
 }
 
 func UserResponseFromEntity(u user.User) UserResponse {
 	return UserResponse{
-		ID:        u.ID,
-		Email:     u.Email,
-		CreatedAt: u.CreatedAt,
-		UpdatedAt: u.UpdatedAt,
+		ID:                u.ID,
+		Email:             u.Email,
+		CreatedAt:         u.CreatedAt,
+		UpdatedAt:         u.UpdatedAt,
+		PasswordChangedAt: u.PasswordChangedAt,
 	}
 }
 
