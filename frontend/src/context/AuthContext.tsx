@@ -8,6 +8,8 @@ import {
   useState,
 } from "react";
 
+import { getPasskeyAssertion } from "@/lib/passkey";
+
 type AuthUser = {
   id: string;
   email: string;
@@ -27,6 +29,15 @@ type AuthContextValue = {
   logout: () => Promise<void>;
   refreshCsrf: () => Promise<string>;
   changePassword: (payload: ChangePasswordPayload) => Promise<AuthUser>;
+  loginWithPasskey: (payload: PasskeyLoginOptions) => Promise<AuthUser>;
+};
+
+type PasskeyLoginOptions = {
+  /** A function is evaluated after the user picked a passkey (autofill may wait a long time). */
+  remember_me?: boolean | (() => boolean);
+  /** Offer passkeys in the autofill of the e-mail field instead of a dialog. */
+  conditional?: boolean;
+  signal?: AbortSignal;
 };
 
 type ChangePasswordPayload = {
@@ -145,6 +156,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await fetchCsrf();
   }, [ensureCsrf, fetchCsrf]);
 
+  const loginWithPasskey = useCallback(
+    async ({ remember_me = false, conditional = false, signal }: PasskeyLoginOptions) => {
+      // Read the CSRF cookie right before each request: the login page can
+      // mount (and start the autofill request) while a logout is still
+      // rotating the token, so the token in state may already be stale.
+      const currentCsrf = async () => readCsrfCookie() ?? (await fetchCsrf());
+      const beginResp = await fetch("/api/auth/passkeys/login/begin", {
+        method: "POST",
+        credentials: "include",
+        headers: { "X-CSRF-Token": await currentCsrf() },
+        signal,
+      });
+      if (!beginResp.ok) {
+        throw new Error(await extractError(beginResp));
+      }
+      // Waits for the user (dialog or autofill); throws PasskeyCancelledError when dismissed.
+      const credential = await getPasskeyAssertion(await beginResp.json(), { conditional, signal });
+
+      setStatus("loading");
+      const resp = await fetch("/api/auth/passkeys/login/finish", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": await currentCsrf(),
+        },
+        body: JSON.stringify({
+          credential,
+          remember_me: typeof remember_me === "function" ? remember_me() : remember_me,
+        }),
+      });
+      try {
+        return await handleAuthSuccess(resp);
+      } catch (error) {
+        setStatus("unauthenticated");
+        throw error;
+      }
+    },
+    [fetchCsrf, handleAuthSuccess],
+  );
+
   const changePassword = useCallback(
     async (payload: ChangePasswordPayload) => {
       const token = await ensureCsrf();
@@ -200,8 +252,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       refreshCsrf: fetchCsrf,
       changePassword,
+      loginWithPasskey,
     }),
-    [user, status, csrfToken, login, register, logout, fetchCsrf, changePassword],
+    [user, status, csrfToken, login, register, logout, fetchCsrf, changePassword, loginWithPasskey],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -213,6 +266,14 @@ export function useAuth() {
     throw new Error("useAuth must be used within AuthProvider");
   }
   return ctx;
+}
+
+function readCsrfCookie(): string | null {
+  const value = document.cookie
+    .split("; ")
+    .find((row) => row.startsWith("csrf_token="))
+    ?.split("=")[1];
+  return value ? value : null;
 }
 
 async function extractError(resp: Response) {

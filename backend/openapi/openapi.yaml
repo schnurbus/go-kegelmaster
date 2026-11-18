@@ -253,6 +253,199 @@ paths:
           description: CSRF-Token ungültig oder mit API-Token aufgerufen
         "404":
           description: Token nicht gefunden (oder gehört einem anderen User)
+  /api/auth/passkeys/login/begin:
+    post:
+      summary: Passkey-Anmeldung starten
+      description: |
+        Startet eine Anmeldung mit einem beliebigen Passkey dieser Seite (ohne E-Mail-Eingabe).
+        Liefert die Optionen für `navigator.credentials.get()` (`PublicKeyCredentialRequestOptionsJSON`
+        unter `publicKey`) und setzt das HTTP-only-Cookie `passkey_ceremony` (5 Minuten gültig).
+        X-CSRF-Token erforderlich. Rate-Limit pro Client-IP.
+      tags: [Auth]
+      responses:
+        "200":
+          description: Optionen für navigator.credentials.get()
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WebAuthnOptions" }
+        "403":
+          description: CSRF-Token ungültig
+        "429":
+          description: Zu viele Versuche
+        "503":
+          description: Passkeys sind auf diesem Server nicht konfiguriert
+  /api/auth/passkeys/login/finish:
+    post:
+      summary: Passkey-Anmeldung abschließen
+      description: |
+        Prüft die Antwort des Authenticators gegen die gestartete Zeremonie (Cookie `passkey_ceremony`,
+        einmalig verwendbar) und setzt bei Erfolg das Auth-Cookie wie `/api/auth/login`.
+        X-CSRF-Token erforderlich. Rate-Limit pro Client-IP.
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [credential]
+              properties:
+                credential:
+                  type: object
+                  description: Ergebnis von `PublicKeyCredential.toJSON()` (AuthenticationResponseJSON)
+                remember_me: { type: boolean, default: false }
+      responses:
+        "200":
+          description: Angemeldet
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "400":
+          description: Ungültige Anfrage oder Zeremonie abgelaufen / bereits verwendet
+        "401":
+          description: Passkey unbekannt oder Prüfung fehlgeschlagen
+        "403":
+          description: CSRF-Token ungültig
+        "429":
+          description: Zu viele Versuche
+  /api/auth/passkeys/register/begin:
+    post:
+      summary: Passkey hinzufügen – starten
+      description: |
+        Startet das Hinzufügen eines Passkeys für den angemeldeten User. Erfordert das aktuelle Passwort,
+        damit eine übernommene Session allein keinen dauerhaften Zugang anlegen kann. Liefert die Optionen
+        für `navigator.credentials.create()` (`PublicKeyCredentialCreationOptionsJSON` unter `publicKey`,
+        bereits registrierte Passkeys in `excludeCredentials`) und setzt das Cookie `passkey_ceremony`.
+        Maximal 20 Passkeys pro User. Nur mit Browser-Session; X-CSRF-Token erforderlich.
+      tags: [Auth]
+      security: [cookieAuth: []]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [current_password]
+              properties:
+                current_password: { type: string, format: password }
+      responses:
+        "200":
+          description: Optionen für navigator.credentials.create()
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WebAuthnOptions" }
+        "400":
+          description: Passwort fehlt oder ist falsch
+        "401":
+          description: Nicht angemeldet
+        "403":
+          description: CSRF-Token ungültig oder mit API-Token aufgerufen
+        "409":
+          description: Maximale Anzahl an Passkeys erreicht
+        "429":
+          description: Zu viele Versuche
+        "503":
+          description: Passkeys sind auf diesem Server nicht konfiguriert
+  /api/auth/passkeys/register/finish:
+    post:
+      summary: Passkey hinzufügen – abschließen
+      description: |
+        Prüft die Antwort von `navigator.credentials.create()` gegen die gestartete Zeremonie und speichert
+        den Passkey. Nur mit Browser-Session; X-CSRF-Token erforderlich.
+      tags: [Auth]
+      security: [cookieAuth: []]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [credential]
+              properties:
+                name: { type: string, maxLength: 100, example: "iPhone", description: "Leer → \"Passkey\"" }
+                credential:
+                  type: object
+                  description: Ergebnis von `PublicKeyCredential.toJSON()` (RegistrationResponseJSON)
+      responses:
+        "201":
+          description: Passkey gespeichert
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Passkey" }
+        "400":
+          description: Ungültige Anfrage, Zeremonie abgelaufen oder Prüfung fehlgeschlagen
+        "401":
+          description: Nicht angemeldet
+        "403":
+          description: CSRF-Token ungültig oder mit API-Token aufgerufen
+        "409":
+          description: Passkey ist bereits registriert
+  /api/auth/passkeys:
+    get:
+      summary: Eigene Passkeys auflisten
+      description: Liefert die Passkeys des angemeldeten Users ohne Schlüsselmaterial. Nur mit Browser-Session.
+      tags: [Auth]
+      security: [cookieAuth: []]
+      responses:
+        "200":
+          description: Liste der Passkeys (neueste zuerst)
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Passkey" }
+        "401":
+          description: Nicht angemeldet
+        "403":
+          description: Mit API-Token aufgerufen
+  /api/auth/passkeys/{id}:
+    patch:
+      summary: Passkey umbenennen
+      tags: [Auth]
+      security: [cookieAuth: []]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, maxLength: 100 }
+      responses:
+        "200":
+          description: Umbenannt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Passkey" }
+        "400":
+          description: Ungültiger Name oder ungültige ID
+        "401":
+          description: Nicht angemeldet
+        "403":
+          description: CSRF-Token ungültig oder mit API-Token aufgerufen
+        "404":
+          description: Passkey nicht gefunden (oder gehört einem anderen User)
+    delete:
+      summary: Passkey entfernen
+      description: Der Passkey kann danach nicht mehr zur Anmeldung verwendet werden. Nur mit Browser-Session; X-CSRF-Token erforderlich.
+      tags: [Auth]
+      security: [cookieAuth: []]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Entfernt
+        "400":
+          description: Ungültige ID
+        "401":
+          description: Nicht angemeldet
+        "403":
+          description: CSRF-Token ungültig oder mit API-Token aufgerufen
+        "404":
+          description: Passkey nicht gefunden (oder gehört einem anderen User)
   /api/auth/forgot-password:
     post:
       summary: Passwort vergessen (E-Mail mit Reset-Link)
@@ -273,6 +466,7 @@ paths:
   /api/auth/reset-password:
     post:
       summary: Passwort zurücksetzen
+      description: Meldet alle Sessions ab und löscht alle API-Tokens und Passkeys des Users.
       tags: [Auth]
       requestBody:
         content:
@@ -1429,6 +1623,30 @@ components:
           required: [token]
           properties:
             token: { type: string, description: "Klartext-Token; wird nur einmal angezeigt", example: "kgm_…" }
+    Passkey:
+      type: object
+      required: [id, name, transports, synced, last_used_at, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, example: "iPhone" }
+        transports:
+          type: array
+          items: { type: string, example: "internal" }
+          description: Vom Authenticator gemeldete Transportwege (usb, nfc, ble, internal, hybrid)
+        synced:
+          type: boolean
+          description: true für synchronisierte Passkeys (z. B. iCloud-Schlüsselbund), false für gerätegebundene Sicherheitsschlüssel
+        last_used_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+    WebAuthnOptions:
+      type: object
+      required: [publicKey]
+      properties:
+        publicKey:
+          type: object
+          description: |
+            PublicKeyCredentialCreationOptionsJSON bzw. PublicKeyCredentialRequestOptionsJSON
+            (Binärwerte base64url-kodiert); direkt an `PublicKeyCredential.parse…OptionsFromJSON()` übergeben.
     CreateClubRequest:
       type: object
       required: [name]

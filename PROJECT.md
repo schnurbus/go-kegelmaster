@@ -83,6 +83,7 @@ Weitere Features kommen mit der Zeit dazu
 - Session-/Profil-Endpunkte `/api/auth/me`, `/api/auth/csrf-token`
 - CORS + Double-Submit CSRF-Token inklusive Cookie-/Header-Validierung
 - Persönliche API-Tokens (`internal/apitoken`) für Skripte/Agenten: `Authorization: Bearer kgm_…`, nur SHA-256-Hash gespeichert, kein CSRF nötig
+- Passkeys (`internal/passkey`, WebAuthn via `go-webauthn`) als zusätzliche Anmeldemethode: discoverable Credentials, Challenge einmalig in `webauthn_sessions`
 - MCP-Server (`internal/mcpserver`) unter `/mcp` für KI-Agenten: Streamable HTTP (zustandslos), Auth per API-Token; Tools rufen die REST-API in-process mit dem Token des Aufrufers auf
 - Migration `0001_create_users` angelegt
 - **Club Entity & Repository** (`internal/club`) mit vollständigem CRUD
@@ -209,8 +210,13 @@ Weitere Entitäten kommen mit der Zeit dazu
 
 **Screen:** Mein Account
 - URL: /app/account (Benutzermenü unten links → „Account“)
-- Elemente: Kontodaten (E-Mail, registriert am, Passwort zuletzt geändert), Liste der eigenen Clubs (Eigentümer/Mitglied), Formular „Passwort ändern“ (aktuelles, neues, Bestätigung), Link zu den API-Tokens
-- Interaktionen: Passwort ändern (meldet alle anderen Sitzungen ab und widerruft alle API-Tokens; der aktuelle Browser bleibt angemeldet)
+- Elemente: Kontodaten (E-Mail, registriert am, Passwort zuletzt geändert), Liste der eigenen Clubs (Eigentümer/Mitglied), Formular „Passwort ändern“ (aktuelles, neues, Bestätigung), Passkeys (Liste mit Name, synchronisiert/gerätegebunden, hinzugefügt, zuletzt genutzt), Link zu den API-Tokens
+- Interaktionen: Passwort ändern (meldet alle anderen Sitzungen ab und widerruft alle API-Tokens; der aktuelle Browser bleibt angemeldet); Passkey hinzufügen (aktuelles Passwort erforderlich), umbenennen, entfernen
+
+**Screen:** Login
+- URL: /login
+- Elemente: E-Mail, Passwort, „Angemeldet bleiben“, Button „Mit Passkey anmelden“ (nur wenn der Browser Passkeys unterstützt)
+- Interaktionen: Anmeldung per Passwort oder Passkey; unterstützt der Browser Autofill für Passkeys, werden sie direkt im E-Mail-Feld angeboten
 
 **Screen:** API-Tokens
 - URL: /app/api-tokens (Benutzermenü unten links → „API-Tokens“)
@@ -250,6 +256,13 @@ Weitere Entitäten kommen mit der Zeit dazu
 | GET | `/api/auth/tokens` | Eigene API-Tokens auflisten (nur Browser-Session) | – | Token-Liste ohne Geheimnis |
 | POST | `/api/auth/tokens` | API-Token erstellen (nur Browser-Session, max. 20) | `{ name, expires_in_days? }` | `201` + Token inkl. Klartext (einmalig) |
 | DELETE | `/api/auth/tokens/:id` | API-Token widerrufen (nur Browser-Session) | – | `204` |
+| POST | `/api/auth/passkeys/login/begin` | Passkey-Anmeldung starten (Rate-Limit, setzt Cookie `passkey_ceremony`) | – | WebAuthn-Optionen `{ publicKey }` |
+| POST | `/api/auth/passkeys/login/finish` | Passkey-Anmeldung abschließen (setzt Auth-Cookie) | `{ credential, remember_me }` | `200` + User JSON |
+| POST | `/api/auth/passkeys/register/begin` | Passkey hinzufügen starten (nur Browser-Session, max. 20) | `{ current_password }` | WebAuthn-Optionen `{ publicKey }` |
+| POST | `/api/auth/passkeys/register/finish` | Passkey speichern | `{ name, credential }` | `201` + Passkey |
+| GET | `/api/auth/passkeys` | Eigene Passkeys auflisten (nur Browser-Session) | – | Passkey-Liste ohne Schlüssel |
+| PATCH | `/api/auth/passkeys/:id` | Passkey umbenennen | `{ name }` | Passkey |
+| DELETE | `/api/auth/passkeys/:id` | Passkey entfernen | – | `204` |
 
 **Authentifizierung per API-Token:** Alle geschützten Endpunkte akzeptieren alternativ zum Cookie den Header `Authorization: Bearer kgm_…`. Das Token hat die Rechte seines Users; ein CSRF-Header ist nicht nötig. Ist der Header gesetzt, wird nur das Token geprüft (kein Rückfall auf das Cookie). Tokens verfallen optional (1–365 Tage) und werden beim Zurücksetzen oder Ändern des Passworts widerrufen. Tokens können nicht mit einem Token verwaltet werden, damit ein geleaktes Token keine weiteren erzeugen kann.
 
@@ -285,6 +298,7 @@ Weitere Entitäten kommen mit der Zeit dazu
 - Rate Limiting
 - CSRF-Schutz (Double-Submit Token) & CORS-Konfiguration
 - Persönliche API-Tokens: 256 Bit Zufall, nur Hash in der DB, optionaler Ablauf, Widerruf bei Passwort-Reset
+- Passkeys: Hinzufügen nur mit aktuellem Passwort und Browser-Session; Challenges einmalig und 5 Minuten gültig; Signaturzähler-Prüfung gegen geklonte Authenticators; alle Passkeys werden beim Zurücksetzen des Passworts („Passwort vergessen“) gelöscht, beim normalen Passwortwechsel bleiben sie erhalten
 
 ### Performance
 - API < 200ms
@@ -324,6 +338,7 @@ Weitere Entitäten kommen mit der Zeit dazu
 - ✅ CSRF-Schutz mit Double-Submit Token
 - ✅ Persönliche API-Tokens (Bearer-Auth für Skripte/Agenten)
 - ✅ Account-Seite mit Passwort ändern
+- ✅ Passkeys als zusätzliche Anmeldemethode (inkl. Autofill)
 - ✅ MCP-Server `/mcp` (Phase 1: 7 Lese-Tools, Spieltag als Entwurf erfassen, veröffentlichen, Buchung erfassen)
 - ✅ Club Entity mit vollständigem CRUD
 - ✅ Owner-basierte Berechtigungen für Club-Updates/Deletes
@@ -406,6 +421,28 @@ Weitere Entitäten kommen mit der Zeit dazu
 - ✅ README mit Install-Beispiel
 
 Postgres und Redis werden nicht mitdeployt. `AUTO_MIGRATE` ist im Chart-Default aktiv; bei mehreren Replicas können Migrationen konkurrieren.
+
+---
+
+## Letzte Implementierung: Passkeys (18. November 2026)
+
+Passkeys sind eine zusätzliche Anmeldemethode; das Passwort bleibt Pflicht (für „Passwort vergessen“ und das Hinzufügen von Passkeys).
+
+- ✅ Migration `000027_create_webauthn` (Tabellen `webauthn_credentials` und `webauthn_sessions`)
+- ✅ Paket `internal/passkey` auf Basis von `github.com/go-webauthn/webauthn` (Go ≥ 1.26, Docker-Images und CI entsprechend angehoben)
+- ✅ Nur discoverable Credentials („resident keys“): Anmeldung ohne E-Mail-Eingabe, keine Preisgabe registrierter Adressen
+- ✅ Challenge pro Zeremonie in der DB, per `DELETE … RETURNING` einmalig verwendbar; Verweis darauf im HTTP-only-Cookie `passkey_ceremony` (Pfad `/api/auth/passkeys`, 5 Minuten). Funktioniert mit mehreren Replicas.
+- ✅ Relying Party aus `PUBLIC_BASE_URL` abgeleitet, überschreibbar mit `WEBAUTHN_RP_ID` / `WEBAUTHN_ORIGINS`
+- ✅ Hinzufügen erfordert das aktuelle Passwort; Verwaltung nur mit Browser-Session (nicht per API-Token)
+- ✅ Passwort-Reset löscht alle Passkeys; normaler Passwortwechsel behält sie
+- ✅ Audit-Events `user_login_passkey`, `passkey_created`, `passkey_renamed`, `passkey_deleted`
+- ✅ Frontend: Button „Mit Passkey anmelden“ und Autofill (`autocomplete="username webauthn"`) auf `/login`, Passkey-Verwaltung auf `/app/account`; native Browser-API (`PublicKeyCredential.parse…OptionsFromJSON`)
+- ✅ Tests: komplette Zeremonie mit Software-Authenticator (`internal/passkey/service_test.go`), Handler-Tests (`internal/server/passkey_handler_test.go`), E2E mit virtuellem Chromium-Authenticator (`frontend/e2e/passkey.spec.ts`)
+
+### Geplant
+
+- 📋 Passwortlose Konten (Registrierung nur mit Passkey)
+- 📋 Unbekannte Passkeys dem Browser melden (`PublicKeyCredential.signalUnknownCredential`), damit gelöschte Passkeys aus dem Autofill verschwinden
 
 ---
 

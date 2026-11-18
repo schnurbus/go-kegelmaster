@@ -14,6 +14,7 @@ import (
 	"github.com/schnurbus/go-kegelmaster/backend/internal/config"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/gameday"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/penaltytype"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/passkey"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/passwordreset"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/permission"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/player"
@@ -53,6 +54,14 @@ func newTestServer(t *testing.T) (*Server, sqlmock.Sqlmock, *auth.Service) {
 	authSvc := auth.NewService("test-secret", 60, 30)
 	permissionCheck := permission.NewChecker(clubRepo, roleRepo, playerRepo)
 	passwordResetRepo := passwordreset.NewRepository(db)
+	passkeySvc, err := passkey.NewService(db, passkey.Config{
+		RPID:        "localhost",
+		DisplayName: "Kegelmaster",
+		Origins:     []string{"http://localhost:5173"},
+	})
+	if err != nil {
+		t.Fatalf("passkey service: %v", err)
+	}
 
 	srv := New(config.Config{
 		AppEnv:      "test",
@@ -71,6 +80,7 @@ func newTestServer(t *testing.T) (*Server, sqlmock.Sqlmock, *auth.Service) {
 		PasswordResetRepo: passwordResetRepo,
 		APITokenRepo:      apitoken.NewRepository(db),
 		StatisticsRepo:    statistics.NewRepository(db),
+		PasskeyService:    passkeySvc,
 	})
 
 	return srv, mock, authSvc

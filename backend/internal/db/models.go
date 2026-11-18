@@ -6,6 +6,7 @@ package db
 
 import (
 	"database/sql"
+	"encoding/json"
 	"time"
 )
 
@@ -173,4 +174,30 @@ type User struct {
 	CreatedAt         time.Time    `json:"created_at"`
 	UpdatedAt         time.Time    `json:"updated_at"`
 	PasswordChangedAt sql.NullTime `json:"password_changed_at"`
+}
+
+type WebauthnCredential struct {
+	ID              string       `json:"id"`
+	UserID          string       `json:"user_id"`
+	Name            string       `json:"name"`
+	CredentialID    []byte       `json:"credential_id"`
+	PublicKey       []byte       `json:"public_key"`
+	AttestationType string       `json:"attestation_type"`
+	Aaguid          []byte       `json:"aaguid"`
+	SignCount       int64        `json:"sign_count"`
+	Transports      string       `json:"transports"`
+	Flags           int16        `json:"flags"`
+	LastUsedAt      sql.NullTime `json:"last_used_at"`
+	CreatedAt       time.Time    `json:"created_at"`
+	UpdatedAt       time.Time    `json:"updated_at"`
+}
+
+type WebauthnSession struct {
+	ID          string          `json:"id"`
+	Ceremony    string          `json:"ceremony"`
+	UserID      *string         `json:"user_id"`
+	SessionData json.RawMessage `json:"session_data"`
+	ExpiresAt   time.Time       `json:"expires_at"`
+	CreatedAt   time.Time       `json:"created_at"`
+	UpdatedAt   time.Time       `json:"updated_at"`
 }
