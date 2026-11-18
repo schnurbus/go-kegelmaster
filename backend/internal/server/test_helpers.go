@@ -18,6 +18,7 @@ import (
 	"github.com/schnurbus/go-kegelmaster/backend/internal/permission"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/player"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/role"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/statistics"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/transaction"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/user"
 )
@@ -69,6 +70,7 @@ func newTestServer(t *testing.T) (*Server, sqlmock.Sqlmock, *auth.Service) {
 		PermissionCheck:   permissionCheck,
 		PasswordResetRepo: passwordResetRepo,
 		APITokenRepo:      apitoken.NewRepository(db),
+		StatisticsRepo:    statistics.NewRepository(db),
 	})
 
 	return srv, mock, authSvc

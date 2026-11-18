@@ -111,6 +111,16 @@ type Querier interface {
 	MarkPlayerInvitationAccepted(ctx context.Context, arg MarkPlayerInvitationAcceptedParams) (int64, error)
 	RemoveRolePermission(ctx context.Context, arg RemoveRolePermissionParams) error
 	SetPenaltyTypeReplacedBy(ctx context.Context, arg SetPenaltyTypeReplacedByParams) error
+	StatsListCompetitionValues(ctx context.Context, arg StatsListCompetitionValuesParams) ([]StatsListCompetitionValuesRow, error)
+	StatsListFees(ctx context.Context, arg StatsListFeesParams) ([]StatsListFeesRow, error)
+	// ==================== PLAYER STATISTICS ====================
+	// All statistics queries only consider published game days (is_draft = false)
+	// within the inclusive date range [$2, $3].
+	StatsListGameDays(ctx context.Context, arg StatsListGameDaysParams) ([]StatsListGameDaysRow, error)
+	StatsListParticipants(ctx context.Context, arg StatsListParticipantsParams) ([]StatsListParticipantsRow, error)
+	StatsListPlayerTransactions(ctx context.Context, arg StatsListPlayerTransactionsParams) ([]StatsListPlayerTransactionsRow, error)
+	// StatsPlayerBalanceDeltaBefore sums balance-relevant transactions (base_fee, fee, deposit) before a date.
+	StatsPlayerBalanceDeltaBefore(ctx context.Context, arg StatsPlayerBalanceDeltaBeforeParams) (int64, error)
 	SumAmountByClub(ctx context.Context, clubID string) (int64, error)
 	// SumAmountByClubCash sums only transaction types that affect club till: deposit, tip, expense. Base_fee and fee do not change club cash.
 	SumAmountByClubCash(ctx context.Context, clubID string) (int64, error)

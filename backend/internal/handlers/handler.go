@@ -14,6 +14,7 @@ import (
 	"github.com/schnurbus/go-kegelmaster/backend/internal/permission"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/player"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/role"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/statistics"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/transaction"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/user"
 )
@@ -35,6 +36,7 @@ type Handler struct {
 	EmailSvc          *email.Service
 	PasswordResetRepo *passwordreset.Repository
 	APITokenRepo      *apitoken.Repository
+	StatisticsRepo    *statistics.Repository
 }
 
 // NewHandler creates a new handler instance with the given dependencies.
@@ -55,6 +57,7 @@ func NewHandler(cfg config.Config, deps Dependencies) *Handler {
 		EmailSvc:          deps.EmailService,
 		PasswordResetRepo: deps.PasswordResetRepo,
 		APITokenRepo:      deps.APITokenRepo,
+		StatisticsRepo:    deps.StatisticsRepo,
 	}
 }
 
@@ -74,4 +77,5 @@ type Dependencies struct {
 	EmailService    *email.Service
 	PasswordResetRepo *passwordreset.Repository
 	APITokenRepo      *apitoken.Repository
+	StatisticsRepo    *statistics.Repository
 }

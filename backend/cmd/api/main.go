@@ -23,6 +23,7 @@ import (
 	"github.com/schnurbus/go-kegelmaster/backend/internal/permission"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/player"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/role"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/statistics"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/server"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/transaction"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/user"
@@ -76,6 +77,7 @@ func main() {
 	emailSvc := email.NewService(cfg.ResendAPIKey, cfg.ResendFromEmail)
 	passwordResetRepo := passwordreset.NewRepository(db)
 	apiTokenRepo := apitoken.NewRepository(db)
+	statisticsRepo := statistics.NewRepository(db)
 
 	srv := server.New(cfg, server.Dependencies{
 		UserRepo:        userRepo,
@@ -92,6 +94,7 @@ func main() {
 		EmailService:      emailSvc,
 		PasswordResetRepo: passwordResetRepo,
 		APITokenRepo:      apiTokenRepo,
+		StatisticsRepo:    statisticsRepo,
 	})
 
 	errCh := make(chan error, 1)

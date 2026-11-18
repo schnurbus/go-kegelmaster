@@ -15,6 +15,7 @@ import CompetitionsPage from "./routes/CompetitionsPage.tsx";
 import GameDaysPage from "./routes/GameDaysPage.tsx";
 import GameDayDetailPage from "./routes/GameDayDetailPage.tsx";
 import TransactionsPage from "./routes/TransactionsPage.tsx";
+import StatisticsPage from "./routes/StatisticsPage.tsx";
 import ClubEditPage from "./routes/ClubEditPage.tsx";
 import HelpPage from "./routes/HelpPage.tsx";
 import ApiTokensPage from "./routes/ApiTokensPage.tsx";
@@ -51,6 +52,7 @@ const router = createBrowserRouter([
             element: <DashboardLayout />,
             children: [
               { index: true, element: <DashboardPage />, handle: { title: "Dashboard" } },
+              { path: "statistics", element: <StatisticsPage />, handle: { title: "Statistiken" } },
               { path: "players", element: <PlayersPage />, handle: { title: "Spieler" } },
               { path: "players/:id", element: <PlayerDetailPage />, handle: { title: "Spieler" } },
               { path: "roles", element: <RolesPage />, handle: { title: "Rollen" } },

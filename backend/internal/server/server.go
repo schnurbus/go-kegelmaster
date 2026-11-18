@@ -32,6 +32,7 @@ import (
 	"github.com/schnurbus/go-kegelmaster/backend/internal/permission"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/player"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/role"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/statistics"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/transaction"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/user"
 	"github.com/schnurbus/go-kegelmaster/backend/openapi"
@@ -53,6 +54,7 @@ type Dependencies struct {
 	EmailService      *email.Service
 	PasswordResetRepo *passwordreset.Repository
 	APITokenRepo      *apitoken.Repository
+	StatisticsRepo    *statistics.Repository
 }
 
 // Server wraps the Fiber application and its dependencies.
@@ -129,6 +131,7 @@ func New(cfg config.Config, deps Dependencies) *Server {
 		EmailService:      deps.EmailService,
 		PasswordResetRepo: deps.PasswordResetRepo,
 		APITokenRepo:      deps.APITokenRepo,
+		StatisticsRepo:    deps.StatisticsRepo,
 	})
 
 	server := &Server{
@@ -240,6 +243,7 @@ func (s *Server) registerRoutes() {
 	clubsGroup.Get("/:clubId/players/me", s.handlers.HandleGetMyPlayer)
 	clubsGroup.Get("/:clubId/players/me/penalty-history", s.handlers.HandleGetMyPenaltyHistory)
 	clubsGroup.Get("/:clubId/players/me/competition-history", s.handlers.HandleGetMyCompetitionHistory)
+	clubsGroup.Get("/:clubId/players/me/statistics", s.handlers.HandleGetMyStatistics)
 	clubsGroup.Get("/:clubId/players/:id", s.handlers.HandleGetPlayer)
 	clubsGroup.Post("/:clubId/players", s.handlers.HandleCreatePlayer)
 	clubsGroup.Put("/:clubId/players/:id", s.handlers.HandleUpdatePlayer)
