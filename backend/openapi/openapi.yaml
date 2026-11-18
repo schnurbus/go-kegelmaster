@@ -672,6 +672,40 @@ paths:
       responses:
         "200":
           description: Historie
+  /api/clubs/{clubId}/players/me/statistics:
+    get:
+      summary: Eigene Statistik für einen Zeitraum
+      description: |
+        Umfangreiche Statistik des eigenen Spielers: Teilnahme, Strafen (inkl. Klubvergleich und Platz),
+        Strafen nach Typ, Wettbewerbe, Kontoentwicklung und Verlauf pro Spieltag.
+        Es werden nur veröffentlichte Spieltage berücksichtigt. Beträge in Cent.
+      tags: [Spieler]
+      security: [cookieAuth: [], bearerAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: from
+          in: query
+          required: false
+          description: Beginn (inklusive). Ohne Angabe wird der gesamte Zeitraum ausgewertet.
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          required: false
+          description: Ende (inklusive). Standard ist heute.
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Statistik
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PlayerStatistics" }
+        "400":
+          description: Ungültiger Zeitraum
+        "404":
+          description: Kein Spieler in diesem Club
   /api/clubs/{clubId}/players/{id}:
     get:
       summary: Einzelnen Spieler
@@ -1414,3 +1448,113 @@ components:
         base_fee: { type: integer }
         auto_tip_enabled: { type: boolean }
         couples_mode_enabled: { type: boolean }
+    PlayerStatistics:
+      type: object
+      description: Statistik eines Spielers. Beträge in Cent, Datumswerte als YYYY-MM-DD.
+      properties:
+        player:
+          type: object
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string }
+        period:
+          type: object
+          properties:
+            from: { type: string, format: date, nullable: true }
+            to: { type: string, format: date }
+        attendance:
+          type: object
+          properties:
+            club_game_days: { type: integer, description: "Veröffentlichte Spieltage im Zeitraum" }
+            attended: { type: integer }
+            rate: { type: number, description: "Teilnahmequote 0..1" }
+            current_streak: { type: integer }
+            longest_streak: { type: integer }
+            first_attended: { type: string, format: date, nullable: true }
+            last_attended: { type: string, format: date, nullable: true }
+        penalties:
+          type: object
+          properties:
+            total_amount: { type: integer }
+            average_per_game_day: { type: integer }
+            club_average_per_game_day: { type: integer }
+            penalty_free_game_days: { type: integer }
+            most_expensive_game_day: { $ref: "#/components/schemas/StatisticsGameDayAmount" }
+            cheapest_game_day: { $ref: "#/components/schemas/StatisticsGameDayAmount" }
+            rank: { type: integer, description: "Platz nach Ø-Strafen pro Spieltag (1 = höchste), 0 = ohne Platz" }
+            rank_of: { type: integer }
+            by_type:
+              type: array
+              items:
+                type: object
+                properties:
+                  penalty_type_id: { type: string, format: uuid }
+                  name: { type: string }
+                  quantity: { type: number }
+                  amount: { type: integer }
+                  game_days: { type: integer }
+                  average_per_game_day: { type: number }
+                  club_average_per_game_day: { type: number }
+        competitions:
+          type: array
+          items:
+            type: object
+            properties:
+              competition_id: { type: string, format: uuid }
+              name: { type: string }
+              scoring_type: { type: string, enum: [winner, loser, both] }
+              is_gender_specific: { type: boolean }
+              participations: { type: integer }
+              total: { type: integer }
+              average: { type: number }
+              club_average: { type: number }
+              best: { type: integer, nullable: true }
+              worst: { type: integer, nullable: true }
+              wins: { type: integer }
+              losses: { type: integer }
+              rank: { type: integer, description: "Platz nach Ø-Wert (1 = höchster), 0 = ohne Platz" }
+              rank_of: { type: integer }
+              history:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    game_day_id: { type: string, format: uuid }
+                    date: { type: string, format: date }
+                    value: { type: integer }
+                    club_average: { type: number }
+                    is_win: { type: boolean }
+                    is_loss: { type: boolean }
+        finance:
+          type: object
+          properties:
+            start_balance: { type: integer }
+            end_balance: { type: integer }
+            deposits: { type: integer }
+            fees: { type: integer }
+            base_fees: { type: integer }
+            balance_history:
+              type: array
+              items:
+                type: object
+                properties:
+                  date: { type: string, format: date }
+                  balance: { type: integer }
+        game_days:
+          type: array
+          items:
+            type: object
+            properties:
+              game_day_id: { type: string, format: uuid }
+              date: { type: string, format: date }
+              attended: { type: boolean }
+              participants: { type: integer }
+              penalty_amount: { type: integer, nullable: true }
+              club_average_amount: { type: integer }
+    StatisticsGameDayAmount:
+      type: object
+      nullable: true
+      properties:
+        game_day_id: { type: string, format: uuid }
+        date: { type: string, format: date }
+        amount: { type: integer }

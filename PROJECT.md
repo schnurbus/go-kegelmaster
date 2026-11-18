@@ -346,7 +346,7 @@ Weitere Entitäten kommen mit der Zeit dazu
 - ⏳ Rollen & Berechtigungssystem
 
 ### Geplant 📋
-- 📋 Statistiken & Reports
+- ✅ Statistik-Seite pro Spieler mit wählbarem Zeitraum (siehe unten)
 - 📋 Dashboard mit Übersichten
 - 📋 E2E Tests
 
@@ -467,3 +467,12 @@ claude mcp add --transport http kegelmaster https://<host>/mcp --header "Authori
 - 📋 Stammdaten: `spieler_speichern`, `strafentyp_speichern`
 - 📋 API-Tokens mit Scope (z. B. nur lesen)
 - 📋 OAuth für Custom Connectors auf claude.ai
+
+## Letzte Implementierung: Statistik-Seite (18. November 2026)
+
+### Implementierte Komponenten
+
+- **Backend:** Paket `internal/statistics` (Queries in `queries/statistics.sql`, reine Berechnung in `Compute`, Unit-Tests). Endpunkt `GET /api/clubs/:clubId/players/me/statistics?from=&to=` (beide optional; ohne `from` = gesamter Zeitraum, `to` = heute). Berücksichtigt nur veröffentlichte Spieltage.
+- **Inhalte:** Teilnahmequote und Serien, Strafen gesamt / Ø pro Spieltag mit Klubvergleich, Platz im Klub (Ø-Strafen), strafenfreie Abende, teuerster/günstigster Abend, Strafen nach Typ (eigener Ø vs. Klub-Ø), Wettbewerbe (Ø, Bestwert, Siege, letzte Plätze, Platz nach Ø, Verlauf), Kontoverlauf mit Einzahlungen/Strafen/Grundgebühren.
+- **MCP:** Tool `meine_statistik` (von/bis).
+- **Frontend:** Route `/app/statistics` (Sidebar „Statistiken“), Zeitraum-Auswahl (Presets + benutzerdefiniert) im URL-Query gespeichert.

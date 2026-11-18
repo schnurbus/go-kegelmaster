@@ -52,7 +52,7 @@ function useDashboardData() {
     },
     {
       title: "Statistiken",
-      url: "#",
+      url: "/app/statistics",
       icon: BarChartIcon,
     },
     {

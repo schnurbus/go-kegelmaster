@@ -147,7 +147,7 @@ func TestListTools(t *testing.T) {
 	}
 	want := map[string]bool{
 		"klubs_auflisten": false, "klub_ueberblick": false, "spieltage_auflisten": false, "spieltag_details": false,
-		"spieler_konto": false, "transaktionen_suchen": false, "mein_spieler": false,
+		"spieler_konto": false, "transaktionen_suchen": false, "mein_spieler": false, "meine_statistik": false,
 		"spieltag_erfassen": false, "spieltag_veroeffentlichen": false, "buchung_erfassen": false,
 	}
 	for _, tool := range res.Tools {
@@ -410,4 +410,29 @@ func TestEuro(t *testing.T) {
 func mustJSON(v any) string {
 	raw, _ := json.Marshal(v)
 	return string(raw)
+}
+
+func TestMyStatistics(t *testing.T) {
+	api := newFakeAPI()
+	api.on("GET /api/clubs/club-1/players/me/statistics", 200, map[string]any{
+		"player":    map[string]any{"id": "p-1", "name": "Anna"},
+		"penalties": map[string]any{"total_amount": 1250, "rank": 2, "rank_of": 8},
+	})
+	s := connect(t, api)
+	out, isErr := callTool(t, s, "meine_statistik", map[string]any{"club_id": clubID, "von": "2026-01-01", "bis": "2026-06-30"})
+	if isErr {
+		t.Fatal(out)
+	}
+	if !strings.Contains(out, `"total_amount": 1250`) {
+		t.Errorf("output misses statistics:\n%s", out)
+	}
+	calls := api.called("GET", "/api/clubs/club-1/players/me/statistics")
+	if len(calls) != 1 || calls[0].Query.Get("from") != "2026-01-01" || calls[0].Query.Get("to") != "2026-06-30" {
+		t.Fatalf("unexpected calls: %+v", calls)
+	}
+
+	out, isErr = callTool(t, s, "meine_statistik", map[string]any{"club_id": clubID, "von": "01.01.2026"})
+	if !isErr || !strings.Contains(out, "JJJJ-MM-TT") {
+		t.Errorf("expected date validation error, got %s", out)
+	}
 }

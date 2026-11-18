@@ -73,6 +73,15 @@ func registerTools(s *mcp.Server, api API) {
 	}, myPlayer)
 
 	addTool(s, api, &mcp.Tool{
+		Name:  "meine_statistik",
+		Title: "Meine Statistik",
+		Description: "Ausführliche Statistik deines eigenen Spielers für einen Zeitraum (von/bis, JJJJ-MM-TT; ohne von = gesamter Zeitraum, bis = heute): " +
+			"Teilnahmequote und Serien, Strafen gesamt/pro Spieltag im Vergleich zum Klubschnitt, Platz im Klub, Strafen nach Typ, " +
+			"Wettbewerbe (Schnitt, Bestwert, Siege, Niederlagen, Platz) und Kontoentwicklung. Nur veröffentlichte Spieltage; alle Beträge in Cent.",
+		Annotations: readOnly,
+	}, myStatistics)
+
+	addTool(s, api, &mcp.Tool{
 		Name:  "spieltag_erfassen",
 		Title: "Spieltag als Entwurf erfassen",
 		Description: "Legt einen Spieltag als ENTWURF an, inklusive aller Teilnehmer mit ihren Strafen und Wettbewerbswerten, in einem Aufruf. Es wird noch nichts gebucht. " +
@@ -740,6 +749,41 @@ func myPlayer(ctx context.Context, c *client, in myPlayerInput) (any, error) {
 		result["wettbewerbs_verlauf"] = out
 	}
 	return result, nil
+}
+
+// ---------- meine_statistik ----------
+
+type myStatisticsInput struct {
+	ClubID string `json:"club_id" jsonschema:"ID des Klubs"`
+	Von    string `json:"von,omitempty" jsonschema:"Beginn des Zeitraums JJJJ-MM-TT (leer = seit Beginn)"`
+	Bis    string `json:"bis,omitempty" jsonschema:"Ende des Zeitraums JJJJ-MM-TT (leer = heute)"`
+}
+
+func myStatistics(ctx context.Context, c *client, in myStatisticsInput) (any, error) {
+	if err := requireID("club_id", in.ClubID); err != nil {
+		return nil, err
+	}
+	q := map[string]string{}
+	if in.Von != "" {
+		if err := validDate("von", in.Von); err != nil {
+			return nil, err
+		}
+		q["from"] = in.Von
+	}
+	if in.Bis != "" {
+		if err := validDate("bis", in.Bis); err != nil {
+			return nil, err
+		}
+		q["to"] = in.Bis
+	}
+	var stats map[string]any
+	if err := c.get(ctx, clubPath(in.ClubID, "players", "me", "statistics"), q, &stats); err != nil {
+		if isStatus(err, http.StatusNotFound) {
+			return nil, errors.New("du bist in diesem Klub keinem Spieler zugeordnet")
+		}
+		return nil, err
+	}
+	return stats, nil
 }
 
 // ---------- spieltag_erfassen ----------
