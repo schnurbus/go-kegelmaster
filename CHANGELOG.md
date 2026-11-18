@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.0](https://github.com/schnurbus/go-kegelmaster/compare/v0.7.0...v0.8.0) (2026-11-18)
+
+
+### Features
+
+* **chat:** hide chat widget when no Gemini API key is configured ([#66](https://github.com/schnurbus/go-kegelmaster/issues/66)) ([0ff4bad](https://github.com/schnurbus/go-kegelmaster/commit/0ff4bad8dbb70494f919b6c0545d871bd6f5bbb7))
+* **gamedays:** mark participants as absent and skip game days without attendees in statistics ([#65](https://github.com/schnurbus/go-kegelmaster/issues/65)) ([4ab3cb1](https://github.com/schnurbus/go-kegelmaster/commit/4ab3cb1c912b455c0e0f3eb5e57b2ef8e4c61df5))
+
 ## [0.7.0](https://github.com/schnurbus/go-kegelmaster/compare/v0.6.0...v0.7.0) (2026-11-18)
 
 
