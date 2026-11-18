@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -44,6 +45,11 @@ type Config struct {
 	// TrustedProxies: kommagetrennte IPs/CIDRs vertrauenswürdiger Proxies; zusätzlich
 	// die Schlüsselwörter "private", "loopback" und "linklocal".
 	TrustedProxies string
+	// WebAuthnRPID: Domain, an die Passkeys gebunden sind (Standard: Host aus PUBLIC_BASE_URL).
+	WebAuthnRPID string
+	// WebAuthnOrigins: kommagetrennte Origins, die Passkey-Zeremonien ausführen dürfen
+	// (Standard: Origin aus PUBLIC_BASE_URL plus CORS_ALLOW_ORIGINS).
+	WebAuthnOrigins string
 }
 
 // Load builds a Config from process environment variables, applying defaults
@@ -76,9 +82,55 @@ func Load() Config {
 		LogLevel:                    getEnv("LOG_LEVEL", "info"),
 		ProxyHeader:                 strings.TrimSpace(os.Getenv("PROXY_HEADER")),
 		TrustedProxies:              os.Getenv("TRUSTED_PROXIES"),
+		WebAuthnRPID:                strings.TrimSpace(os.Getenv("WEBAUTHN_RP_ID")),
+		WebAuthnOrigins:             os.Getenv("WEBAUTHN_ORIGINS"),
 	}
 
 	return cfg
+}
+
+// PasskeyRelyingParty returns the WebAuthn relying party ID and allowed
+// origins. Without explicit settings they are derived from PUBLIC_BASE_URL;
+// CORS origins are added so the Vite dev server can run ceremonies too.
+func (c Config) PasskeyRelyingParty() (string, []string, error) {
+	base, err := url.Parse(strings.TrimSpace(c.BaseURL))
+	if err != nil || base.Scheme == "" || base.Host == "" {
+		return "", nil, fmt.Errorf("PUBLIC_BASE_URL %q is not an absolute URL", c.BaseURL)
+	}
+	rpID := c.WebAuthnRPID
+	if rpID == "" {
+		rpID = base.Hostname()
+	}
+
+	var origins []string
+	if strings.TrimSpace(c.WebAuthnOrigins) != "" {
+		origins = splitList(c.WebAuthnOrigins)
+	} else {
+		origins = append([]string{base.Scheme + "://" + base.Host}, splitList(c.CORSOrigins)...)
+	}
+	seen := make(map[string]bool, len(origins))
+	out := make([]string, 0, len(origins))
+	for _, o := range origins {
+		o = strings.TrimSuffix(o, "/")
+		// Wildcard CORS patterns (e.g. "https://*.example.org") are no WebAuthn origins.
+		if o == "" || strings.Contains(o, "*") || seen[o] {
+			continue
+		}
+		seen[o] = true
+		out = append(out, o)
+	}
+	return rpID, out, nil
+}
+
+func splitList(s string) []string {
+	parts := strings.Split(s, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // DebugLogRequests returns true if read-only requests (GET/HEAD) should be logged.

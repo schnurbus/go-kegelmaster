@@ -6,6 +6,7 @@ package db
 
 import (
 	"context"
+	"time"
 )
 
 type Querier interface {
@@ -13,11 +14,14 @@ type Querier interface {
 	AddRolePermission(ctx context.Context, arg AddRolePermissionParams) (RolePermission, error)
 	CheckGameDayExistsByClubAndDate(ctx context.Context, arg CheckGameDayExistsByClubAndDateParams) (bool, error)
 	ConsumePasswordResetToken(ctx context.Context, token string) (PasswordResetToken, error)
+	// Deleting and returning in one statement makes each challenge single-use.
+	ConsumeWebAuthnSession(ctx context.Context, arg ConsumeWebAuthnSessionParams) (WebauthnSession, error)
 	CountAPITokensByUserID(ctx context.Context, userID string) (int64, error)
 	CountPlayersByRoleIDForClub(ctx context.Context, clubID string) ([]CountPlayersByRoleIDForClubRow, error)
 	CountTransactionsByClub(ctx context.Context, clubID string) (int64, error)
 	CountTransactionsByPlayer(ctx context.Context, arg CountTransactionsByPlayerParams) (int64, error)
 	CountTransactionsByType(ctx context.Context, arg CountTransactionsByTypeParams) (int64, error)
+	CountWebAuthnCredentialsByUserID(ctx context.Context, userID string) (int64, error)
 	CreateAPIToken(ctx context.Context, arg CreateAPITokenParams) (ApiToken, error)
 	CreateClub(ctx context.Context, arg CreateClubParams) (Club, error)
 	CreateCompetition(ctx context.Context, arg CreateCompetitionParams) (Competition, error)
@@ -37,6 +41,8 @@ type Querier interface {
 	// ==================== TRANSACTIONS ====================
 	CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	CreateWebAuthnCredential(ctx context.Context, arg CreateWebAuthnCredentialParams) (WebauthnCredential, error)
+	CreateWebAuthnSession(ctx context.Context, arg CreateWebAuthnSessionParams) error
 	DeleteAPIToken(ctx context.Context, arg DeleteAPITokenParams) (int64, error)
 	DeleteAPITokensByUserID(ctx context.Context, userID string) error
 	DeleteAllCompetitionValuesByParticipant(ctx context.Context, gameDayParticipantID string) error
@@ -44,6 +50,7 @@ type Querier interface {
 	DeleteAllParticipantsByGameDay(ctx context.Context, gameDayID string) error
 	DeleteClub(ctx context.Context, id string) error
 	DeleteCompetition(ctx context.Context, id string) error
+	DeleteExpiredWebAuthnSessions(ctx context.Context, expiresAt time.Time) error
 	DeleteGameDay(ctx context.Context, id string) error
 	DeleteGameDayCompetitionValue(ctx context.Context, id string) error
 	DeleteGameDayCompetitionValueByParticipantAndCompetition(ctx context.Context, arg DeleteGameDayCompetitionValueByParticipantAndCompetitionParams) error
@@ -56,6 +63,8 @@ type Querier interface {
 	DeletePlayer(ctx context.Context, id string) error
 	DeleteRole(ctx context.Context, id string) error
 	DeleteTransaction(ctx context.Context, id string) error
+	DeleteWebAuthnCredential(ctx context.Context, arg DeleteWebAuthnCredentialParams) (int64, error)
+	DeleteWebAuthnCredentialsByUserID(ctx context.Context, userID string) error
 	GetAPITokenByHash(ctx context.Context, tokenHash string) (ApiToken, error)
 	GetAllClubs(ctx context.Context) ([]Club, error)
 	GetClubByID(ctx context.Context, id string) (Club, error)
@@ -99,6 +108,7 @@ type Querier interface {
 	GetTransactionByID(ctx context.Context, id string) (GetTransactionByIDRow, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id string) (User, error)
+	GetWebAuthnCredentialByCredentialID(ctx context.Context, credentialID []byte) (WebauthnCredential, error)
 	HasRolePermission(ctx context.Context, arg HasRolePermissionParams) (bool, error)
 	IncrementClubBalance(ctx context.Context, arg IncrementClubBalanceParams) (int32, error)
 	LinkPlayerToUser(ctx context.Context, arg LinkPlayerToUserParams) (int64, error)
@@ -107,9 +117,11 @@ type Querier interface {
 	ListTransactionsByGameDay(ctx context.Context, gameDayID *string) ([]ListTransactionsByGameDayRow, error)
 	ListTransactionsByPlayer(ctx context.Context, arg ListTransactionsByPlayerParams) ([]ListTransactionsByPlayerRow, error)
 	ListTransactionsByType(ctx context.Context, arg ListTransactionsByTypeParams) ([]ListTransactionsByTypeRow, error)
+	ListWebAuthnCredentialsByUserID(ctx context.Context, userID string) ([]WebauthnCredential, error)
 	MarkPenaltyTypeAsReplaced(ctx context.Context, arg MarkPenaltyTypeAsReplacedParams) error
 	MarkPlayerInvitationAccepted(ctx context.Context, arg MarkPlayerInvitationAcceptedParams) (int64, error)
 	RemoveRolePermission(ctx context.Context, arg RemoveRolePermissionParams) error
+	RenameWebAuthnCredential(ctx context.Context, arg RenameWebAuthnCredentialParams) (WebauthnCredential, error)
 	SetPenaltyTypeReplacedBy(ctx context.Context, arg SetPenaltyTypeReplacedByParams) error
 	StatsListCompetitionValues(ctx context.Context, arg StatsListCompetitionValuesParams) ([]StatsListCompetitionValuesRow, error)
 	StatsListFees(ctx context.Context, arg StatsListFeesParams) ([]StatsListFeesRow, error)
@@ -143,6 +155,7 @@ type Querier interface {
 	UpdateRole(ctx context.Context, arg UpdateRoleParams) (Role, error)
 	UpdateTransaction(ctx context.Context, arg UpdateTransactionParams) (Transaction, error)
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error
+	UpdateWebAuthnCredentialAfterLogin(ctx context.Context, arg UpdateWebAuthnCredentialAfterLoginParams) error
 	UpsertGameDayCompetitionValue(ctx context.Context, arg UpsertGameDayCompetitionValueParams) (GameDayCompetitionValue, error)
 	UpsertGameDayFee(ctx context.Context, arg UpsertGameDayFeeParams) (GameDayFee, error)
 }

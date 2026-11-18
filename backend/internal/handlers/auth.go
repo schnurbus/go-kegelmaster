@@ -294,6 +294,13 @@ func (h *Handler) HandleResetPassword(c fiber.Ctx) error {
 			slog.Error("delete api tokens after password reset", "error", err)
 		}
 	}
+	// A reset is the recovery path after a compromise: passkeys an attacker
+	// may have added must not survive it. (A normal password change keeps them.)
+	if h.PasskeySvc != nil {
+		if err := h.PasskeySvc.DeleteByUserID(ctx, pr.UserID); err != nil {
+			slog.Error("delete passkeys after password reset", "error", err)
+		}
+	}
 
 	audit.LogAudit(c, pr.UserID, audit.ActionUserPasswordReset, "user_id", pr.UserID)
 	return c.SendStatus(fiber.StatusNoContent)

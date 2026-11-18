@@ -200,6 +200,8 @@ func TestRepository_Create(t *testing.T) {
 - `BUY_ME_A_COFFEE_URL`: (optional) URL für „Buy Me a Coffee“. Wenn gesetzt, wird im App-Footer ein entsprechender Link angezeigt; ausgegeben unter `GET /api/config/public` als `buy_me_a_coffee_url`.
 - `PROXY_HEADER`: (optional) Header mit der echten Client-IP hinter einem Reverse Proxy (z. B. `X-Forwarded-For`). Ohne diese Einstellung sehen Rate-Limits (Login, Passwort-Reset, Chat) nur die Proxy-IP und gelten damit für alle Nutzer gemeinsam.
 - `TRUSTED_PROXIES`: (optional, nur mit `PROXY_HEADER`) Kommagetrennte IPs/CIDRs der vertrauenswürdigen Proxies; zusätzlich `private`, `loopback`, `linklocal`. Nur von diesen Adressen wird `PROXY_HEADER` ausgewertet.
+- `WEBAUTHN_RP_ID`: (optional) Domain, an die Passkeys gebunden sind (WebAuthn Relying Party ID). Default: Host aus `PUBLIC_BASE_URL`. Achtung: Ein späterer Wechsel macht alle registrierten Passkeys unbrauchbar.
+- `WEBAUTHN_ORIGINS`: (optional) Kommagetrennte Origins (`https://host[:port]`), die Passkey-Anmeldungen ausführen dürfen. Default: Origin aus `PUBLIC_BASE_URL` plus `CORS_ALLOW_ORIGINS` (damit funktioniert der Vite-Dev-Server auf `:5173`). Ist die Konfiguration ungültig, startet der Server trotzdem; die Passkey-Endpunkte antworten dann mit `503`.
 - `LOG_LEVEL`: (optional) Log-Level (`debug`, `info`, `warn`, `error`). Bei `debug` werden auch Leseanfragen (GET/HEAD) im Request-Log erfasst; sonst nur Mutationen und Fehler. Default: `info`.
 
 ### GitHub Actions / Release Please

@@ -1,5 +1,6 @@
 import type { FormEvent } from "react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { KeyRoundIcon } from "lucide-react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "sonner";
@@ -15,6 +16,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  PasskeyCancelledError,
+  conditionalMediationAvailable,
+  passkeysSupported,
+} from "@/lib/passkey";
 
 const initialState = { email: "", password: "" };
 
@@ -23,7 +29,13 @@ function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { login } = useAuth();
+  const [isPasskeyPending, setIsPasskeyPending] = useState(false);
+  // Bumped to restart the autofill request after a failed sign-in attempt.
+  const [autofillRun, setAutofillRun] = useState(0);
+  const autofillAbort = useRef<AbortController | null>(null);
+  const rememberMeRef = useRef(rememberMe);
+  rememberMeRef.current = rememberMe;
+  const { login, loginWithPasskey } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -82,33 +94,93 @@ function LoginPage() {
     }
   };
 
+  const continueAfterLogin = async () => {
+    toast.success("Anmeldung erfolgreich");
+    if (inviteToken) {
+      try {
+        const playerId = await acceptInvitation(inviteToken);
+        navigate(`/app/players/${playerId}`, { replace: true });
+      } catch (inviteError) {
+        console.error("Failed to accept invitation:", inviteError);
+        toast.warning(
+          "Anmeldung erfolgreich, aber Einladung konnte nicht akzeptiert werden. " +
+            "Sie können die Einladung später erneut versuchen.",
+          { duration: 8000 },
+        );
+        navigate(redirectTo, { replace: true });
+      }
+    } else {
+      navigate(redirectTo, { replace: true });
+    }
+  };
+
+  const showError = (err: unknown) => {
+    const message = err instanceof Error ? err.message : "Anmeldung fehlgeschlagen";
+    setError(message);
+    toast.error(message);
+  };
+
+  // Offer passkeys in the autofill of the e-mail field where the browser supports it.
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+    autofillAbort.current = controller;
+    (async () => {
+      if (!(await conditionalMediationAvailable()) || cancelled) return;
+      try {
+        await loginWithPasskey({
+          conditional: true,
+          signal: controller.signal,
+          remember_me: () => rememberMeRef.current,
+        });
+        await continueAfterLogin();
+      } catch (err) {
+        // No automatic retry: a persistent error (e.g. rate limit) would loop.
+        // The passkey button and the next password attempt restart autofill.
+        if (cancelled || err instanceof PasskeyCancelledError) return;
+        showError(err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+    // Re-run only when restarted explicitly; the handlers read fresh state via refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autofillRun]);
+
+  const stopAutofill = () => {
+    autofillAbort.current?.abort();
+  };
+
+  const handlePasskeyLogin = async () => {
+    stopAutofill();
+    setError(null);
+    setIsPasskeyPending(true);
+    try {
+      await loginWithPasskey({ remember_me: rememberMe });
+      await continueAfterLogin();
+    } catch (err) {
+      if (!(err instanceof PasskeyCancelledError)) {
+        showError(err);
+      }
+      setAutofillRun((n) => n + 1);
+    } finally {
+      setIsPasskeyPending(false);
+    }
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    stopAutofill();
     setError(null);
     setIsSubmitting(true);
     try {
       await login({ ...form, remember_me: rememberMe });
-      toast.success("Anmeldung erfolgreich");
-      if (inviteToken) {
-        try {
-          const playerId = await acceptInvitation(inviteToken);
-          navigate(`/app/players/${playerId}`, { replace: true });
-        } catch (inviteError) {
-          console.error("Failed to accept invitation:", inviteError);
-          toast.warning(
-            "Anmeldung erfolgreich, aber Einladung konnte nicht akzeptiert werden. " +
-              "Sie können die Einladung später erneut versuchen.",
-            { duration: 8000 },
-          );
-          navigate(redirectTo, { replace: true });
-        }
-      } else {
-        navigate(redirectTo, { replace: true });
-      }
+      await continueAfterLogin();
     } catch (err) {
-      const message = (err as Error).message;
-      setError(message);
-      toast.error(message);
+      showError(err);
+      setAutofillRun((n) => n + 1);
     } finally {
       setIsSubmitting(false);
     }
@@ -141,7 +213,7 @@ function LoginPage() {
                 <Input
                   id="login-email"
                   type="email"
-                  autoComplete="email"
+                  autoComplete="username webauthn"
                   value={form.email}
                   onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
                   required
@@ -195,6 +267,26 @@ function LoginPage() {
               >
                 {isSubmitting ? "Melde an …" : "Login"}
               </Button>
+              {passkeysSupported() && (
+                <>
+                  <div className="flex w-full items-center gap-3 text-xs text-muted-foreground">
+                    <span className="h-px flex-1 bg-border" />
+                    oder
+                    <span className="h-px flex-1 bg-border" />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full rounded-full"
+                    size="lg"
+                    onClick={handlePasskeyLogin}
+                    disabled={isSubmitting || isPasskeyPending}
+                  >
+                    <KeyRoundIcon />
+                    {isPasskeyPending ? "Warte auf Passkey …" : "Mit Passkey anmelden"}
+                  </Button>
+                </>
+              )}
               <p className="text-center text-sm text-muted-foreground">
                 Kein Account?{" "}
                 <Link to="/register" className="text-primary hover:underline font-medium">

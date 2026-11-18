@@ -27,6 +27,7 @@ import (
 	"github.com/schnurbus/go-kegelmaster/backend/internal/invitation"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/mcpserver"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/middleware"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/passkey"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/passwordreset"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/penaltytype"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/permission"
@@ -55,6 +56,7 @@ type Dependencies struct {
 	PasswordResetRepo *passwordreset.Repository
 	APITokenRepo      *apitoken.Repository
 	StatisticsRepo    *statistics.Repository
+	PasskeyService    *passkey.Service
 }
 
 // Server wraps the Fiber application and its dependencies.
@@ -132,6 +134,7 @@ func New(cfg config.Config, deps Dependencies) *Server {
 		PasswordResetRepo: deps.PasswordResetRepo,
 		APITokenRepo:      deps.APITokenRepo,
 		StatisticsRepo:    deps.StatisticsRepo,
+		PasskeyService:    deps.PasskeyService,
 	})
 
 	server := &Server{
@@ -213,6 +216,22 @@ func (s *Server) registerRoutes() {
 	authGroup.Get("/tokens", s.handlers.HandleListAPITokens)
 	authGroup.Post("/tokens", s.handlers.HandleCreateAPIToken)
 	authGroup.Delete("/tokens/:id", s.handlers.HandleDeleteAPIToken)
+	// Passkeys: login endpoints are public and rate limited like /login;
+	// register/begin verifies the current password and is limited as well.
+	passkeyLimiter := limiter.New(limiter.Config{
+		Max:        20,
+		Expiration: 5 * time.Minute,
+	})
+	authGroup.Post("/passkeys/login/begin", passkeyLimiter, s.handlers.HandleBeginPasskeyLogin)
+	authGroup.Post("/passkeys/login/finish", passkeyLimiter, s.handlers.HandleFinishPasskeyLogin)
+	authGroup.Post("/passkeys/register/begin", limiter.New(limiter.Config{
+		Max:        10,
+		Expiration: 5 * time.Minute,
+	}), s.handlers.HandleBeginPasskeyRegistration)
+	authGroup.Post("/passkeys/register/finish", s.handlers.HandleFinishPasskeyRegistration)
+	authGroup.Get("/passkeys", s.handlers.HandleListPasskeys)
+	authGroup.Patch("/passkeys/:id", s.handlers.HandleRenamePasskey)
+	authGroup.Delete("/passkeys/:id", s.handlers.HandleDeletePasskey)
 	authGroup.Post("/forgot-password", limiter.New(limiter.Config{
 		Max:        5,
 		Expiration: 15 * time.Minute,

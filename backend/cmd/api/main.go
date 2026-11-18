@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/schnurbus/go-kegelmaster/backend/internal/apitoken"
-	"github.com/schnurbus/go-kegelmaster/backend/internal/automigrate"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/auth"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/automigrate"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/competition"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/config"
@@ -18,13 +18,14 @@ import (
 	"github.com/schnurbus/go-kegelmaster/backend/internal/email"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/gameday"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/invitation"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/passkey"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/passwordreset"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/penaltytype"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/permission"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/player"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/role"
-	"github.com/schnurbus/go-kegelmaster/backend/internal/statistics"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/server"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/statistics"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/transaction"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/user"
 )
@@ -79,22 +80,35 @@ func main() {
 	apiTokenRepo := apitoken.NewRepository(db)
 	statisticsRepo := statistics.NewRepository(db)
 
+	// Passkeys are optional: a bad relying-party configuration disables them
+	// (endpoints answer 503) instead of keeping the server from starting.
+	var passkeySvc *passkey.Service
+	if rpID, origins, err := cfg.PasskeyRelyingParty(); err != nil {
+		slog.Warn("passkeys disabled", "error", err)
+	} else if svc, err := passkey.NewService(db, passkey.Config{RPID: rpID, DisplayName: "Kegelmaster", Origins: origins}); err != nil {
+		slog.Warn("passkeys disabled", "error", err)
+	} else {
+		passkeySvc = svc
+		slog.Info("passkeys enabled", "rp_id", rpID, "origins", origins)
+	}
+
 	srv := server.New(cfg, server.Dependencies{
-		UserRepo:        userRepo,
-		ClubRepo:        clubRepo,
-		RoleRepo:        roleRepo,
-		PlayerRepo:      playerRepo,
-		PenaltyTypeRepo: penaltyTypeRepo,
-		CompetitionRepo: competitionRepo,
-		GameDayRepo:     gameDayRepo,
-		TransactionRepo: transactionRepo,
-		AuthService:     authSvc,
-		PermissionCheck: permissionCheck,
+		UserRepo:          userRepo,
+		ClubRepo:          clubRepo,
+		RoleRepo:          roleRepo,
+		PlayerRepo:        playerRepo,
+		PenaltyTypeRepo:   penaltyTypeRepo,
+		CompetitionRepo:   competitionRepo,
+		GameDayRepo:       gameDayRepo,
+		TransactionRepo:   transactionRepo,
+		AuthService:       authSvc,
+		PermissionCheck:   permissionCheck,
 		InvitationRepo:    invitationRepo,
 		EmailService:      emailSvc,
 		PasswordResetRepo: passwordResetRepo,
 		APITokenRepo:      apiTokenRepo,
 		StatisticsRepo:    statisticsRepo,
+		PasskeyService:    passkeySvc,
 	})
 
 	errCh := make(chan error, 1)

@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasskeysCard } from "@/components/account/PasskeysCard";
 import { useAuth } from "@/context/AuthContext";
 import { useClub } from "@/context/ClubContext";
 
@@ -193,6 +194,8 @@ function AccountPage() {
       </Card>
 
       <ChangePasswordCard />
+
+      <PasskeysCard />
 
       <Card>
         <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
