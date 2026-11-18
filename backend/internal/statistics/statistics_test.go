@@ -32,16 +32,16 @@ func fixture() Input {
 			{ID: "gd4", Date: d("2026-04-01")},
 		},
 		Participants: []Participation{
-			{ParticipantID: "a1", GameDayID: "gd1", PlayerID: "p1", Gender: "male"},
-			{ParticipantID: "a2", GameDayID: "gd1", PlayerID: "p2", Gender: "male"},
-			{ParticipantID: "a3", GameDayID: "gd1", PlayerID: "p3", Gender: "female"},
-			{ParticipantID: "b1", GameDayID: "gd2", PlayerID: "p1", Gender: "male"},
-			{ParticipantID: "b2", GameDayID: "gd2", PlayerID: "p2", Gender: "male"},
-			{ParticipantID: "c2", GameDayID: "gd3", PlayerID: "p2", Gender: "male"},
-			{ParticipantID: "d1", GameDayID: "gd4", PlayerID: "p1", Gender: "male"},
-			{ParticipantID: "d3", GameDayID: "gd4", PlayerID: "p3", Gender: "female"},
+			{ParticipantID: "a1", GameDayID: "gd1", PlayerID: "p1", Attended: true, Gender: "male"},
+			{ParticipantID: "a2", GameDayID: "gd1", PlayerID: "p2", Attended: true, Gender: "male"},
+			{ParticipantID: "a3", GameDayID: "gd1", PlayerID: "p3", Attended: true, Gender: "female"},
+			{ParticipantID: "b1", GameDayID: "gd2", PlayerID: "p1", Attended: true, Gender: "male"},
+			{ParticipantID: "b2", GameDayID: "gd2", PlayerID: "p2", Attended: true, Gender: "male"},
+			{ParticipantID: "c2", GameDayID: "gd3", PlayerID: "p2", Attended: true, Gender: "male"},
+			{ParticipantID: "d1", GameDayID: "gd4", PlayerID: "p1", Attended: true, Gender: "male"},
+			{ParticipantID: "d3", GameDayID: "gd4", PlayerID: "p3", Attended: true, Gender: "female"},
 			// participation on an unknown game day (e.g. draft) must be ignored
-			{ParticipantID: "x1", GameDayID: "draft", PlayerID: "p1", Gender: "male"},
+			{ParticipantID: "x1", GameDayID: "draft", PlayerID: "p1", Attended: true, Gender: "male"},
 		},
 		Fees: []Fee{
 			{ParticipantID: "a1", PenaltyTypeID: "pt-pudel", PenaltyTypeName: "Pudel", Price: 50, Count: 3, QuantityScale: 1},
@@ -226,9 +226,9 @@ func TestCompute_NoDecisionOnTieOrSingleParticipant(t *testing.T) {
 		To:       d("2026-06-30"),
 		GameDays: []GameDayRef{{ID: "g1", Date: d("2026-01-01")}, {ID: "g2", Date: d("2026-02-01")}},
 		Participants: []Participation{
-			{ParticipantID: "a", GameDayID: "g1", PlayerID: "p1"},
-			{ParticipantID: "b", GameDayID: "g1", PlayerID: "p2"},
-			{ParticipantID: "c", GameDayID: "g2", PlayerID: "p1"},
+			{ParticipantID: "a", GameDayID: "g1", PlayerID: "p1", Attended: true},
+			{ParticipantID: "b", GameDayID: "g1", PlayerID: "p2", Attended: true},
+			{ParticipantID: "c", GameDayID: "g2", PlayerID: "p1", Attended: true},
 		},
 		Competitions: []CompetitionInfo{{ID: "c", Name: "C", ScoringType: "both"}},
 		CompetitionValues: []CompetitionValue{
@@ -242,6 +242,77 @@ func TestCompute_NoDecisionOnTieOrSingleParticipant(t *testing.T) {
 	eq(t, 0, s.Competitions[0].Wins)
 	eq(t, 0, s.Competitions[0].Losses)
 	eq(t, 2, s.Competitions[0].Participations)
+}
+
+// An absent player booked only for a penalty (e.g. "Puppe vergessen") keeps the
+// penalty but does not count as attending, and has no competition values.
+func TestCompute_AbsentParticipant(t *testing.T) {
+	in := fixture()
+	// p1 misses gd3 but forgot the doll: 200 cents, plus a stray competition value.
+	in.Participants = append(in.Participants, Participation{ParticipantID: "c1", GameDayID: "gd3", PlayerID: "p1", Attended: false, Gender: "male"})
+	in.Fees = append(in.Fees, Fee{ParticipantID: "c1", PenaltyTypeID: "pt-puppe", PenaltyTypeName: "Puppe vergessen", Price: 200, Count: 1, QuantityScale: 1})
+	in.CompetitionValues = append(in.CompetitionValues, CompetitionValue{ParticipantID: "c1", CompetitionID: "c-pokal", Value: 999})
+	s := Compute(in)
+
+	a := s.Attendance
+	eq(t, 3, a.Attended)
+	eq(t, 0.75, a.Rate)
+	eq(t, 1, a.CurrentStreak)
+
+	p := s.Penalties
+	eq(t, 750, p.TotalAmount)
+	eq(t, 200, p.AbsentAmount)
+	eq(t, 250, p.AveragePerGameDay) // 750 / 3 attended days
+	eq(t, 1, p.PenaltyFreeGameDays)
+	eq(t, "gd4", p.CheapestGameDay.GameDayID)
+	// club: 1200 + 200 over 8 attended participations
+	eq(t, 175, p.ClubAveragePerGameDay)
+	var puppe *PenaltyTypeSummary
+	for i := range p.ByType {
+		if p.ByType[i].PenaltyTypeID == "pt-puppe" {
+			puppe = &p.ByType[i]
+		}
+	}
+	requireTrue(t, puppe != nil)
+	eq(t, 1.0, puppe.Quantity)
+	eq(t, 1, puppe.GameDays)
+
+	gd3 := s.GameDays[2]
+	eq(t, "gd3", gd3.GameDayID)
+	eq(t, false, gd3.Attended)
+	eq(t, 1, gd3.Participants)
+	requireTrue(t, gd3.PenaltyAmount != nil)
+	eq(t, 200, *gd3.PenaltyAmount)
+
+	for _, c := range s.Competitions {
+		for _, h := range c.History {
+			if h.GameDayID == "gd3" {
+				t.Errorf("absent game day in competition history of %s", c.Name)
+			}
+		}
+	}
+}
+
+// A game day without attendees only charges the base fee; it did not take
+// place and must not appear in the statistics as an empty evening.
+func TestCompute_GameDayWithoutAttendeesIsSkipped(t *testing.T) {
+	in := fixture()
+	in.GameDays = append(in.GameDays, GameDayRef{ID: "gd5", Date: d("2026-05-01")})
+	// A stray absent booking on that day does not make it a held game day.
+	in.Participants = append(in.Participants, Participation{ParticipantID: "e1", GameDayID: "gd5", PlayerID: "p1", Attended: false})
+	in.Fees = append(in.Fees, Fee{ParticipantID: "e1", PenaltyTypeID: "pt-puppe", PenaltyTypeName: "Puppe vergessen", Price: 200, Count: 1, QuantityScale: 1})
+	in.Transactions = append(in.Transactions, BalanceTransaction{Date: d("2026-05-01"), Type: "base_fee", Amount: -500})
+	s := Compute(in)
+
+	eq(t, 4, s.Attendance.ClubGameDays)
+	eq(t, 0.75, s.Attendance.Rate)
+	eq(t, 1, s.Attendance.CurrentStreak)
+	requireLen(t, len(s.GameDays), 4)
+	eq(t, "gd4", s.GameDays[3].GameDayID)
+	eq(t, 550, s.Penalties.TotalAmount)
+	eq(t, 0, s.Penalties.AbsentAmount)
+	// The base fee of the skipped day is still part of the finances (fixture: 500 + 500).
+	eq(t, 1000, s.Finance.BaseFees)
 }
 
 func TestFee_AmountAndQuantity(t *testing.T) {

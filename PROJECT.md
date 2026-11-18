@@ -505,6 +505,17 @@ claude mcp add --transport http kegelmaster https://<host>/mcp --header "Authori
 - 📋 API-Tokens mit Scope (z. B. nur lesen)
 - 📋 OAuth für Custom Connectors auf claude.ai
 
+## Letzte Implementierung: Abwesende Teilnehmer (18. November 2026)
+
+Sonderfall: Ein Spieler fehlt am Spieltag, bekommt aber trotzdem eine Strafe (z. B. „Puppe vergessen“).
+
+- **Datenmodell:** `game_day_participants.attended` (Migration `000028`, Standard `true`). Bestehende Einträge bleiben anwesend.
+- **API:** `PATCH /api/clubs/:clubId/gamedays/:id/participants/:playerId` mit `{ "attended": bool }`. Beim Markieren als abwesend werden Wettbewerbs-Werte gelöscht; für Abwesende werden keine Wettbewerbs-Werte angenommen. Strafen und Buchungen bleiben unverändert.
+- **Frontend:** In der Strafen-Tabelle des Spieltags hat jeder Teilnehmer einen Haken „anwesend“ (standardmäßig gesetzt). Wer abwesend ist, muss aktiv abgehakt werden. Abwesende sind in den Tabellen als „abwesend“ markiert, ihre Wettbewerbsfelder sind gesperrt.
+- **Statistik:** Abwesende zählen nicht zur Teilnahme (Quote, Serien), nicht zu Wettbewerben und nicht zur Teilnehmerzahl in der Spieltagsübersicht. Ihre Strafen zählen zu den Strafsummen (`absent_amount` zeigt den Anteil); Durchschnitte und Ranglisten teilen durch die anwesenden Spieltage.
+- **MCP:** Spieltag-Details enthalten `abwesend: true` für abwesende Teilnehmer.
+- **Spieltage ohne Teilnehmer:** Spieltage ohne anwesende Teilnehmer (z. B. nur zum Einfordern der Grundgebühr) fließen nicht in die Statistik ein (keine leeren Abende in Teilnahmequote, Serien, Diagrammen und Durchschnitten). Die Grundgebühr bleibt im Kontoverlauf enthalten.
+
 ## Letzte Implementierung: Statistik-Seite (18. November 2026)
 
 ### Implementierte Komponenten

@@ -57,6 +57,7 @@ export interface PlayerStatistics {
   };
   penalties: {
     total_amount: number;
+    absent_amount: number; // part of total_amount booked while absent
     average_per_game_day: number;
     club_average_per_game_day: number;
     penalty_free_game_days: number;

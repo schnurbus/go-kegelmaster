@@ -135,7 +135,7 @@ function StatisticsPage() {
             <BalanceChart stats={data} />
           </div>
           <p className="px-4 text-xs text-muted-foreground lg:px-6">
-            Es werden nur veröffentlichte Spieltage berücksichtigt. Klub-Durchschnitte beziehen sich auf alle
+            Es werden nur veröffentlichte Spieltage mit anwesenden Teilnehmern berücksichtigt. Klub-Durchschnitte beziehen sich auf alle
             Teilnahmen im Zeitraum.
           </p>
         </div>

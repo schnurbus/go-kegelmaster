@@ -72,6 +72,7 @@ func (r *Repository) Load(ctx context.Context, p PlayerParams) (Input, error) {
 			ParticipantID: row.ParticipantID,
 			GameDayID:     row.GameDayID,
 			PlayerID:      row.PlayerID,
+			Attended:      row.Attended,
 			Gender:        row.Gender.String,
 		})
 	}

@@ -56,6 +56,10 @@ type addParticipantRequest struct {
 	PlayerID string `json:"player_id"`
 }
 
+type setAttendanceRequest struct {
+	Attended *bool `json:"attended"`
+}
+
 type updateFeesRequest struct {
 	Fees []feeInput `json:"fees"`
 }
@@ -595,6 +599,71 @@ func (h *Handler) HandleRemoveParticipant(c fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
+// HandleSetParticipantAttendance marks a participant as present or absent.
+// Absent participants keep their fees (e.g. a penalty for a forgotten item)
+// but lose their competition values and do not count as attendance.
+func (h *Handler) HandleSetParticipantAttendance(c fiber.Ctx) error {
+	if err := h.ValidateCSRF(c); err != nil {
+		return err
+	}
+
+	ctx, cancel := h.RequestContext()
+	defer cancel()
+
+	u, err := h.UserFromCookie(ctx, c)
+	if err != nil {
+		return fiber.NewError(fiber.StatusUnauthorized, "Nicht angemeldet")
+	}
+
+	clubID := c.Params("clubId")
+	gameDayID := c.Params("id")
+	playerID := c.Params("playerId")
+	if clubID == "" || gameDayID == "" || playerID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "Club-ID, Spieltag-ID und Spieler-ID sind erforderlich")
+	}
+
+	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypeGameDays, role.PermissionTypeUpdate)
+	if err != nil {
+		if errors.Is(err, club.ErrNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
+		}
+		slog.Error("check permission", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+	if !hasPermission {
+		return fiber.NewError(fiber.StatusForbidden, "Keine Berechtigung, Teilnehmer zu bearbeiten")
+	}
+
+	var req setAttendanceRequest
+	if err := json.Unmarshal(c.Body(), &req); err != nil || req.Attended == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Ungültige Anfrage")
+	}
+
+	gd, err := h.GameDayRepo.GetByID(ctx, gameDayID)
+	if err != nil {
+		if errors.Is(err, gameday.ErrNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "Spieltag nicht gefunden")
+		}
+		slog.Error("get game day", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+	if gd.ClubID != clubID {
+		return fiber.NewError(fiber.StatusNotFound, "Spieltag nicht gefunden")
+	}
+
+	participant, err := h.GameDayRepo.SetParticipantAttended(ctx, gameDayID, playerID, *req.Attended)
+	if err != nil {
+		if errors.Is(err, gameday.ErrParticipantNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "Teilnehmer nicht gefunden")
+		}
+		slog.Error("set participant attendance", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+
+	audit.LogAudit(c, u.ID, audit.ActionParticipantAttended, "club_id", clubID, "gameday_id", gameDayID, "player_id", playerID, "attended", *req.Attended)
+	return c.JSON(ParticipantResponseFromEntity(participant))
+}
+
 func (h *Handler) HandleUpdateFees(c fiber.Ctx) error {
 	if err := h.ValidateCSRF(c); err != nil {
 		return err
@@ -838,6 +907,10 @@ func (h *Handler) HandleUpdateCompetitionValues(c fiber.Ctx) error {
 	var req updateCompetitionValuesRequest
 	if err := json.Unmarshal(c.Body(), &req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "Ungültige Anfrage")
+	}
+
+	if !participant.Attended && len(req.Values) > 0 {
+		return fiber.NewError(fiber.StatusBadRequest, "Abwesende Spieler können keine Wettbewerbs-Werte haben")
 	}
 
 	// Load the club's competitions once instead of one query per value, and

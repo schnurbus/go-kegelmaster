@@ -29,7 +29,11 @@ type GameDayParticipant struct {
 	PlayerID     string
 	PlayerName   string  // Joined from players table
 	PlayerGender *string // male, female, or nil (for gender-specific competition evaluation)
-	CreatedAt    time.Time
+	// Attended is false for a player who was booked on the game day (e.g. for a
+	// penalty like a forgotten item) without being there. Absent participants
+	// keep their fees but have no competition values and do not count as attendance.
+	Attended  bool
+	CreatedAt time.Time
 }
 
 // GameDayFee records a penalty fee with snapshot of penalty type info
@@ -64,8 +68,8 @@ type GameDayDetail struct {
 
 // ParticipantWithFees combines participant info with their fees and competition values
 type ParticipantWithFees struct {
-	Participant      GameDayParticipant
-	Fees             []GameDayFee
+	Participant       GameDayParticipant
+	Fees              []GameDayFee
 	CompetitionValues []GameDayCompetitionValue
 }
 

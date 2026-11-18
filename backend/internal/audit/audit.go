@@ -46,6 +46,7 @@ const (
 	ActionGameDayDeleted       = "gameday_deleted"
 	ActionParticipantAdded     = "gameday_participant_added"
 	ActionParticipantRemoved   = "gameday_participant_removed"
+	ActionParticipantAttended  = "gameday_participant_attendance"
 	ActionFeesUpdated          = "gameday_participant_fees_updated"
 	ActionCompetitionValues    = "gameday_participant_competition_values_updated"
 	ActionTransactionCreated   = "transaction_created"

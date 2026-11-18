@@ -80,6 +80,7 @@ type apiGameDayDetail struct {
 		Participant struct {
 			PlayerID   string `json:"player_id"`
 			PlayerName string `json:"player_name"`
+			Attended   bool   `json:"attended"`
 		} `json:"participant"`
 		Fees              []apiFee `json:"fees"`
 		CompetitionValues []struct {

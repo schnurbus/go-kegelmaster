@@ -154,7 +154,7 @@ func (q *Queries) StatsListGameDays(ctx context.Context, arg StatsListGameDaysPa
 }
 
 const statsListParticipants = `-- name: StatsListParticipants :many
-SELECT gdp.id AS participant_id, gdp.game_day_id, gdp.player_id, p.gender
+SELECT gdp.id AS participant_id, gdp.game_day_id, gdp.player_id, gdp.attended, p.gender
 FROM game_day_participants gdp
 JOIN game_days gd ON gd.id = gdp.game_day_id
 JOIN players p ON p.id = gdp.player_id
@@ -171,6 +171,7 @@ type StatsListParticipantsRow struct {
 	ParticipantID string         `json:"participant_id"`
 	GameDayID     string         `json:"game_day_id"`
 	PlayerID      string         `json:"player_id"`
+	Attended      bool           `json:"attended"`
 	Gender        sql.NullString `json:"gender"`
 }
 
@@ -187,6 +188,7 @@ func (q *Queries) StatsListParticipants(ctx context.Context, arg StatsListPartic
 			&i.ParticipantID,
 			&i.GameDayID,
 			&i.PlayerID,
+			&i.Attended,
 			&i.Gender,
 		); err != nil {
 			return nil, err

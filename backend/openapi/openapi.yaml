@@ -872,7 +872,7 @@ paths:
       description: |
         Umfangreiche Statistik des eigenen Spielers: Teilnahme, Strafen (inkl. Klubvergleich und Platz),
         Strafen nach Typ, Wettbewerbe, Kontoentwicklung und Verlauf pro Spieltag.
-        Es werden nur veröffentlichte Spieltage berücksichtigt. Beträge in Cent.
+        Es werden nur veröffentlichte Spieltage mit mindestens einem anwesenden Teilnehmer berücksichtigt (Spieltage nur für die Grundgebühr zählen nicht). Beträge in Cent.
       tags: [Spieler]
       security: [cookieAuth: [], bearerAuth: []]
       parameters:
@@ -1391,6 +1391,42 @@ paths:
       responses:
         "204":
           description: Entfernt
+    patch:
+      summary: Anwesenheit eines Teilnehmers setzen
+      description: |
+        Teilnehmer sind standardmäßig anwesend. Ein abwesender Teilnehmer wurde nur für Strafen
+        eingetragen (z. B. „Puppe vergessen“): Seine Strafen werden gebucht, er zählt aber nicht
+        als Teilnahme und hat keine Wettbewerbs-Werte. Beim Markieren als abwesend werden
+        vorhandene Wettbewerbs-Werte gelöscht.
+      tags: [Spieltage]
+      security: [cookieAuth: [], bearerAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: playerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [attended]
+              properties:
+                attended: { type: boolean }
+      responses:
+        "200":
+          description: Aktualisierter Teilnehmer (mit `attended`)
+        "404":
+          description: Spieltag oder Teilnehmer nicht gefunden
   /api/clubs/{clubId}/gamedays/{id}/participants/{playerId}/fees:
     put:
       summary: Strafen eines Teilnehmers setzen
@@ -1693,8 +1729,9 @@ components:
         penalties:
           type: object
           properties:
-            total_amount: { type: integer }
-            average_per_game_day: { type: integer }
+            total_amount: { type: integer, description: "inkl. Strafen bei Abwesenheit" }
+            absent_amount: { type: integer, description: "Anteil von total_amount, der bei Abwesenheit gebucht wurde" }
+            average_per_game_day: { type: integer, description: "total_amount pro anwesendem Spieltag" }
             club_average_per_game_day: { type: integer }
             penalty_free_game_days: { type: integer }
             most_expensive_game_day: { $ref: "#/components/schemas/StatisticsGameDayAmount" }

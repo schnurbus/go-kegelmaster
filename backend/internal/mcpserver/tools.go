@@ -77,7 +77,7 @@ func registerTools(s *mcp.Server, api API) {
 		Title: "Meine Statistik",
 		Description: "Ausführliche Statistik deines eigenen Spielers für einen Zeitraum (von/bis, JJJJ-MM-TT; ohne von = gesamter Zeitraum, bis = heute): " +
 			"Teilnahmequote und Serien, Strafen gesamt/pro Spieltag im Vergleich zum Klubschnitt, Platz im Klub, Strafen nach Typ, " +
-			"Wettbewerbe (Schnitt, Bestwert, Siege, Niederlagen, Platz) und Kontoentwicklung. Nur veröffentlichte Spieltage; alle Beträge in Cent.",
+			"Wettbewerbe (Schnitt, Bestwert, Siege, Niederlagen, Platz) und Kontoentwicklung. Nur veröffentlichte Spieltage mit anwesenden Teilnehmern; alle Beträge in Cent.",
 		Annotations: readOnly,
 	}, myStatistics)
 
@@ -470,16 +470,17 @@ func loadGameDay(ctx context.Context, c *client, clubID, gameDayID string) (map[
 		Wert int    `json:"wert"`
 	}
 	type partOut struct {
-		ID      string    `json:"spieler_id"`
-		Name    string    `json:"name"`
-		Strafen []feeOut  `json:"strafen"`
-		Summe   money     `json:"strafen_summe"`
-		Wettb   []compOut `json:"wettbewerbe"`
+		ID       string    `json:"spieler_id"`
+		Name     string    `json:"name"`
+		Abwesend bool      `json:"abwesend,omitempty"` // nur für Strafen eingetragen, nicht anwesend
+		Strafen  []feeOut  `json:"strafen"`
+		Summe    money     `json:"strafen_summe"`
+		Wettb    []compOut `json:"wettbewerbe"`
 	}
 	parts := make([]partOut, 0, len(detail.Participants))
 	penaltyTotal := 0
 	for _, p := range detail.Participants {
-		po := partOut{ID: p.Participant.PlayerID, Name: p.Participant.PlayerName, Strafen: []feeOut{}, Wettb: []compOut{}}
+		po := partOut{ID: p.Participant.PlayerID, Name: p.Participant.PlayerName, Abwesend: !p.Participant.Attended, Strafen: []feeOut{}, Wettb: []compOut{}}
 		sum := 0
 		for _, f := range p.Fees {
 			amount := -transaction.FeeAmount(f.PenaltyTypePrice, f.Count, f.QuantityScale)

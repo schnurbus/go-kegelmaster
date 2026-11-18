@@ -122,6 +122,7 @@ type Querier interface {
 	MarkPlayerInvitationAccepted(ctx context.Context, arg MarkPlayerInvitationAcceptedParams) (int64, error)
 	RemoveRolePermission(ctx context.Context, arg RemoveRolePermissionParams) error
 	RenameWebAuthnCredential(ctx context.Context, arg RenameWebAuthnCredentialParams) (WebauthnCredential, error)
+	SetGameDayParticipantAttended(ctx context.Context, arg SetGameDayParticipantAttendedParams) (GameDayParticipant, error)
 	SetPenaltyTypeReplacedBy(ctx context.Context, arg SetPenaltyTypeReplacedByParams) error
 	StatsListCompetitionValues(ctx context.Context, arg StatsListCompetitionValuesParams) ([]StatsListCompetitionValuesRow, error)
 	StatsListFees(ctx context.Context, arg StatsListFeesParams) ([]StatsListFeesRow, error)
