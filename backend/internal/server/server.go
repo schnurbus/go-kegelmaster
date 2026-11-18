@@ -171,7 +171,10 @@ func (s *Server) registerRoutes() {
 	})
 	// Public config for frontend (version, optional buy-me-a-coffee URL); no auth
 	api.Get("/config/public", func(c fiber.Ctx) error {
-		m := fiber.Map{"version": s.cfg.Version}
+		m := fiber.Map{
+			"version":      s.cfg.Version,
+			"chat_enabled": strings.TrimSpace(s.cfg.GeminiAPIKey) != "",
+		}
 		if s.cfg.BuyMeACoffeeURL != "" {
 			m["buy_me_a_coffee_url"] = s.cfg.BuyMeACoffeeURL
 		}

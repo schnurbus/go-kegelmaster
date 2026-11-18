@@ -67,7 +67,7 @@ paths:
   /api/config/public:
     get:
       summary: Öffentliche Konfiguration für das Frontend
-      description: Liefert Version und optionale URLs (z. B. Buy Me a Coffee). Keine Authentifizierung.
+      description: Liefert Version, Chat-Verfügbarkeit und optionale URLs (z. B. Buy Me a Coffee). Keine Authentifizierung.
       tags: [System]
       responses:
         "200":
@@ -76,9 +76,10 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [version]
+                required: [version, chat_enabled]
                 properties:
                   version: { type: string, description: "App-Version (Build-Info)" }
+                  chat_enabled: { type: boolean, description: "true wenn GEMINI_API_KEY konfiguriert ist und der Hilfe-Chat verfügbar ist." }
                   buy_me_a_coffee_url: { type: string, format: uri, description: "Nur gesetzt wenn BUY_ME_A_COFFEE_URL konfiguriert ist." }
   /api/auth/csrf-token:
     get:
