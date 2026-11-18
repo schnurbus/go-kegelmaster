@@ -24,8 +24,24 @@ export function ChatBubble() {
   const [messages, setMessages] = React.useState<Message[]>([]);
   const [input, setInput] = React.useState("");
   const [loading, setLoading] = React.useState(false);
+  const [chatEnabled, setChatEnabled] = React.useState(false);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    fetch("/api/config/public")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled) setChatEnabled(data?.chat_enabled === true);
+      })
+      .catch(() => {
+        if (!cancelled) setChatEnabled(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   React.useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -86,7 +102,7 @@ export function ChatBubble() {
     }
   };
 
-  if (status !== "authenticated") {
+  if (status !== "authenticated" || !chatEnabled) {
     return null;
   }
 
