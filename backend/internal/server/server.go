@@ -202,6 +202,11 @@ func (s *Server) registerRoutes() {
 		Expiration: 5 * time.Minute,
 	}), s.handlers.HandleLogin)
 	authGroup.Post("/logout", s.handlers.HandleLogout)
+	// Rate limited like login: the current password is verified here.
+	authGroup.Post("/change-password", limiter.New(limiter.Config{
+		Max:        10,
+		Expiration: 5 * time.Minute,
+	}), s.handlers.HandleChangePassword)
 	authGroup.Get("/tokens", s.handlers.HandleListAPITokens)
 	authGroup.Post("/tokens", s.handlers.HandleCreateAPIToken)
 	authGroup.Delete("/tokens/:id", s.handlers.HandleDeleteAPIToken)

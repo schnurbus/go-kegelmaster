@@ -29,6 +29,11 @@ function HelpPage() {
               einem Link zum Zurücksetzen des Passworts.
             </p>
             <p>
+              <strong>Passwort ändern:</strong> Im Benutzermenü unten links unter
+              „Account“ können Sie Ihr Passwort ändern und Ihre Kontodaten
+              einsehen.
+            </p>
+            <p>
               <strong>Club auswählen:</strong> Nach dem Login sehen Sie oben in
               der linken Leiste den „Club-Switcher“. Wählen Sie dort den Club,
               mit dem Sie arbeiten möchten. Alle folgenden Seiten (Spieler,

@@ -298,3 +298,90 @@ func (h *Handler) HandleResetPassword(c fiber.Ctx) error {
 	audit.LogAudit(c, pr.UserID, audit.ActionUserPasswordReset, "user_id", pr.UserID)
 	return c.SendStatus(fiber.StatusNoContent)
 }
+
+type changePasswordRequest struct {
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password"`
+}
+
+// HandleChangePassword lets a signed-in user set a new password. It requires
+// the current password, logs out all other sessions, revokes all API tokens
+// and reissues the auth cookie so the current browser stays signed in.
+func (h *Handler) HandleChangePassword(c fiber.Ctx) error {
+	if err := h.ValidateCSRF(c); err != nil {
+		return err
+	}
+	// A leaked API token must not be enough to take over the account.
+	if IsAPITokenRequest(c) {
+		return fiber.NewError(fiber.StatusForbidden, "Passwort kann nicht mit einem API-Token geändert werden")
+	}
+
+	var req changePasswordRequest
+	if err := json.Unmarshal(c.Body(), &req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Ungültige Anfrage")
+	}
+	current := strings.TrimSpace(req.CurrentPassword)
+	password := strings.TrimSpace(req.NewPassword)
+	if current == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "Aktuelles Passwort wird benötigt")
+	}
+	if len(current) > maxPasswordLength {
+		return fiber.NewError(fiber.StatusBadRequest, "Passwort darf höchstens 128 Zeichen haben")
+	}
+	if len(password) < 8 {
+		return fiber.NewError(fiber.StatusBadRequest, "Passwort muss mindestens 8 Zeichen lang sein")
+	}
+	if len(password) > maxPasswordLength {
+		return fiber.NewError(fiber.StatusBadRequest, "Passwort darf höchstens 128 Zeichen haben")
+	}
+	if password == current {
+		return fiber.NewError(fiber.StatusBadRequest, "Das neue Passwort muss sich vom aktuellen unterscheiden")
+	}
+
+	ctx, cancel := h.RequestContext()
+	defer cancel()
+
+	u, err := h.UserFromCookie(ctx, c)
+	if err != nil {
+		return fiber.NewError(fiber.StatusUnauthorized, "Nicht angemeldet")
+	}
+
+	if err := h.AuthSvc.ComparePassword(u.PasswordHash, current); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Aktuelles Passwort ist falsch")
+	}
+
+	hash, err := h.AuthSvc.HashPassword(password)
+	if err != nil {
+		slog.Error("hash password", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+
+	// Recording the change time logs out every existing session of this user,
+	// including this one; the cookie is reissued below.
+	now := time.Now().UTC()
+	if err := h.UserRepo.UpdatePassword(ctx, u.ID, hash, now); err != nil {
+		slog.Error("update user password", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+
+	if h.APITokenRepo != nil {
+		if err := h.APITokenRepo.DeleteByUserID(ctx, u.ID); err != nil {
+			slog.Error("delete api tokens after password change", "error", err)
+		}
+	}
+
+	remember := false
+	if claims, err := h.AuthSvc.ParseToken(strings.TrimSpace(c.Cookies(authCookieName))); err == nil {
+		remember = h.AuthSvc.IsRememberMe(claims)
+	}
+	if err := h.IssueAuthCookie(c, u.ID, remember); err != nil {
+		slog.Error("issue auth cookie", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+
+	audit.LogAudit(c, u.ID, audit.ActionUserPasswordChanged, "user_id", u.ID)
+	u.PasswordHash = hash
+	u.PasswordChangedAt = &now
+	u.UpdatedAt = now
+	return c.JSON(UserResponseFromEntity(u))
+}

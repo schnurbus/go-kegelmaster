@@ -13,6 +13,7 @@ type AuthUser = {
   email: string;
   created_at: string;
   updated_at: string;
+  password_changed_at: string | null;
 };
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated";
@@ -25,6 +26,12 @@ type AuthContextValue = {
   register: (payload: AuthCredentials) => Promise<AuthUser>;
   logout: () => Promise<void>;
   refreshCsrf: () => Promise<string>;
+  changePassword: (payload: ChangePasswordPayload) => Promise<AuthUser>;
+};
+
+type ChangePasswordPayload = {
+  current_password: string;
+  new_password: string;
 };
 
 type AuthCredentials = {
@@ -138,6 +145,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await fetchCsrf();
   }, [ensureCsrf, fetchCsrf]);
 
+  const changePassword = useCallback(
+    async (payload: ChangePasswordPayload) => {
+      const token = await ensureCsrf();
+      const resp = await fetch("/api/auth/change-password", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": token,
+        },
+        body: JSON.stringify(payload),
+      });
+      if (!resp.ok) {
+        throw new Error(await extractError(resp));
+      }
+      const data: AuthUser = await resp.json();
+      setUser(data);
+      await fetchCsrf(); // the server reissued the session and rotated the CSRF cookie
+      return data;
+    },
+    [ensureCsrf, fetchCsrf],
+  );
+
   useEffect(() => {
     const bootstrap = async () => {
       try {
@@ -169,8 +199,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       register,
       logout,
       refreshCsrf: fetchCsrf,
+      changePassword,
     }),
-    [user, status, csrfToken, login, register, logout, fetchCsrf],
+    [user, status, csrfToken, login, register, logout, fetchCsrf, changePassword],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
