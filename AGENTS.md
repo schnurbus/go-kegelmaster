@@ -4,6 +4,12 @@ This file contains essential information for agentic coding agents working in th
 
 ## Build, Test, and Development Commands
 
+### Lokale Test-Instanz (aktueller Branch)
+- **Start**: `make dev` – startet einen eigenen Postgres-Container (`kegelmaster-dev-postgres`, Port 5434, Volume `kegelmaster-dev-pgdata`), baut das Backend aus dem aktuellen Checkout, migriert automatisch und startet Backend (:8080) + Vite (:5173). Beenden mit Ctrl-C; die Daten bleiben erhalten.
+- **Optionen**: `FRESH=1` verwirft die Datenbank vorher, `SEED=1` lädt Beispiel-Daten; `make dev-fresh` = beides. Ports über `DEV_DB_PORT`, `DEV_BACKEND_PORT`, `DEV_FRONTEND_PORT` änderbar.
+- **Einzelschritte**: `make dev-db-up`, `make dev-db-down` (stoppt, Daten bleiben), `make dev-db-reset` (leere DB), `make dev-seed`, `make dev-psql`.
+- **Beispiel-Daten** (`backend/cmd/seed`): Club „KC Alle Neune“ mit Rollen, 8 Spielern, Strafentypen, Wettbewerben, 7 veröffentlichten Spieltagen + 1 Entwurf, Einzahlungen und einer Ausgabe. Buchungen laufen über die Repositories, Salden sind also konsistent. Logins: `demo@kegelmaster.local` (Owner) und `mitglied@kegelmaster.local` (nur Lesen), Passwort jeweils `kegelmaster`. Der Seed überspringt sich, wenn der Demo-User schon existiert.
+
 ### Backend Commands
 - **Run server**: `make backend-run` (starts Go API server)
 - **Run tests**: `make backend-test` (runs all Go tests)
