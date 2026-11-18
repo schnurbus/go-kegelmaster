@@ -1,13 +1,10 @@
-import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { toast } from "sonner";
+import { Outlet, useLocation } from "react-router-dom";
 import { AppFooter } from "./components/AppFooter";
 import { ChatBubble } from "./components/ChatBubble";
+import { PublicSiteHeader } from "./components/site-header-public";
 import "./App.css";
-import { useAuth } from "./context/AuthContext";
 
 function App() {
-  const { status, user, logout } = useAuth();
-  const isAuthenticated = status === "authenticated";
   const location = useLocation();
   const isDashboard = location.pathname.startsWith("/app");
 
@@ -22,38 +19,12 @@ function App() {
   }
 
   return (
-    <div className="app-shell">
-      <header className="app-header">
-        <NavLink to="/" className="brand">
-          go-kegelmaster
-        </NavLink>
-        <nav className="app-nav">
-          <NavLink to="/" end>
-            Landing
-          </NavLink>
-          {isAuthenticated ? (
-            <>
-              <NavLink to="/app">Dashboard</NavLink>
-              <span className="user-chip">{user?.email}</span>
-              <button
-                className="link-btn"
-                onClick={() => logout().catch(() => toast.error("Abmelden fehlgeschlagen"))}
-              >
-                Logout
-              </button>
-            </>
-          ) : (
-            <>
-              <NavLink to="/login">Login</NavLink>
-              <NavLink to="/register">Registrieren</NavLink>
-            </>
-          )}
-        </nav>
-      </header>
-      <main className="app-main">
+    <div className="flex min-h-screen flex-col">
+      <PublicSiteHeader />
+      <main className="flex-1">
         <Outlet />
       </main>
-      <AppFooter />
+      <AppFooter className="border-t border-border px-4 py-6 text-center text-sm" />
       <ChatBubble />
     </div>
   );
