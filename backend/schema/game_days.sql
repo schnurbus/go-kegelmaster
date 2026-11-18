@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS game_day_participants (
     game_day_id UUID NOT NULL REFERENCES game_days(id) ON DELETE CASCADE,
     player_id UUID NOT NULL REFERENCES players(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    
+    attended BOOLEAN NOT NULL DEFAULT true,
+
     UNIQUE(game_day_id, player_id)
 );
 

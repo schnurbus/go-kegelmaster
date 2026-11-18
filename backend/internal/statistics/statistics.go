@@ -1,6 +1,7 @@
 // Package statistics computes per-player statistics (attendance, penalties,
 // competitions, finances) for a selectable period. Only published game days
-// (is_draft = false) are taken into account.
+// (is_draft = false) with at least one attended participant are taken into
+// account; finances are based on the ledger and include every game day.
 package statistics
 
 import (
@@ -24,7 +25,7 @@ type Input struct {
 	From               *time.Time
 	To                 time.Time
 
-	GameDays           []GameDayRef         // published game days of the club in the period
+	GameDays           []GameDayRef         // published game days of the club in the period (days without attendees are skipped)
 	Participants       []Participation      // all participations of all players in the period
 	Fees               []Fee                // all fees of all participants in the period
 	CompetitionValues  []CompetitionValue   // all competition values in the period
@@ -38,10 +39,14 @@ type GameDayRef struct {
 	Date time.Time
 }
 
+// Participation is one player on one game day. Attended is false for a player
+// who was only booked for penalties (e.g. a forgotten item) without being there:
+// their fees count, but not their attendance or competition values.
 type Participation struct {
 	ParticipantID string
 	GameDayID     string
 	PlayerID      string
+	Attended      bool
 	Gender        string
 }
 
@@ -126,9 +131,10 @@ type Attendance struct {
 }
 
 type Penalties struct {
-	TotalAmount           int                  `json:"total_amount"`              // cents
-	AveragePerGameDay     int                  `json:"average_per_game_day"`      // cents, own average per attended game day
-	ClubAveragePerGameDay int                  `json:"club_average_per_game_day"` // cents, average over all participations of the club
+	TotalAmount           int                  `json:"total_amount"`              // cents, including penalties booked while absent
+	AbsentAmount          int                  `json:"absent_amount"`             // cents, part of TotalAmount booked while absent
+	AveragePerGameDay     int                  `json:"average_per_game_day"`      // cents, TotalAmount per attended game day
+	ClubAveragePerGameDay int                  `json:"club_average_per_game_day"` // cents, all club penalties per attended participation
 	PenaltyFreeGameDays   int                  `json:"penalty_free_game_days"`
 	MostExpensiveGameDay  *GameDayAmount       `json:"most_expensive_game_day"`
 	CheapestGameDay       *GameDayAmount       `json:"cheapest_game_day"`
@@ -148,7 +154,7 @@ type PenaltyTypeSummary struct {
 	Name                  string  `json:"name"`
 	Quantity              float64 `json:"quantity"`
 	Amount                int     `json:"amount"`    // cents
-	GameDays              int     `json:"game_days"` // attended game days with this penalty
+	GameDays              int     `json:"game_days"` // game days with this penalty (attended or not)
 	AveragePerGameDay     float64 `json:"average_per_game_day"`
 	ClubAveragePerGameDay float64 `json:"club_average_per_game_day"`
 }
@@ -198,8 +204,8 @@ type GameDayEntry struct {
 	GameDayID         string `json:"game_day_id"`
 	Date              string `json:"date"`
 	Attended          bool   `json:"attended"`
-	Participants      int    `json:"participants"`
-	PenaltyAmount     *int   `json:"penalty_amount"` // nil if not attended
+	Participants      int    `json:"participants"`   // attended participants
+	PenaltyAmount     *int   `json:"penalty_amount"` // nil if not booked on that day; set for absent days with penalties
 	ClubAverageAmount int    `json:"club_average_amount"`
 }
 
@@ -218,24 +224,47 @@ func Compute(in Input) PlayerStatistics {
 		out.Period.From = &f
 	}
 
-	gameDays := append([]GameDayRef(nil), in.GameDays...)
+	// A game day without any attended participant did not take place; it may
+	// exist only to charge the base fee. It is left out entirely, including
+	// penalties booked on it, so it does not show up as an empty evening.
+	held := make(map[string]bool)
+	for _, p := range in.Participants {
+		if p.Attended {
+			held[p.GameDayID] = true
+		}
+	}
+	gameDays := make([]GameDayRef, 0, len(in.GameDays))
+	for _, gd := range in.GameDays {
+		if held[gd.ID] {
+			gameDays = append(gameDays, gd)
+		}
+	}
 	sort.SliceStable(gameDays, func(i, j int) bool { return gameDays[i].Date.Before(gameDays[j].Date) })
 	gameDayByID := make(map[string]GameDayRef, len(gameDays))
 	for _, gd := range gameDays {
 		gameDayByID[gd.ID] = gd
 	}
 
+	// participants holds every booking (attended or not) so fees can be
+	// attributed; attendance-based figures only use attended ones.
 	participants := make(map[string]Participation, len(in.Participants))
-	participantsPerDay := make(map[string]int)
-	myParticipantByDay := make(map[string]string) // game day id -> participant id
+	participantsPerDay := make(map[string]int)    // attended participants per game day
+	myParticipantByDay := make(map[string]string) // game day id -> participant id (attended only)
+	myAbsentByDay := make(map[string]string)      // game day id -> participant id (absent only)
 	for _, p := range in.Participants {
 		if _, ok := gameDayByID[p.GameDayID]; !ok {
 			continue
 		}
 		participants[p.ParticipantID] = p
-		participantsPerDay[p.GameDayID]++
+		if p.Attended {
+			participantsPerDay[p.GameDayID]++
+		}
 		if p.PlayerID == in.PlayerID {
-			myParticipantByDay[p.GameDayID] = p.ParticipantID
+			if p.Attended {
+				myParticipantByDay[p.GameDayID] = p.ParticipantID
+			} else {
+				myAbsentByDay[p.GameDayID] = p.ParticipantID
+			}
 		}
 	}
 
@@ -249,7 +278,7 @@ func Compute(in Input) PlayerStatistics {
 	}
 
 	out.Attendance = computeAttendance(gameDays, myParticipantByDay)
-	out.Penalties = computePenalties(in, gameDays, participants, myParticipantByDay, amountByParticipant)
+	out.Penalties = computePenalties(in, gameDays, participants, myParticipantByDay, myAbsentByDay, amountByParticipant)
 	out.Competitions = computeCompetitions(in, gameDays, gameDayByID, participants, myParticipantByDay)
 	out.Finance = computeFinance(in)
 
@@ -270,6 +299,10 @@ func Compute(in Input) PlayerStatistics {
 			entry.Attended = true
 			amount := amountByParticipant[pid]
 			entry.PenaltyAmount = &amount
+		} else if pid, ok := myAbsentByDay[gd.ID]; ok {
+			if amount := amountByParticipant[pid]; amount > 0 {
+				entry.PenaltyAmount = &amount
+			}
 		}
 		out.GameDays = append(out.GameDays, entry)
 	}
@@ -308,6 +341,7 @@ func computePenalties(
 	gameDays []GameDayRef,
 	participants map[string]Participation,
 	mine map[string]string,
+	myAbsent map[string]string,
 	amountByParticipant map[string]int,
 ) Penalties {
 	p := Penalties{ByType: []PenaltyTypeSummary{}}
@@ -331,20 +365,30 @@ func computePenalties(
 			p.CheapestGameDay = ga
 		}
 	}
+	// Penalties booked while absent count towards the totals, but the day
+	// itself does not (no penalty-free day, no most expensive/cheapest day).
+	for _, pid := range myAbsent {
+		p.AbsentAmount += amountByParticipant[pid]
+	}
+	p.TotalAmount += p.AbsentAmount
 	attended := len(mine)
 	if attended > 0 {
 		p.AveragePerGameDay = roundDiv(p.TotalAmount, attended)
 	}
 
-	// Club average per participation and ranking by average per attended game day.
-	totalParticipations := len(participants)
+	// Club average per attended participation and ranking by average per
+	// attended game day. Penalties of absent players are included in the sums.
+	totalParticipations := 0
 	clubTotal := 0
 	perPlayerTotal := make(map[string]int)
 	perPlayerDays := make(map[string]int)
 	for pid, part := range participants {
 		clubTotal += amountByParticipant[pid]
 		perPlayerTotal[part.PlayerID] += amountByParticipant[pid]
-		perPlayerDays[part.PlayerID]++
+		if part.Attended {
+			totalParticipations++
+			perPlayerDays[part.PlayerID]++
+		}
 	}
 	if totalParticipations > 0 {
 		p.ClubAveragePerGameDay = roundDiv(clubTotal, totalParticipations)
@@ -365,8 +409,11 @@ func computePenalties(
 		hasOwn  bool
 	}
 	types := make(map[string]*typeAgg)
-	myParticipants := make(map[string]struct{}, len(mine))
+	myParticipants := make(map[string]struct{}, len(mine)+len(myAbsent))
 	for _, pid := range mine {
+		myParticipants[pid] = struct{}{}
+	}
+	for _, pid := range myAbsent {
 		myParticipants[pid] = struct{}{}
 	}
 	for _, f := range in.Fees {
@@ -431,7 +478,7 @@ func computeCompetitions(
 	values := make(map[string]map[string][]entry)
 	for _, cv := range in.CompetitionValues {
 		part, ok := participants[cv.ParticipantID]
-		if !ok {
+		if !ok || !part.Attended {
 			continue
 		}
 		byDay, ok := values[cv.CompetitionID]

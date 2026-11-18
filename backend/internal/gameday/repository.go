@@ -11,12 +11,14 @@ import (
 )
 
 type Repository struct {
-	queries *db.Queries
+	database *sql.DB
+	queries  *db.Queries
 }
 
 func NewRepository(dbConn *sql.DB) *Repository {
 	return &Repository{
-		queries: db.New(dbConn),
+		database: dbConn,
+		queries:  db.New(dbConn),
 	}
 }
 
@@ -181,6 +183,39 @@ func (r *Repository) RemoveParticipant(ctx context.Context, gameDayID, playerID 
 	return nil
 }
 
+// SetParticipantAttended marks a participant as present or absent. Marking a
+// participant absent also deletes their competition values, since an absent
+// player cannot have played. Fees are kept.
+func (r *Repository) SetParticipantAttended(ctx context.Context, gameDayID, playerID string, attended bool) (GameDayParticipant, error) {
+	tx, err := r.database.BeginTx(ctx, nil)
+	if err != nil {
+		return GameDayParticipant{}, err
+	}
+	defer tx.Rollback()
+
+	qtx := r.queries.WithTx(tx)
+	dbParticipant, err := qtx.SetGameDayParticipantAttended(ctx, db.SetGameDayParticipantAttendedParams{
+		GameDayID: gameDayID,
+		PlayerID:  playerID,
+		Attended:  attended,
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return GameDayParticipant{}, ErrParticipantNotFound
+	}
+	if err != nil {
+		return GameDayParticipant{}, err
+	}
+	if !attended {
+		if err := qtx.DeleteAllCompetitionValuesByParticipant(ctx, dbParticipant.ID); err != nil {
+			return GameDayParticipant{}, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return GameDayParticipant{}, err
+	}
+	return dbParticipantToParticipant(dbParticipant), nil
+}
+
 func (r *Repository) GetParticipants(ctx context.Context, gameDayID string) ([]GameDayParticipant, error) {
 	dbParticipants, err := r.queries.GetGameDayParticipants(ctx, gameDayID)
 	if err != nil {
@@ -218,8 +253,8 @@ type UpsertFeeParams struct {
 	PenaltyTypeName        string
 	PenaltyTypeDescription string
 	PenaltyTypePrice       int
-	Count                  int   // scaled when QuantityScale > 1
-	QuantityScale          int   // 1 or 100
+	Count                  int // scaled when QuantityScale > 1
+	QuantityScale          int // 1 or 100
 }
 
 func (r *Repository) UpsertFee(ctx context.Context, params UpsertFeeParams) (GameDayFee, error) {
@@ -370,8 +405,8 @@ func (r *Repository) GetGameDayWithDetails(ctx context.Context, gameDayID string
 		}
 
 		participantsWithFees[i] = ParticipantWithFees{
-			Participant:      participant,
-			Fees:             fees,
+			Participant:       participant,
+			Fees:              fees,
 			CompetitionValues: competitionValues,
 		}
 	}
@@ -490,6 +525,7 @@ func dbParticipantToParticipant(dbP db.GameDayParticipant) GameDayParticipant {
 		ID:        dbP.ID,
 		GameDayID: dbP.GameDayID,
 		PlayerID:  dbP.PlayerID,
+		Attended:  dbP.Attended,
 		CreatedAt: dbP.CreatedAt,
 	}
 }
@@ -505,6 +541,7 @@ func dbParticipantWithNameToParticipant(dbP db.GetGameDayParticipantsRow) GameDa
 		PlayerID:     dbP.PlayerID,
 		PlayerName:   dbP.PlayerName,
 		PlayerGender: playerGender,
+		Attended:     dbP.Attended,
 		CreatedAt:    dbP.CreatedAt,
 	}
 }

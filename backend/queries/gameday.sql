@@ -35,11 +35,17 @@ VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: GetGameDayParticipants :many
-SELECT gdp.id, gdp.game_day_id, gdp.player_id, gdp.created_at, p.name as player_name, p.gender as player_gender
+SELECT gdp.id, gdp.game_day_id, gdp.player_id, gdp.created_at, gdp.attended, p.name as player_name, p.gender as player_gender
 FROM game_day_participants gdp
 JOIN players p ON p.id = gdp.player_id
 WHERE gdp.game_day_id = $1
 ORDER BY gdp.created_at ASC;
+
+-- name: SetGameDayParticipantAttended :one
+UPDATE game_day_participants
+SET attended = $3
+WHERE game_day_id = $1 AND player_id = $2
+RETURNING *;
 
 -- name: DeleteGameDayParticipant :exec
 DELETE FROM game_day_participants 
@@ -172,6 +178,7 @@ FROM game_days gd
 LEFT JOIN (
     SELECT game_day_id, COUNT(*)::int as participant_count
     FROM game_day_participants
+    WHERE attended
     GROUP BY game_day_id
 ) p ON gd.id = p.game_day_id
 LEFT JOIN (

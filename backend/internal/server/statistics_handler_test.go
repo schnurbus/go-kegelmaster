@@ -102,9 +102,9 @@ func TestHandleGetMyStatistics_Success(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "date"}).AddRow("gd1", gd))
 	mock.ExpectQuery(`FROM game_day_participants gdp`).
 		WithArgs(clubID, from, to).
-		WillReturnRows(sqlmock.NewRows([]string{"participant_id", "game_day_id", "player_id", "gender"}).
-			AddRow("a1", "gd1", playerID, "male").
-			AddRow("a2", "gd1", otherID, "male"))
+		WillReturnRows(sqlmock.NewRows([]string{"participant_id", "game_day_id", "player_id", "attended", "gender"}).
+			AddRow("a1", "gd1", playerID, true, "male").
+			AddRow("a2", "gd1", otherID, true, "male"))
 	mock.ExpectQuery(`FROM game_day_fees gdf`).
 		WithArgs(clubID, from, to).
 		WillReturnRows(sqlmock.NewRows([]string{"game_day_participant_id", "penalty_type_id", "penalty_type_name", "penalty_type_price", "count", "quantity_scale"}).

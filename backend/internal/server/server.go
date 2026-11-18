@@ -305,6 +305,7 @@ func (s *Server) registerRoutes() {
 	// Participant endpoints
 	clubsGroup.Post("/:clubId/gamedays/:id/participants", s.handlers.HandleAddParticipant)
 	clubsGroup.Delete("/:clubId/gamedays/:id/participants/:playerId", s.handlers.HandleRemoveParticipant)
+	clubsGroup.Patch("/:clubId/gamedays/:id/participants/:playerId", s.handlers.HandleSetParticipantAttendance)
 
 	// Fee endpoints
 	clubsGroup.Put("/:clubId/gamedays/:id/participants/:playerId/fees", s.handlers.HandleUpdateFees)

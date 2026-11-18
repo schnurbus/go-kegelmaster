@@ -30,6 +30,7 @@ import { toast } from "sonner";
 import { Loader2Icon, SaveIcon, TrashIcon, ArrowLeftIcon, XIcon, ChevronsUpDownIcon, CheckIcon } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 const GAMEDAY_HIDE_INACTIVE_KEY_PREFIX = "kegelmaster_gameday_hide_inactive_";
@@ -93,6 +94,7 @@ interface GameDayDetail {
       game_day_id: string;
       player_id: string;
       player_name: string;
+      attended: boolean;
       created_at: string;
     };
     fees: Array<{
@@ -158,7 +160,16 @@ interface Competition {
 interface OrderedParticipant {
   player_id: string;
   player_name: string;
+  attended: boolean;
   created_at: string;
+}
+
+function AbsentBadge() {
+  return (
+    <Badge variant="outline" className="ml-2 font-normal text-muted-foreground">
+      abwesend
+    </Badge>
+  );
 }
 
 function GameDayDetailPage() {
@@ -362,6 +373,7 @@ function GameDayDetailPage() {
     const participants = detail.participants.map(p => ({
       player_id: p.participant.player_id,
       player_name: p.participant.player_name,
+      attended: p.participant.attended !== false,
       created_at: p.participant.created_at,
     }));
     setOrderedParticipants(participants);
@@ -549,6 +561,64 @@ function GameDayDetailPage() {
     }
   };
 
+  // Participants are present by default. Marking one absent keeps their
+  // penalties (e.g. "Puppe vergessen") but excludes them from attendance and
+  // competition statistics; the backend deletes their competition values.
+  const handleSetAttended = async (participant: OrderedParticipant, attended: boolean) => {
+    if (!activeClub || !id || isNew) return;
+
+    if (!attended) {
+      const values = competitionValueInputs.get(participant.player_id);
+      const hasValues = values && Array.from(values.values()).some((v) => v !== 0);
+      if (
+        hasValues &&
+        !confirm(`${participant.player_name} hat Wettbewerbs-Werte. Diese werden beim Markieren als abwesend gelöscht. Fortfahren?`)
+      ) {
+        return;
+      }
+    }
+
+    try {
+      const csrfToken = await fetchCSRFToken();
+      const response = await fetch(
+        `/api/clubs/${activeClub.id}/gamedays/${id}/participants/${participant.player_id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-Token": csrfToken,
+          },
+          credentials: "include",
+          body: JSON.stringify({ attended }),
+        }
+      );
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Fehler beim Ändern der Anwesenheit");
+      }
+
+      // Update local state only, so unsaved penalty inputs stay untouched.
+      setOrderedParticipants((prev) =>
+        prev.map((p) => (p.player_id === participant.player_id ? { ...p, attended } : p))
+      );
+      if (!attended) {
+        setCompetitionValueInputs((prev) => {
+          const next = new Map(prev);
+          next.set(participant.player_id, new Map());
+          return next;
+        });
+      }
+      toast.success(
+        attended
+          ? `${participant.player_name} als anwesend markiert`
+          : `${participant.player_name} als abwesend markiert`
+      );
+    } catch (error: unknown) {
+      console.error("Error setting attendance:", error);
+      toast.error(error instanceof Error ? error.message : "Fehler beim Ändern der Anwesenheit");
+    }
+  };
+
   const handleFeeChange = (playerId: string, penaltyTypeId: string, count: number) => {
     setFeeInputs(prev => {
       const newMap = new Map(prev);
@@ -630,7 +700,7 @@ function GameDayDetailPage() {
     setIsSavingCompetitionValues(true);
     try {
       const csrfToken = await fetchCSRFToken();
-      const savePromises = orderedParticipants.map(async (participant) => {
+      const savePromises = orderedParticipants.filter((p) => p.attended).map(async (participant) => {
         const playerId = participant.player_id;
         const playerValues = competitionValueInputs.get(playerId) || new Map();
         const values = Array.from(playerValues.entries()).map(([competition_id, value]) => ({
@@ -863,7 +933,7 @@ function GameDayDetailPage() {
               <CardTitle>Strafen & Wettbewerbe</CardTitle>
               <CardDescription>
                 {canUpdate("game_days")
-                  ? "Strafen und Wettbewerbs-Werte pro Teilnehmer erfassen"
+                  ? "Strafen und Wettbewerbs-Werte pro Teilnehmer erfassen. Wer nicht da war, aber eine Strafe bekommt (z. B. „Puppe vergessen“), wird hinzugefügt und bei „anwesend“ abgehakt: Die Strafe wird gebucht, zählt aber nicht als Teilnahme."
                   : "Sie haben keine Berechtigung, Strafen oder Wettbewerbe zu bearbeiten."}
               </CardDescription>
             </CardHeader>
@@ -915,8 +985,23 @@ function GameDayDetailPage() {
                                   return sum + (qty * pt.price);
                                 }, 0);
                                 return (
-                                  <tr key={participant.player_id} className="border-b hover:bg-muted/50">
-                                    <td className="p-2 font-medium">{participant.player_name}</td>
+                                  <tr
+                                    key={participant.player_id}
+                                    className={cn("border-b hover:bg-muted/50", !participant.attended && "bg-muted/30")}
+                                  >
+                                    <td className="p-2">
+                                      <div className={cn("font-medium", !participant.attended && "text-muted-foreground")}>
+                                        {participant.player_name}
+                                      </div>
+                                      <label className="mt-1 flex cursor-pointer items-center gap-1.5 text-xs font-normal text-muted-foreground">
+                                        <Checkbox
+                                          checked={participant.attended}
+                                          onCheckedChange={(checked) => handleSetAttended(participant, checked === true)}
+                                          aria-label={`${participant.player_name} anwesend`}
+                                        />
+                                        anwesend
+                                      </label>
+                                    </td>
                                     {allPenaltyTypes.map(pt => {
                                       const currentCount = playerFees.get(pt.id) ?? 0;
                                       const existingFee = detail?.participants
@@ -1001,13 +1086,22 @@ function GameDayDetailPage() {
                               {orderedParticipants.map((participant) => {
                                 const playerValues = competitionValueInputs.get(participant.player_id) || new Map();
                                 return (
-                                  <tr key={participant.player_id} className="border-b hover:bg-muted/50">
-                                    <td className="p-2 font-medium">{participant.player_name}</td>
+                                  <tr
+                                    key={participant.player_id}
+                                    className={cn("border-b hover:bg-muted/50", !participant.attended && "bg-muted/30")}
+                                  >
+                                    <td className="p-2 font-medium">
+                                      <span className={cn(!participant.attended && "text-muted-foreground")}>
+                                        {participant.player_name}
+                                      </span>
+                                      {!participant.attended && <AbsentBadge />}
+                                    </td>
                                     {allCompetitions.map(c => {
                                       const value = playerValues.get(c.id) ?? "";
                                       return (
                                         <td key={c.id} className="p-2 text-center">
                                           <Input
+                                            disabled={!participant.attended}
                                             type="number"
                                             min="0"
                                             step="1"
@@ -1092,7 +1186,12 @@ function GameDayDetailPage() {
                               );
                               return (
                                 <tr key={participant.player_id} className="border-b hover:bg-muted/50">
-                                  <td className="p-2 font-medium">{participant.player_name}</td>
+                                  <td className="p-2 font-medium">
+                                    <span className={cn(!participant.attended && "text-muted-foreground")}>
+                                      {participant.player_name}
+                                    </span>
+                                    {!participant.attended && <AbsentBadge />}
+                                  </td>
                                   {allPenaltyTypes.map(pt => {
                                     const fee = partData?.fees.find(f => f.penalty_type_id === pt.id);
                                     const qty = fee?.quantity ?? 0;
@@ -1138,7 +1237,12 @@ function GameDayDetailPage() {
                               );
                               return (
                                 <tr key={participant.player_id} className="border-b hover:bg-muted/50">
-                                  <td className="p-2 font-medium">{participant.player_name}</td>
+                                  <td className="p-2 font-medium">
+                                    <span className={cn(!participant.attended && "text-muted-foreground")}>
+                                      {participant.player_name}
+                                    </span>
+                                    {!participant.attended && <AbsentBadge />}
+                                  </td>
                                   {allCompetitions.map(c => {
                                     const cv = partData?.competition_values.find(v => v.competition_id === c.id);
                                     const value = cv?.value ?? 0;

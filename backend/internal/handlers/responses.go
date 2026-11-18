@@ -296,6 +296,7 @@ type ParticipantResponse struct {
 	PlayerID     string  `json:"player_id"`
 	PlayerName   string  `json:"player_name,omitempty"`
 	PlayerGender *string `json:"player_gender,omitempty"` // male, female, or omitted for nil
+	Attended     bool    `json:"attended"`
 	CreatedAt    string  `json:"created_at"`
 }
 
@@ -306,6 +307,7 @@ func ParticipantResponseFromEntity(p gameday.GameDayParticipant) ParticipantResp
 		PlayerID:     p.PlayerID,
 		PlayerName:   p.PlayerName,
 		PlayerGender: p.PlayerGender,
+		Attended:     p.Attended,
 		CreatedAt:    p.CreatedAt.Format(time.RFC3339),
 	}
 }

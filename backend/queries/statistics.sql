@@ -9,7 +9,7 @@ WHERE gd.club_id = $1 AND gd.is_draft = false AND gd.date >= $2 AND gd.date <= $
 ORDER BY gd.date ASC, gd.id ASC;
 
 -- name: StatsListParticipants :many
-SELECT gdp.id AS participant_id, gdp.game_day_id, gdp.player_id, p.gender
+SELECT gdp.id AS participant_id, gdp.game_day_id, gdp.player_id, gdp.attended, p.gender
 FROM game_day_participants gdp
 JOIN game_days gd ON gd.id = gdp.game_day_id
 JOIN players p ON p.id = gdp.player_id

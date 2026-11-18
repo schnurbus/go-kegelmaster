@@ -168,7 +168,7 @@ const createGameDayParticipant = `-- name: CreateGameDayParticipant :one
 
 INSERT INTO game_day_participants (id, game_day_id, player_id, created_at)
 VALUES ($1, $2, $3, $4)
-RETURNING id, game_day_id, player_id, created_at
+RETURNING id, game_day_id, player_id, created_at, attended
 `
 
 type CreateGameDayParticipantParams struct {
@@ -192,6 +192,7 @@ func (q *Queries) CreateGameDayParticipant(ctx context.Context, arg CreateGameDa
 		&i.GameDayID,
 		&i.PlayerID,
 		&i.CreatedAt,
+		&i.Attended,
 	)
 	return i, err
 }
@@ -544,7 +545,7 @@ func (q *Queries) GetGameDayFeesByParticipantForUpdate(ctx context.Context, game
 }
 
 const getGameDayParticipants = `-- name: GetGameDayParticipants :many
-SELECT gdp.id, gdp.game_day_id, gdp.player_id, gdp.created_at, p.name as player_name, p.gender as player_gender
+SELECT gdp.id, gdp.game_day_id, gdp.player_id, gdp.created_at, gdp.attended, p.name as player_name, p.gender as player_gender
 FROM game_day_participants gdp
 JOIN players p ON p.id = gdp.player_id
 WHERE gdp.game_day_id = $1
@@ -556,6 +557,7 @@ type GetGameDayParticipantsRow struct {
 	GameDayID    string         `json:"game_day_id"`
 	PlayerID     string         `json:"player_id"`
 	CreatedAt    time.Time      `json:"created_at"`
+	Attended     bool           `json:"attended"`
 	PlayerName   string         `json:"player_name"`
 	PlayerGender sql.NullString `json:"player_gender"`
 }
@@ -574,6 +576,7 @@ func (q *Queries) GetGameDayParticipants(ctx context.Context, gameDayID string) 
 			&i.GameDayID,
 			&i.PlayerID,
 			&i.CreatedAt,
+			&i.Attended,
 			&i.PlayerName,
 			&i.PlayerGender,
 		); err != nil {
@@ -606,6 +609,7 @@ FROM game_days gd
 LEFT JOIN (
     SELECT game_day_id, COUNT(*)::int as participant_count
     FROM game_day_participants
+    WHERE attended
     GROUP BY game_day_id
 ) p ON gd.id = p.game_day_id
 LEFT JOIN (
@@ -702,7 +706,7 @@ func (q *Queries) GetGameDaysByClubID(ctx context.Context, clubID string) ([]Gam
 }
 
 const getParticipantByGameDayAndPlayer = `-- name: GetParticipantByGameDayAndPlayer :one
-SELECT id, game_day_id, player_id, created_at FROM game_day_participants 
+SELECT id, game_day_id, player_id, created_at, attended FROM game_day_participants 
 WHERE game_day_id = $1 AND player_id = $2
 `
 
@@ -719,6 +723,7 @@ func (q *Queries) GetParticipantByGameDayAndPlayer(ctx context.Context, arg GetP
 		&i.GameDayID,
 		&i.PlayerID,
 		&i.CreatedAt,
+		&i.Attended,
 	)
 	return i, err
 }
@@ -832,6 +837,32 @@ func (q *Queries) GetPlayerPenaltyHistoryByClubAndPlayer(ctx context.Context, ar
 		return nil, err
 	}
 	return items, nil
+}
+
+const setGameDayParticipantAttended = `-- name: SetGameDayParticipantAttended :one
+UPDATE game_day_participants
+SET attended = $3
+WHERE game_day_id = $1 AND player_id = $2
+RETURNING id, game_day_id, player_id, created_at, attended
+`
+
+type SetGameDayParticipantAttendedParams struct {
+	GameDayID string `json:"game_day_id"`
+	PlayerID  string `json:"player_id"`
+	Attended  bool   `json:"attended"`
+}
+
+func (q *Queries) SetGameDayParticipantAttended(ctx context.Context, arg SetGameDayParticipantAttendedParams) (GameDayParticipant, error) {
+	row := q.db.QueryRowContext(ctx, setGameDayParticipantAttended, arg.GameDayID, arg.PlayerID, arg.Attended)
+	var i GameDayParticipant
+	err := row.Scan(
+		&i.ID,
+		&i.GameDayID,
+		&i.PlayerID,
+		&i.CreatedAt,
+		&i.Attended,
+	)
+	return i, err
 }
 
 const updateGameDay = `-- name: UpdateGameDay :one

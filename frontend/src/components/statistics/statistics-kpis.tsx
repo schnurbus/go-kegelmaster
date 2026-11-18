@@ -90,6 +90,9 @@ export function StatisticsKpis({ stats }: { stats: PlayerStatistics }) {
           Ø {formatCentsToEuro(penalties.average_per_game_day)} pro Spieltag
         </div>
         <div>Klub-Ø: {formatCentsToEuro(penalties.club_average_per_game_day)} pro Spieltag</div>
+        {penalties.absent_amount > 0 && (
+          <div>davon {formatCentsToEuro(penalties.absent_amount)} bei Abwesenheit</div>
+        )}
       </KpiCard>
 
       <KpiCard

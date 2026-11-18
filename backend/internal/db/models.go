@@ -83,6 +83,7 @@ type GameDayParticipant struct {
 	GameDayID string    `json:"game_day_id"`
 	PlayerID  string    `json:"player_id"`
 	CreatedAt time.Time `json:"created_at"`
+	Attended  bool      `json:"attended"`
 }
 
 type PasswordResetToken struct {
