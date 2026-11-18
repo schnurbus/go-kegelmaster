@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.7.0](https://github.com/schnurbus/go-kegelmaster/compare/v0.6.0...v0.7.0) (2026-11-18)
+
+
+### Features
+
+* **account:** add account page with password change ([#58](https://github.com/schnurbus/go-kegelmaster/issues/58)) ([045f4ab](https://github.com/schnurbus/go-kegelmaster/commit/045f4ab423d1dd8bebb67ce69a9fc9ff52787857))
+* **auth:** add passkey sign-in (WebAuthn) ([#63](https://github.com/schnurbus/go-kegelmaster/issues/63)) ([83396bd](https://github.com/schnurbus/go-kegelmaster/commit/83396bd1e8a80e92b2a68c8e7cdae6f37ffb6b3a))
+* **frontend:** modernize landing page and public header ([#60](https://github.com/schnurbus/go-kegelmaster/issues/60)) ([bee62b1](https://github.com/schnurbus/go-kegelmaster/commit/bee62b14ba080f0c2923ea0df08044dddb678d7d))
+* **statistics:** add player statistics page with selectable period ([#62](https://github.com/schnurbus/go-kegelmaster/issues/62)) ([23c3e29](https://github.com/schnurbus/go-kegelmaster/commit/23c3e29716ad54476978a6b0655958d467cd7111))
+
 ## [0.6.0](https://github.com/schnurbus/go-kegelmaster/compare/v0.5.0...v0.6.0) (2026-11-17)
 
 
