@@ -163,7 +163,7 @@ function NotificationsCard() {
       <CardHeader>
         <CardTitle>Benachrichtigungen</CardTitle>
         <CardDescription className="max-w-2xl">
-          Benachrichtigungen werden an {user?.email ?? "Ihre E-Mail-Adresse"} geschickt.
+          Benachrichtigungen werden an die unter „Mein Account“ angezeigte E-Mail-Adresse geschickt.
         </CardDescription>
       </CardHeader>
       <CardContent>
