@@ -6,7 +6,8 @@ import "./App.css";
 
 function App() {
   const location = useLocation();
-  const isDashboard = location.pathname.startsWith("/app");
+  const isDashboard =
+    location.pathname.startsWith("/app") || location.pathname.startsWith("/admin");
 
   // Dashboard hat seine eigene Sidebar, daher keinen Header anzeigen
   if (isDashboard) {

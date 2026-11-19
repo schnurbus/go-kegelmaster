@@ -25,6 +25,12 @@ import ForgotPasswordPage from "./routes/ForgotPasswordPage.tsx";
 import ResetPasswordPage from "./routes/ResetPasswordPage.tsx";
 import ImpressumPage from "./routes/ImpressumPage.tsx";
 import DatenschutzPage from "./routes/DatenschutzPage.tsx";
+import AdminLayout from "./routes/admin/AdminLayout.tsx";
+import AdminDashboardPage from "./routes/admin/AdminDashboardPage.tsx";
+import AdminUsersPage from "./routes/admin/AdminUsersPage.tsx";
+import AdminUserDetailPage from "./routes/admin/AdminUserDetailPage.tsx";
+import AdminClubsPage from "./routes/admin/AdminClubsPage.tsx";
+import AdminClubDetailPage from "./routes/admin/AdminClubDetailPage.tsx";
 import RequireAuth from "./components/RequireAuth.tsx";
 import { DashboardLayout } from "./components/DashboardLayout.tsx";
 import { AuthProvider } from "./context/AuthContext.tsx";
@@ -67,6 +73,23 @@ const router = createBrowserRouter([
               { path: "help", element: <HelpPage />, handle: { title: "Hilfe" } },
               { path: "api-tokens", element: <ApiTokensPage />, handle: { title: "API-Tokens" } },
               { path: "account", element: <AccountPage />, handle: { title: "Mein Account" } },
+            ],
+          },
+          {
+            // Operator area (instance admins), independent of the selected club.
+            path: "/admin",
+            element: <DashboardLayout />,
+            children: [
+              {
+                element: <AdminLayout />,
+                children: [
+                  { index: true, element: <AdminDashboardPage />, handle: { title: "Administration" } },
+                  { path: "users", element: <AdminUsersPage />, handle: { title: "Administration – Benutzer" } },
+                  { path: "users/:id", element: <AdminUserDetailPage />, handle: { title: "Benutzer" } },
+                  { path: "clubs", element: <AdminClubsPage />, handle: { title: "Administration – Klubs" } },
+                  { path: "clubs/:id", element: <AdminClubDetailPage />, handle: { title: "Klub" } },
+                ],
+              },
             ],
           },
         ],
