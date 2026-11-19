@@ -18,6 +18,7 @@ import (
 	"github.com/schnurbus/go-kegelmaster/backend/internal/email"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/gameday"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/invitation"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/notification"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/passkey"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/passwordreset"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/penaltytype"
@@ -79,6 +80,7 @@ func main() {
 	passwordResetRepo := passwordreset.NewRepository(db)
 	apiTokenRepo := apitoken.NewRepository(db)
 	statisticsRepo := statistics.NewRepository(db)
+	gameDayNotifier := notification.NewNotifier(notification.NewRepository(db), emailSvc, cfg.BaseURL)
 
 	// Passkeys are optional: a bad relying-party configuration disables them
 	// (endpoints answer 503) instead of keeping the server from starting.
@@ -109,6 +111,7 @@ func main() {
 		APITokenRepo:      apiTokenRepo,
 		StatisticsRepo:    statisticsRepo,
 		PasskeyService:    passkeySvc,
+		GameDayNotifier:   gameDayNotifier,
 	})
 
 	errCh := make(chan error, 1)
@@ -137,5 +140,8 @@ func main() {
 		slog.Error("graceful shutdown failed", "error", err)
 	} else {
 		slog.Info("server stopped gracefully")
+	}
+	if !gameDayNotifier.Wait(ctx) {
+		slog.Warn("pending game day notifications were not finished before shutdown")
 	}
 }

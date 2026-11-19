@@ -210,7 +210,7 @@ Weitere Entitäten kommen mit der Zeit dazu
 
 **Screen:** Mein Account
 - URL: /app/account (Benutzermenü unten links → „Account“)
-- Elemente: Kontodaten (E-Mail, registriert am, Passwort zuletzt geändert), Liste der eigenen Clubs (Eigentümer/Mitglied), Formular „Passwort ändern“ (aktuelles, neues, Bestätigung), Passkeys (Liste mit Name, synchronisiert/gerätegebunden, hinzugefügt, zuletzt genutzt), Link zu den API-Tokens
+- Elemente: Kontodaten (E-Mail, registriert am, Passwort zuletzt geändert), Liste der eigenen Clubs (Eigentümer/Mitglied), Benachrichtigungen (Schalter „E-Mail, wenn ein Spieltag abgerechnet wurde“, standardmäßig aus), Formular „Passwort ändern“ (aktuelles, neues, Bestätigung), Passkeys (Liste mit Name, synchronisiert/gerätegebunden, hinzugefügt, zuletzt genutzt), Link zu den API-Tokens
 - Interaktionen: Passwort ändern (meldet alle anderen Sitzungen ab und widerruft alle API-Tokens; der aktuelle Browser bleibt angemeldet); Passkey hinzufügen (aktuelles Passwort erforderlich), umbenennen, entfernen
 
 **Screen:** Login
@@ -252,6 +252,7 @@ Weitere Entitäten kommen mit der Zeit dazu
 | POST | `/api/auth/logout` | Session-Cookie löschen | – | `204` |
 | GET | `/api/auth/csrf-token` | Double-Submit Token erzeugen (Cookie + JSON) | – | `{ csrf_token }` |
 | GET | `/api/auth/me` | Authentifizierten User zurückgeben | – | User JSON |
+| PATCH | `/api/auth/me` | Eigene Einstellungen ändern (fehlende Felder bleiben unverändert) | `{ notify_gameday_settled }` | `200` + User JSON |
 | POST | `/api/auth/change-password` | Eigenes Passwort ändern (nur Browser-Session; andere Sitzungen und API-Tokens werden ungültig, Cookie wird neu ausgestellt) | `{ current_password, new_password }` | `200` + User JSON |
 | GET | `/api/auth/tokens` | Eigene API-Tokens auflisten (nur Browser-Session) | – | Token-Liste ohne Geheimnis |
 | POST | `/api/auth/tokens` | API-Token erstellen (nur Browser-Session, max. 20) | `{ name, expires_in_days? }` | `201` + Token inkl. Klartext (einmalig) |
@@ -339,6 +340,7 @@ Weitere Entitäten kommen mit der Zeit dazu
 - ✅ Persönliche API-Tokens (Bearer-Auth für Skripte/Agenten)
 - ✅ Account-Seite mit Passwort ändern
 - ✅ Passkeys als zusätzliche Anmeldemethode (inkl. Autofill)
+- ✅ E-Mail-Benachrichtigung „Spieltag abgerechnet“ (Opt-in in den Account-Einstellungen)
 - ✅ MCP-Server `/mcp` (Phase 1: 7 Lese-Tools, Spieltag als Entwurf erfassen, veröffentlichen, Buchung erfassen)
 - ✅ Club Entity mit vollständigem CRUD
 - ✅ Owner-basierte Berechtigungen für Club-Updates/Deletes
@@ -505,6 +507,18 @@ claude mcp add --transport http kegelmaster https://<host>/mcp --header "Authori
 - 📋 Stammdaten: `spieler_speichern`, `strafentyp_speichern`
 - 📋 API-Tokens mit Scope (z. B. nur lesen)
 - 📋 OAuth für Custom Connectors auf claude.ai
+
+## Letzte Implementierung: E-Mail-Benachrichtigung „Spieltag abgerechnet“ (19. November 2026)
+
+User können sich per E-Mail benachrichtigen lassen, sobald ein neuer Spieltag abgerechnet wurde (KEG-4).
+
+- **Einstellung:** `users.notify_gameday_settled` (Migration `000029`, Standard `false` für bestehende und neue User). Änderbar über `PATCH /api/auth/me` mit `{ "notify_gameday_settled": bool }`, im Frontend auf `/app/account` in der Karte „Benachrichtigungen“. Audit-Eintrag `user_settings_updated`.
+- **Auslöser:** Wechsel eines Spieltags von Entwurf auf veröffentlicht (oder direkt veröffentlicht angelegt) – also genau dann, wenn Grundgebühren und Strafen gebucht werden. Das Bearbeiten eines bereits veröffentlichten Spieltags verschickt nichts. Auch über MCP (`spieltag_veroeffentlichen`) veröffentlichte Spieltage lösen die E-Mail aus.
+- **Nur einmal pro Spieltag:** Tabelle `game_day_notifications` merkt sich benachrichtigte Spieltage (`INSERT … ON CONFLICT DO NOTHING`). Wird ein Spieltag wieder zum Entwurf gemacht und erneut veröffentlicht, gibt es keine zweite E-Mail. Bereits veröffentlichte Spieltage werden bei der Migration als benachrichtigt eingetragen.
+- **Empfänger:** Alle User mit aktivierter Einstellung, die einen Spieler im Klub haben; inaktive Spieler nur, wenn sie an diesem Spieltag Buchungen haben. Hat ein User mehrere Spieler im Klub, bekommt er eine E-Mail mit allen.
+- **Inhalt (deutsch):** Klubname, Datum, je Spieler die Summe der Buchungen des Spieltags und der aktuelle Saldo, Link zur App (`PUBLIC_BASE_URL/app`).
+- **Versand:** Paket `internal/notification`, asynchron nach dem Commit der Buchungen (eigene Goroutine, 2 Minuten Timeout); Fehler werden nur geloggt und blockieren oder verwerfen die Abrechnung nie. Ohne `RESEND_API_KEY` wird mit einer Log-Zeile übersprungen. Beim Herunterfahren wartet der Server kurz auf laufende Benachrichtigungen.
+- **Keine neuen Umgebungsvariablen:** genutzt werden `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `PUBLIC_BASE_URL`.
 
 ## Letzte Implementierung: Transaktionen bearbeiten (19. November 2026)
 

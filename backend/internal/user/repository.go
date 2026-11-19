@@ -86,14 +86,31 @@ func (r *Repository) UpdatePassword(ctx context.Context, userID string, password
 	})
 }
 
+// UpdateNotifyGameDaySettled switches the e-mail notification for settled game days.
+func (r *Repository) UpdateNotifyGameDaySettled(ctx context.Context, userID string, enabled bool) (User, error) {
+	dbUser, err := r.queries.UpdateUserNotifyGameDaySettled(ctx, db.UpdateUserNotifyGameDaySettledParams{
+		ID:                   userID,
+		NotifyGamedaySettled: enabled,
+		UpdatedAt:            time.Now().UTC(),
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return User{}, ErrNotFound
+	}
+	if err != nil {
+		return User{}, err
+	}
+	return dbUserToUser(dbUser), nil
+}
+
 // dbUserToUser converts a db.User to a user.User
 func dbUserToUser(dbUser db.User) User {
 	u := User{
-		ID:           dbUser.ID,
-		Email:        dbUser.Email,
-		PasswordHash: dbUser.PasswordHash,
-		CreatedAt:    dbUser.CreatedAt,
-		UpdatedAt:    dbUser.UpdatedAt,
+		ID:                   dbUser.ID,
+		Email:                dbUser.Email,
+		PasswordHash:         dbUser.PasswordHash,
+		CreatedAt:            dbUser.CreatedAt,
+		UpdatedAt:            dbUser.UpdatedAt,
+		NotifyGameDaySettled: dbUser.NotifyGamedaySettled,
 	}
 	if dbUser.PasswordChangedAt.Valid {
 		changedAt := dbUser.PasswordChangedAt.Time

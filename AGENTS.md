@@ -179,6 +179,8 @@ func TestRepository_Create(t *testing.T) {
 - CSRF protection with double-submit tokens (skipped for `Authorization: Bearer` requests)
 - Personal API tokens (`internal/apitoken`, table `api_tokens`) for scripts/agents: `Authorization: Bearer kgm_…`. `UserFromCookie` checks the bearer header first and never falls back to the cookie when it is present. Tokens are managed via `/api/auth/tokens` (browser session only).
 - MCP server (`internal/mcpserver`, mounted at `/mcp`): Streamable HTTP, stateless, API-token auth only. Tools never touch repositories directly; they call the REST API in-process via `InProcessAPI` (Fiber request handler) with the caller's token, so new tools get permissions, validation, audit and balance invariants for free. Tool names/descriptions are German; amounts are cents. Register tools in `tools.go`, test them in `server_test.go` against `fakeAPI`.
+- Account settings: `PATCH /api/auth/me` (e.g. `notify_gameday_settled`, opt-in, default false)
+- E-mail notifications (`internal/notification`): when a game day goes from draft to published (create with `is_draft: false` or update draft → published), the game day handler calls `GameDayNotifier.GameDaySettled` after the bookings were committed. The notifier runs in a goroutine with its own timeout, claims the game day once in `game_day_notifications` (re-publishing sends nothing), and e-mails every user with `notify_gameday_settled` who has a player in the club (inactive players only if they were charged), including the day's bookings and current balance. Mail errors are only logged.
 - User context available in handlers
 - Owner-based authorization for clubs
 
@@ -202,6 +204,8 @@ func TestRepository_Create(t *testing.T) {
 - `TRUSTED_PROXIES`: (optional, nur mit `PROXY_HEADER`) Kommagetrennte IPs/CIDRs der vertrauenswürdigen Proxies; zusätzlich `private`, `loopback`, `linklocal`. Nur von diesen Adressen wird `PROXY_HEADER` ausgewertet.
 - `WEBAUTHN_RP_ID`: (optional) Domain, an die Passkeys gebunden sind (WebAuthn Relying Party ID). Default: Host aus `PUBLIC_BASE_URL`. Achtung: Ein späterer Wechsel macht alle registrierten Passkeys unbrauchbar.
 - `WEBAUTHN_ORIGINS`: (optional) Kommagetrennte Origins (`https://host[:port]`), die Passkey-Anmeldungen ausführen dürfen. Default: Origin aus `PUBLIC_BASE_URL` plus `CORS_ALLOW_ORIGINS` (damit funktioniert der Vite-Dev-Server auf `:5173`). Ist die Konfiguration ungültig, startet der Server trotzdem; die Passkey-Endpunkte antworten dann mit `503`.
+- `RESEND_API_KEY`: (optional) API-Key für den E-Mail-Versand über Resend (Einladungen, Passwort-Reset, Benachrichtigung „Spieltag abgerechnet“). Ohne Key werden keine E-Mails verschickt; Spieltag-Benachrichtigungen werden dann mit einer Log-Zeile übersprungen.
+- `RESEND_FROM_EMAIL`: (optional) Absenderadresse für E-Mails. Default: `noreply@example.com`.
 - `LOG_LEVEL`: (optional) Log-Level (`debug`, `info`, `warn`, `error`). Bei `debug` werden auch Leseanfragen (GET/HEAD) im Request-Log erfasst; sonst nur Mutationen und Fehler. Default: `info`.
 
 ### GitHub Actions / Release Please
@@ -209,7 +213,7 @@ func TestRepository_Create(t *testing.T) {
 
 ### Security / Production
 - **JWT_SECRET:** In Production zwingend setzen (kein Default „dev-secret-change-me“ verwenden). Fehlt das Secret, beendet sich die App beim Start.
-- **PUBLIC_BASE_URL:** Muss auf die vertrauenswürdige App-Origin zeigen (z. B. Frontend-URL). Wird u. a. für Passwort-Reset-Links in E-Mails verwendet. Bei Deployment prüfen, dass keine fremde/Phishing-Domain konfiguriert ist.
+- **PUBLIC_BASE_URL:** Muss auf die vertrauenswürdige App-Origin zeigen (z. B. Frontend-URL). Wird u. a. für Passwort-Reset-Links und den App-Link in Spieltag-Benachrichtigungen (`PUBLIC_BASE_URL/app`) verwendet. Bei Deployment prüfen, dass keine fremde/Phishing-Domain konfiguriert ist.
 
 ### Config Structure
 - Configuration in `internal/config/`

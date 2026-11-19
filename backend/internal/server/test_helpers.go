@@ -13,9 +13,9 @@ import (
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/config"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/gameday"
-	"github.com/schnurbus/go-kegelmaster/backend/internal/penaltytype"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/passkey"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/passwordreset"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/penaltytype"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/permission"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/player"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/role"
@@ -32,7 +32,7 @@ const (
 	authCookieName = "auth_token"
 )
 
-func newTestServer(t *testing.T) (*Server, sqlmock.Sqlmock, *auth.Service) {
+func newTestServer(t *testing.T, opts ...func(*Dependencies)) (*Server, sqlmock.Sqlmock, *auth.Service) {
 	t.Helper()
 
 	db, mock, err := sqlmock.New()
@@ -63,25 +63,30 @@ func newTestServer(t *testing.T) (*Server, sqlmock.Sqlmock, *auth.Service) {
 		t.Fatalf("passkey service: %v", err)
 	}
 
-	srv := New(config.Config{
-		AppEnv:      "test",
-		HTTPPort:    "0",
-		CORSOrigins: "http://localhost:5173",
-	}, Dependencies{
+	deps := Dependencies{
 		UserRepo:          userRepo,
 		ClubRepo:          clubRepo,
 		RoleRepo:          roleRepo,
 		PlayerRepo:        playerRepo,
 		PenaltyTypeRepo:   penaltyTypeRepo,
 		GameDayRepo:       gameDayRepo,
-		TransactionRepo:  transactionRepo,
+		TransactionRepo:   transactionRepo,
 		AuthService:       authSvc,
 		PermissionCheck:   permissionCheck,
 		PasswordResetRepo: passwordResetRepo,
 		APITokenRepo:      apitoken.NewRepository(db),
 		StatisticsRepo:    statistics.NewRepository(db),
 		PasskeyService:    passkeySvc,
-	})
+	}
+	for _, opt := range opts {
+		opt(&deps)
+	}
+
+	srv := New(config.Config{
+		AppEnv:      "test",
+		HTTPPort:    "0",
+		CORSOrigins: "http://localhost:5173",
+	}, deps)
 
 	return srv, mock, authSvc
 }

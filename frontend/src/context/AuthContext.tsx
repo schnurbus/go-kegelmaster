@@ -16,6 +16,7 @@ type AuthUser = {
   created_at: string;
   updated_at: string;
   password_changed_at: string | null;
+  notify_gameday_settled: boolean;
 };
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated";
@@ -29,6 +30,7 @@ type AuthContextValue = {
   logout: () => Promise<void>;
   refreshCsrf: () => Promise<string>;
   changePassword: (payload: ChangePasswordPayload) => Promise<AuthUser>;
+  updateSettings: (payload: UserSettingsPayload) => Promise<AuthUser>;
   loginWithPasskey: (payload: PasskeyLoginOptions) => Promise<AuthUser>;
 };
 
@@ -43,6 +45,10 @@ type PasskeyLoginOptions = {
 type ChangePasswordPayload = {
   current_password: string;
   new_password: string;
+};
+
+type UserSettingsPayload = {
+  notify_gameday_settled?: boolean;
 };
 
 type AuthCredentials = {
@@ -220,6 +226,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [ensureCsrf, fetchCsrf],
   );
 
+  const updateSettings = useCallback(
+    async (payload: UserSettingsPayload) => {
+      const token = await ensureCsrf();
+      const resp = await fetch("/api/auth/me", {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": token,
+        },
+        body: JSON.stringify(payload),
+      });
+      if (!resp.ok) {
+        throw new Error(await extractError(resp));
+      }
+      const data: AuthUser = await resp.json();
+      setUser(data);
+      return data;
+    },
+    [ensureCsrf],
+  );
+
   useEffect(() => {
     const bootstrap = async () => {
       try {
@@ -252,9 +280,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       refreshCsrf: fetchCsrf,
       changePassword,
+      updateSettings,
       loginWithPasskey,
     }),
-    [user, status, csrfToken, login, register, logout, fetchCsrf, changePassword, loginWithPasskey],
+    [user, status, csrfToken, login, register, logout, fetchCsrf, changePassword, updateSettings, loginWithPasskey],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

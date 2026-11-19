@@ -13,6 +13,8 @@ type Querier interface {
 	AcceptPlayerInvitation(ctx context.Context, arg AcceptPlayerInvitationParams) error
 	AddRolePermission(ctx context.Context, arg AddRolePermissionParams) (RolePermission, error)
 	CheckGameDayExistsByClubAndDate(ctx context.Context, arg CheckGameDayExistsByClubAndDateParams) (bool, error)
+	// Affects one row for the first caller only, so a game day triggers at most one notification.
+	ClaimGameDaySettledNotification(ctx context.Context, arg ClaimGameDaySettledNotificationParams) (int64, error)
 	ConsumePasswordResetToken(ctx context.Context, token string) (PasswordResetToken, error)
 	// Deleting and returning in one statement makes each challenge single-use.
 	ConsumeWebAuthnSession(ctx context.Context, arg ConsumeWebAuthnSessionParams) (WebauthnSession, error)
@@ -114,6 +116,10 @@ type Querier interface {
 	IncrementClubBalance(ctx context.Context, arg IncrementClubBalanceParams) (int32, error)
 	LinkPlayerToUser(ctx context.Context, arg LinkPlayerToUserParams) (int64, error)
 	ListAPITokensByUserID(ctx context.Context, userID string) ([]ApiToken, error)
+	// Players of the club linked to a user who opted in to game day e-mails, with
+	// the sum of their bookings for the game day. Inactive players are only
+	// included when they were charged on that day.
+	ListGameDaySettledRecipients(ctx context.Context, arg ListGameDaySettledRecipientsParams) ([]ListGameDaySettledRecipientsRow, error)
 	ListTransactionsByClub(ctx context.Context, arg ListTransactionsByClubParams) ([]ListTransactionsByClubRow, error)
 	ListTransactionsByGameDay(ctx context.Context, gameDayID *string) ([]ListTransactionsByGameDayRow, error)
 	ListTransactionsByPlayer(ctx context.Context, arg ListTransactionsByPlayerParams) ([]ListTransactionsByPlayerRow, error)
@@ -157,6 +163,7 @@ type Querier interface {
 	UpdateRole(ctx context.Context, arg UpdateRoleParams) (Role, error)
 	// UpdateTransaction rewrites an edited manual booking including its balance snapshots.
 	UpdateTransaction(ctx context.Context, arg UpdateTransactionParams) (Transaction, error)
+	UpdateUserNotifyGameDaySettled(ctx context.Context, arg UpdateUserNotifyGameDaySettledParams) (User, error)
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error
 	UpdateWebAuthnCredentialAfterLogin(ctx context.Context, arg UpdateWebAuthnCredentialAfterLoginParams) error
 	UpsertGameDayCompetitionValue(ctx context.Context, arg UpsertGameDayCompetitionValueParams) (GameDayCompetitionValue, error)

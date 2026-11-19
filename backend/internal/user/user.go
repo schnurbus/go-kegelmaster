@@ -12,8 +12,11 @@ type User struct {
 	// PasswordChangedAt is set when the password was reset or changed.
 	// Sessions issued before this point are rejected.
 	PasswordChangedAt *time.Time
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	// NotifyGameDaySettled enables an e-mail once a game day of one of the
+	// user's clubs was settled (published). Off by default.
+	NotifyGameDaySettled bool
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
 }
 
 // SessionValid reports whether a session issued at issuedAt is still valid,

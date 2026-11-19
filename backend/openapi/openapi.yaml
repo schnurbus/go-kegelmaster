@@ -101,6 +101,35 @@ paths:
               schema: { $ref: "#/components/schemas/User" }
         "401":
           description: Nicht angemeldet
+    patch:
+      summary: Eigene Einstellungen ändern
+      description: |
+        Ändert die Einstellungen des angemeldeten Users. Nicht angegebene Felder bleiben unverändert.
+        X-CSRF-Token erforderlich (bei Browser-Session).
+      tags: [Auth]
+      security: [cookieAuth: [], bearerAuth: []]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                notify_gameday_settled:
+                  type: boolean
+                  description: E-Mail-Benachrichtigung, sobald ein Spieltag eines eigenen Clubs abgerechnet wurde.
+      responses:
+        "200":
+          description: Aktualisiertes User-Objekt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "400":
+          description: Ungültige Anfrage
+        "401":
+          description: Nicht angemeldet
+        "403":
+          description: CSRF-Token ungültig
   /api/auth/register:
     post:
       summary: Registrieren und einloggen
@@ -1272,7 +1301,7 @@ paths:
                 date: { type: string, format: date }
                 is_draft:
                   type: boolean
-                  description: Vorläufig (Draft); default true wenn nicht angegeben. Bei true werden keine Gebühren gebucht.
+                  description: Vorläufig (Draft); default true wenn nicht angegeben. Bei true werden keine Gebühren gebucht; bei false erhalten User mit aktivierter Benachrichtigung (notify_gameday_settled) eine E-Mail.
       responses:
         "201":
           description: Spieltag erstellt (Response enthält id, club_id, date, notes, is_draft, created_at, updated_at)
@@ -1326,7 +1355,12 @@ paths:
               type: object
               properties:
                 date: { type: string, format: date }
-                is_draft: { type: boolean, description: "Vorläufig (Draft). Beim Wechsel auf false werden alle Gebühren angelegt." }
+                is_draft:
+                  type: boolean
+                  description: |
+                    Vorläufig (Draft). Beim Wechsel auf false werden alle Gebühren angelegt; beim ersten
+                    Veröffentlichen erhalten User mit aktivierter Benachrichtigung (`notify_gameday_settled`)
+                    eine E-Mail. Erneutes Veröffentlichen verschickt keine weitere E-Mail.
       responses:
         "200":
           description: Aktualisiert (Response enthält id, club_id, date, notes, is_draft, created_at, updated_at)
@@ -1692,6 +1726,11 @@ components:
           format: date-time
           nullable: true
           description: Zeitpunkt der letzten Passwortänderung bzw. des letzten Resets; null, falls nie geändert.
+        notify_gameday_settled:
+          type: boolean
+          description: |
+            E-Mail-Benachrichtigung, sobald ein Spieltag eines Clubs, in dem der User einen Spieler hat,
+            abgerechnet (veröffentlicht) wurde. Standard: false.
     APIToken:
       type: object
       required: [id, name, token_prefix, expires_at, last_used_at, created_at]

@@ -186,6 +186,47 @@ func (h *Handler) HandleCurrentUser(c fiber.Ctx) error {
 	return c.JSON(UserResponseFromEntity(u))
 }
 
+type updateCurrentUserRequest struct {
+	NotifyGameDaySettled *bool `json:"notify_gameday_settled"`
+}
+
+// HandleUpdateCurrentUser changes the signed-in user's account settings.
+// Omitted fields keep their value.
+func (h *Handler) HandleUpdateCurrentUser(c fiber.Ctx) error {
+	if err := h.ValidateCSRF(c); err != nil {
+		return err
+	}
+
+	var req updateCurrentUserRequest
+	if err := json.Unmarshal(c.Body(), &req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Ungültige Anfrage")
+	}
+
+	ctx, cancel := h.RequestContext()
+	defer cancel()
+
+	u, err := h.UserFromCookie(ctx, c)
+	if err != nil {
+		return fiber.NewError(fiber.StatusUnauthorized, "Nicht angemeldet")
+	}
+
+	if req.NotifyGameDaySettled == nil || *req.NotifyGameDaySettled == u.NotifyGameDaySettled {
+		return c.JSON(UserResponseFromEntity(u))
+	}
+
+	updated, err := h.UserRepo.UpdateNotifyGameDaySettled(ctx, u.ID, *req.NotifyGameDaySettled)
+	if err != nil {
+		if errors.Is(err, user.ErrNotFound) {
+			return fiber.NewError(fiber.StatusUnauthorized, "Nicht angemeldet")
+		}
+		slog.Error("update user settings", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+
+	audit.LogAudit(c, u.ID, audit.ActionUserSettingsUpdated, "user_id", u.ID, "notify_gameday_settled", updated.NotifyGameDaySettled)
+	return c.JSON(UserResponseFromEntity(updated))
+}
+
 type forgotPasswordRequest struct {
 	Email string `json:"email"`
 }
