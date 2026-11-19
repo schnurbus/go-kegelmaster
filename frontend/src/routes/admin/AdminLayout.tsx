@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { DownloadIcon } from "lucide-react";
 
+import { AdminReauthDialog } from "@/components/admin/admin-reauth-dialog";
 import { AdminNotFound } from "@/components/admin/admin-ui";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
@@ -20,6 +22,8 @@ const NAV = [
  */
 function AdminLayout() {
   const { user } = useAuth();
+  // Bumped after a re-authentication: remounts the page, which loads its data again.
+  const [reauthCount, setReauthCount] = useState(0);
 
   if (!user?.is_instance_admin) {
     return <AdminNotFound />;
@@ -54,7 +58,8 @@ function AdminLayout() {
           </a>
         </Button>
       </div>
-      <Outlet />
+      <Outlet key={reauthCount} />
+      <AdminReauthDialog onConfirmed={() => setReauthCount((n) => n + 1)} />
     </div>
   );
 }

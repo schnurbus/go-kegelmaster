@@ -40,6 +40,10 @@ func (h *Handler) RequireInstanceAdmin(c fiber.Ctx) error {
 	if err != nil || !u.IsInstanceAdmin {
 		return fiber.ErrNotFound
 	}
+	// Only real admins get here; they must have authenticated recently (KEG-9).
+	if !h.recentlyAuthenticated(c, time.Now()) {
+		return h.respondAdminReauthRequired(c, u.ID)
+	}
 	c.Locals(LocalsAdminUserID, u.ID)
 	// Operator data must not end up in shared or browser caches.
 	c.Set(fiber.HeaderCacheControl, "no-store")

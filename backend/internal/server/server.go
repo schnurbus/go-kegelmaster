@@ -225,6 +225,12 @@ func (s *Server) registerRoutes() {
 		Max:        10,
 		Expiration: 5 * time.Minute,
 	}), s.handlers.HandleChangePassword)
+	// Re-authentication of the logged-in user (fresh auth_time for the admin
+	// area, ADMIN_REAUTH_MINUTES); verifies the password, so limited like login.
+	authGroup.Post("/reauth", limiter.New(limiter.Config{
+		Max:        10,
+		Expiration: 5 * time.Minute,
+	}), s.handlers.HandleReauth)
 	authGroup.Get("/tokens", s.handlers.HandleListAPITokens)
 	authGroup.Post("/tokens", s.handlers.HandleCreateAPIToken)
 	authGroup.Delete("/tokens/:id", s.handlers.HandleDeleteAPIToken)
@@ -236,6 +242,9 @@ func (s *Server) registerRoutes() {
 	})
 	authGroup.Post("/passkeys/login/begin", passkeyLimiter, s.handlers.HandleBeginPasskeyLogin)
 	authGroup.Post("/passkeys/login/finish", passkeyLimiter, s.handlers.HandleFinishPasskeyLogin)
+	// Re-authentication with a passkey: ceremony from /passkeys/login/begin
+	// (the ceremony cookie is scoped to /api/auth/passkeys).
+	authGroup.Post("/passkeys/reauth", passkeyLimiter, s.handlers.HandlePasskeyReauth)
 	authGroup.Post("/passkeys/register/begin", limiter.New(limiter.Config{
 		Max:        10,
 		Expiration: 5 * time.Minute,

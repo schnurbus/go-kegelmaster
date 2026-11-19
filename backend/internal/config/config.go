@@ -55,6 +55,9 @@ type Config struct {
 	// InstanceAdminEmails: kommagetrennte E-Mails, die beim Start das Instanz-Admin-Flag
 	// erhalten (nur bestehende Konten; es wird nie etwas entzogen).
 	InstanceAdminEmails []string
+	// AdminReauthMinutes: Minuten seit der letzten echten Anmeldung (Passwort/Passkey),
+	// in denen der Admin-Bereich nutzbar ist (ADMIN_REAUTH_MINUTES), siehe admin_reauth.go.
+	AdminReauthMinutes int
 }
 
 // Load builds a Config from process environment variables, applying defaults
@@ -91,6 +94,7 @@ func Load() Config {
 		WebAuthnRPID:                strings.TrimSpace(os.Getenv("WEBAUTHN_RP_ID")),
 		WebAuthnOrigins:             os.Getenv("WEBAUTHN_ORIGINS"),
 		InstanceAdminEmails:         splitList(os.Getenv("INSTANCE_ADMIN_EMAILS")),
+		AdminReauthMinutes:          parseAdminReauthMinutes(os.Getenv("ADMIN_REAUTH_MINUTES")),
 	}
 
 	return cfg

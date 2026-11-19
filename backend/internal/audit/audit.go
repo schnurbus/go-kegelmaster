@@ -55,6 +55,12 @@ const (
 	ActionTransactionDeleted   = "transaction_deleted"
 	ActionTransactionUpdated   = "transaction_updated"
 
+	// Re-authentication of a logged-in user (password or passkey), required
+	// for the instance admin area after ADMIN_REAUTH_MINUTES (KEG-9).
+	ActionUserReauth          = "user_reauth"
+	ActionUserReauthFailed    = "user_reauth_failed"
+	ActionAdminReauthRequired = "admin_reauth_required"
+
 	// Instance admin (operator) actions; logged with LogAdminAudit.
 	ActionAdminStatsViewed = "admin_stats_viewed"
 	ActionAdminUsersListed = "admin_users_listed"

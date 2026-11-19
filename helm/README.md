@@ -70,6 +70,8 @@ Instanz-Admins sehen unter `/api/admin` eine read-only Übersicht über Benutzer
 
 - oder per `config.INSTANCE_ADMIN_EMAILS` (kommagetrennt): beim Start erhalten diese bestehenden Konten das Flag; es wird nie etwas entzogen. Zum Entziehen die E-Mail aus der Liste entfernen **und** `admin revoke` ausführen.
 
+Der Admin-Bereich verlangt eine frische Anmeldung: Liegt der letzte Passwort- oder Passkey-Login länger als `config.ADMIN_REAUTH_MINUTES` (Default `15`, erlaubt 1–1440) zurück, muss der Admin seine Anmeldung per Passwort oder Passkey bestätigen. Ein ungültiger Wert verhindert den Start.
+
 ## Umgebungen (FluxCD)
 
 Das Chart wird per FluxCD aus dem Repo `talos-fluxcd` deployt (Chart-Quelle: `helm/` auf `main`):
