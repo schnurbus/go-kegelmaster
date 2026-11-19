@@ -50,6 +50,8 @@ Bei Änderungen an ConfigMap oder vom Chart erzeugtem Secret starten die Pods ne
 
 Standardmäßig ist `AUTO_MIGRATE=true`. Dabei `replicaCount` auf 1 lassen (Autoscaling aus), damit Migrationen beim Start nicht parallel laufen.
 
+Wer ein Konto anlegen darf, steuert `config.REGISTRATION_MODE`: `open` (Default, jeder), `invite_only` (nur über einen gültigen Einladungslink für die eingeladene E-Mail) oder `closed` (keine Registrierung). Ein ungültiger Wert verhindert den Start.
+
 Ingress und HTTPRoute (Gateway API) sind standardmäßig deaktiviert. Nach dem Aktivieren `config.PUBLIC_BASE_URL` und `config.CORS_ALLOW_ORIGINS` auf denselben öffentlichen Origin setzen. Passkeys werden an den Host aus `config.PUBLIC_BASE_URL` gebunden; ohne korrekten Wert funktionieren sie nicht (abweichend: `config.WEBAUTHN_RP_ID`, `config.WEBAUTHN_ORIGINS`).
 
 Health-Check: `GET /healthz` auf Port 8080.

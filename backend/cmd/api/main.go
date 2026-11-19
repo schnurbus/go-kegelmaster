@@ -58,7 +58,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	slog.Info("starting backend service", "env", cfg.AppEnv, "port", cfg.HTTPPort)
+	if err := cfg.ValidateRegistrationMode(); err != nil {
+		slog.Error("invalid configuration", "error", err)
+		os.Exit(1)
+	}
+
+	slog.Info("starting backend service", "env", cfg.AppEnv, "port", cfg.HTTPPort, "registration_mode", cfg.EffectiveRegistrationMode())
 
 	db, err := database.New(cfg.DatabaseURL)
 	if err != nil {

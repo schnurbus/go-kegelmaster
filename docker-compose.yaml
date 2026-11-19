@@ -26,6 +26,8 @@ services:
     container_name: kegelmaster-backend
     environment:
       APP_ENV: docker
+      # Wer ein Konto anlegen darf: open (Default) | invite_only | closed
+      REGISTRATION_MODE: open
       BACKEND_PORT: "8080"
       DATABASE_URL: postgres://kegelmaster:kegelmaster@postgres:5432/kegelmaster?sslmode=disable
       REDIS_URL: redis://redis:6379/0

@@ -41,6 +41,8 @@ func (h *Handler) dummyPasswordHash() string {
 type registerRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+	// InviteToken is required when REGISTRATION_MODE=invite_only.
+	InviteToken string `json:"invite_token"`
 }
 
 func (r registerRequest) validate() error {
@@ -63,6 +65,9 @@ func (h *Handler) HandleRegister(c fiber.Ctx) error {
 	if err := h.ValidateCSRF(c); err != nil {
 		return err
 	}
+	if err := h.registrationClosedError(); err != nil {
+		return err
+	}
 
 	var req registerRequest
 	if err := json.Unmarshal(c.Body(), &req); err != nil {
@@ -76,14 +81,18 @@ func (h *Handler) HandleRegister(c fiber.Ctx) error {
 	email := strings.ToLower(strings.TrimSpace(req.Email))
 	password := strings.TrimSpace(req.Password)
 
+	ctx, cancel := h.RequestContext()
+	defer cancel()
+
+	if err := h.checkRegistrationAllowed(ctx, email, req.InviteToken); err != nil {
+		return err
+	}
+
 	hash, err := h.AuthSvc.HashPassword(password)
 	if err != nil {
 		slog.Error("hash password", "error", err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
-
-	ctx, cancel := h.RequestContext()
-	defer cancel()
 
 	u, err := h.UserRepo.Create(ctx, user.CreateUserParams{
 		Email:        email,

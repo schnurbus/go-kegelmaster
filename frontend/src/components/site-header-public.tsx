@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/sheet";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/context/AuthContext";
+import { useRegistrationMode } from "@/hooks/use-public-config";
 import { cn } from "@/lib/utils";
 
 const sections = [
@@ -38,6 +39,8 @@ export function PublicSiteHeader() {
   const { status, user, logout } = useAuth();
   const isAuthenticated = status === "authenticated";
   const location = useLocation();
+  // Ohne offene Registrierung führt "Jetzt starten" ins Leere: Link ausblenden.
+  const canRegister = useRegistrationMode() === "open";
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -94,9 +97,11 @@ export function PublicSiteHeader() {
                 <Button asChild variant="ghost" size="sm">
                   <NavLink to="/login">Anmelden</NavLink>
                 </Button>
-                <Button asChild size="sm">
-                  <NavLink to="/register">Jetzt starten</NavLink>
-                </Button>
+                {canRegister && (
+                  <Button asChild size="sm">
+                    <NavLink to="/register">Jetzt starten</NavLink>
+                  </Button>
+                )}
               </>
             )}
           </div>
@@ -135,9 +140,11 @@ export function PublicSiteHeader() {
                   </>
                 ) : (
                   <>
-                    <Button asChild>
-                      <Link to="/register">Jetzt starten</Link>
-                    </Button>
+                    {canRegister && (
+                      <Button asChild>
+                        <Link to="/register">Jetzt starten</Link>
+                      </Button>
+                    )}
                     <Button asChild variant="outline">
                       <Link to="/login">Anmelden</Link>
                     </Button>

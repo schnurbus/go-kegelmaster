@@ -202,7 +202,7 @@ Weitere Entitäten kommen mit der Zeit dazu
 
 **Screen:** Register
 - URL: /register
-- Elemente: Registrierungs-Formular (Email, Passwort)
+- Elemente: Registrierungs-Formular (Email, Passwort); bei `REGISTRATION_MODE=closed` nur ein Hinweis, bei `invite_only` nur mit Einladungslink (E-Mail aus der Einladung vorausgefüllt)
 - Interaktionen: Registrierung, automatischer Login, Weiterleitung zu Dashboard
 
 **Screen:** Dashboard
@@ -249,7 +249,7 @@ Weitere Entitäten kommen mit der Zeit dazu
 #### Auth
 | Methode | Endpoint | Beschreibung | Request Body | Response |
 |--------|----------|--------------|--------------|---------|
-| POST | `/api/auth/register` | Neuen User anlegen & automatisch einloggen | `{ email, password }` | `201` + User JSON |
+| POST | `/api/auth/register` | Neuen User anlegen & automatisch einloggen (abhängig von `REGISTRATION_MODE`) | `{ email, password, invite_token? }` | `201` + User JSON, `403` wenn nicht erlaubt |
 | POST | `/api/auth/login` | Login mit E-Mail & Passwort (setzt HTTP-Only Cookie) | `{ email, password }` | `200` + User JSON |
 | POST | `/api/auth/logout` | Session-Cookie löschen | – | `204` |
 | GET | `/api/auth/csrf-token` | Double-Submit Token erzeugen (Cookie + JSON) | – | `{ csrf_token }` |
@@ -343,6 +343,7 @@ Weitere Entitäten kommen mit der Zeit dazu
 - ✅ CSRF-Schutz mit Double-Submit Token
 - ✅ Persönliche API-Tokens (Bearer-Auth für Skripte/Agenten)
 - ✅ Account-Seite mit Passwort ändern
+- ✅ Registrierung per `REGISTRATION_MODE` steuerbar (`open`/`invite_only`/`closed`)
 - ✅ Passkeys als zusätzliche Anmeldemethode (inkl. Autofill)
 - ✅ E-Mail-Benachrichtigung „Spieltag abgerechnet“ (Opt-in in den Account-Einstellungen)
 - ✅ Instanz-Admin und read-only Admin-API `/api/admin` (Betreiber-Übersicht Phase 1, Backend; UI folgt mit KEG-8)
@@ -555,6 +556,15 @@ Sonderfall: Ein Spieler fehlt am Spieltag, bekommt aber trotzdem eine Strafe (z.
 - **Inhalte:** Teilnahmequote und Serien, Strafen gesamt / Ø pro Spieltag mit Klubvergleich, Platz im Klub (Ø-Strafen), strafenfreie Abende, teuerster/günstigster Abend, Strafen nach Typ (eigener Ø vs. Klub-Ø), Wettbewerbe (Ø, Bestwert, Siege, letzte Plätze, Platz nach Ø, Verlauf), Kontoverlauf mit Einzahlungen/Strafen/Grundgebühren.
 - **MCP:** Tool `meine_statistik` (von/bis).
 - **Frontend:** Route `/app/statistics` (Sidebar „Statistiken“), Zeitraum-Auswahl (Presets + benutzerdefiniert) im URL-Query gespeichert.
+
+## Letzte Implementierung: Registrierung per REGISTRATION_MODE (19. November 2026)
+
+Phase 0 der Betreiber-Übersicht (KEG-6, Konzept `docs/konzept-betreiber-uebersicht.md` §7).
+
+- **Konfiguration:** `REGISTRATION_MODE=open|invite_only|closed`, Default `open` (unverändertes Verhalten). Ungültige Werte verhindern den Start. Ausgeliefert als `registration_mode` unter `GET /api/config/public`.
+- **API:** `POST /api/auth/register` antwortet bei `closed` immer mit 403. Bei `invite_only` ist `invite_token` Pflicht: Die Einladung muss existieren, darf nicht abgelaufen oder angenommen sein, und die E-Mail muss passen (sonst 403). Die Einladung wird danach wie bisher über `POST /api/invitations/:token/accept` angenommen. Login, Passkeys (nur für bestehende Konten) und das Annehmen von Einladungen mit bestehendem Konto bleiben in allen Modi möglich. Keine Schemaänderung.
+- **Frontend:** Hook `usePublicConfig`. Registrierungslinks (Header, Landingpage, Login) nur bei `open`; die Landingpage verweist sonst auf den Login. `/register` zeigt bei `closed` einen Hinweis, bei `invite_only` ohne Einladungslink ebenfalls; mit Einladungslink ist die E-Mail aus der Einladung vorausgefüllt und gesperrt. Die Einladungsseite blendet „Registrieren“ bei `closed` aus.
+- **Tests:** `internal/server/registration_mode_handler_test.go` (alle drei Modi, Default ohne Variable, abgelaufene/angenommene/unbekannte Einladung, falsche E-Mail, `config/public`), `internal/config/registration_test.go`.
 
 ## Letzte Implementierung: Auto-Tip pro Einzahlung abschaltbar (19. November 2026)
 
