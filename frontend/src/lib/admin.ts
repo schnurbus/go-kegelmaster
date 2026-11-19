@@ -22,6 +22,8 @@ type AdminFetchState<T> = {
  */
 export function useAdminFetch<T>(url: string) {
   const [state, setState] = useState<AdminFetchState<T> | null>(null);
+  // Bumped by reload() after an admin action; keeps showing the old data meanwhile.
+  const [version, setVersion] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -42,14 +44,59 @@ export function useAdminFetch<T>(url: string) {
       }
     })();
     return () => controller.abort();
-  }, [url]);
+  }, [url, version]);
 
+  const reload = useCallback(() => setVersion((v) => v + 1), []);
   const current = state?.url === url ? state : null;
   return {
     data: current?.data ?? null,
     error: current?.error ?? null,
     loading: current === null,
+    reload,
   };
+}
+
+function readCsrfCookie(): string {
+  return (
+    document.cookie
+      .split("; ")
+      .find((row) => row.startsWith("csrf_token="))
+      ?.split("=")[1] ?? ""
+  );
+}
+
+async function adminCsrfToken(): Promise<string> {
+  const token = readCsrfCookie();
+  if (token) return token;
+  const resp = await fetch("/api/auth/csrf-token", { credentials: "include" });
+  if (!resp.ok) throw new AdminApiError(resp.status, "CSRF-Token konnte nicht geladen werden");
+  const data: { csrf_token: string } = await resp.json();
+  return data.csrf_token;
+}
+
+/**
+ * Runs an admin intervention (POST/DELETE with CSRF header and optional JSON body).
+ * Throws AdminApiError with the server's message on failure; returns the JSON body or null.
+ */
+export async function adminMutation<T = unknown>(
+  method: "POST" | "DELETE",
+  url: string,
+  body?: unknown,
+): Promise<T | null> {
+  const headers: Record<string, string> = { "X-CSRF-Token": await adminCsrfToken() };
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  const resp = await fetch(url, {
+    method,
+    credentials: "include",
+    headers,
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!resp.ok) {
+    const data = await resp.json().catch(() => ({}));
+    throw new AdminApiError(resp.status, data.message || `Fehler ${resp.status}`);
+  }
+  if (resp.status === 204) return null;
+  return (await resp.json().catch(() => null)) as T | null;
 }
 
 export function formatAdminDate(value: string | null | undefined): string {

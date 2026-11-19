@@ -335,7 +335,7 @@ func (s *Server) registerRoutes() {
 	clubsGroup.Get("/:clubId/gamedays/:gamedayId/transactions", s.handlers.HandleListGameDayTransactions)
 	clubsGroup.Get("/:clubId/gamedays/:gamedayId/transaction-summary", s.handlers.HandleGetGameDayTransactionSummary)
 
-	// Instance admin (operator) area, read-only. Cookie sessions of instance
+	// Instance admin (operator) area. Cookie sessions of instance
 	// admins only; everyone else (incl. API tokens and MCP) gets 404.
 	adminGroup := api.Group("/admin", s.handlers.RequireInstanceAdmin)
 	adminGroup.Get("/stats", s.handlers.HandleAdminStats)
@@ -344,6 +344,14 @@ func (s *Server) registerRoutes() {
 	adminGroup.Get("/clubs", s.handlers.HandleAdminListClubs)
 	adminGroup.Get("/clubs/:id", s.handlers.HandleAdminGetClub)
 	adminGroup.Get("/export/memberships.csv", s.handlers.HandleAdminExportMemberships)
+	// Interventions (phase 3): CSRF, audit with admin=true, confirmation in the UI.
+	adminGroup.Post("/users/:id/disable", s.handlers.HandleAdminDisableUser)
+	adminGroup.Post("/users/:id/enable", s.handlers.HandleAdminEnableUser)
+	adminGroup.Post("/users/:id/revoke-sessions", s.handlers.HandleAdminRevokeSessions)
+	adminGroup.Delete("/users/:id/tokens/:tokenId", s.handlers.HandleAdminRevokeAPIToken)
+	adminGroup.Delete("/users/:id", s.handlers.HandleAdminDeleteUser)
+	adminGroup.Post("/clubs/:id/transfer-owner", s.handlers.HandleAdminTransferClubOwner)
+	adminGroup.Delete("/clubs/:id", s.handlers.HandleAdminDeleteClub)
 
 	// OpenAPI spec and Swagger UI (for technical users)
 	api.Get("/openapi.yaml", func(c fiber.Ctx) error {

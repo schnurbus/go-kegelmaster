@@ -102,6 +102,66 @@ test.describe("Admin area", () => {
     expect(await csv.text()).toContain(clubName);
   });
 
+  test("instance admin disables and enables a user", async ({ browser, page }) => {
+    test.setTimeout(90000);
+    const stamp = Date.now();
+    const userEmail = `e2e-admin-disable-${stamp}@example.com`;
+    const adminEmail = `e2e-admin-op-${stamp}@example.com`;
+
+    // The user is signed in in their own browser context.
+    const userContext = await browser.newContext();
+    const userPage = await userContext.newPage();
+    await register(userPage, userEmail);
+
+    await register(page, adminEmail);
+    grantInstanceAdmin(adminEmail);
+
+    // Open the user's detail page and disable the account.
+    await page.goto(`/admin/users?search=${encodeURIComponent(userEmail)}`);
+    await page.getByRole("table").getByRole("link", { name: userEmail }).click();
+    await expect(page).toHaveURL(/\/admin\/users\/[0-9a-f-]+$/);
+    await page.getByRole("button", { name: "Sperren" }).click();
+    const disableDialog = page.getByRole("alertdialog");
+    await expect(disableDialog.getByText("Benutzer sperren?")).toBeVisible();
+    await disableDialog.getByRole("button", { name: "Sperren" }).click();
+    await expect(disableDialog).toBeHidden();
+    await expect(page.getByText("gesperrt", { exact: true })).toBeVisible();
+    await expect(page.getByText("Gesperrt seit")).toBeVisible();
+
+    // The existing session of the user is rejected …
+    const me = await userPage.request.get("/api/auth/me");
+    expect(me.status()).toBe(401);
+
+    // … and a new login is refused with a hint.
+    await userContext.clearCookies();
+    await userPage.goto("/login");
+    await userPage.getByLabel("E-Mail").fill(userEmail);
+    await userPage.getByLabel("Passwort").fill("securepass123");
+    await Promise.all([
+      userPage.waitForResponse((resp) => resp.url().includes("/api/auth/login") && resp.status() === 403),
+      userPage.getByRole("button", { name: "Login" }).click(),
+    ]);
+    await expect(userPage.getByRole("alert").filter({ hasText: "gesperrt" })).toBeVisible();
+    await expect(userPage).toHaveURL(/\/login/);
+
+    // The "disabled" filter lists the user.
+    await page.goto(`/admin/users?search=${encodeURIComponent(userEmail)}&filter=disabled`);
+    await expect(page.getByRole("table").getByRole("link", { name: userEmail })).toBeVisible();
+    await page.getByRole("table").getByRole("link", { name: userEmail }).click();
+
+    // Enable again: the user can log in.
+    await page.getByRole("button", { name: "Entsperren" }).click();
+    const enableDialog = page.getByRole("alertdialog");
+    await enableDialog.getByRole("button", { name: "Entsperren" }).click();
+    await expect(enableDialog).toBeHidden();
+    await expect(page.getByText("Gesperrt seit")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Sperren" })).toBeVisible();
+
+    await userPage.getByRole("button", { name: "Login" }).click();
+    await expect(userPage).toHaveURL(/\/app/, { timeout: 10000 });
+    await userContext.close();
+  });
+
   test("regular user has no menu entry and gets an error page on /admin", async ({ page }) => {
     await register(page, `e2e-noadmin-${Date.now()}@example.com`);
 

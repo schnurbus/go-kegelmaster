@@ -16,6 +16,7 @@ const (
 	ActionAPITokenCreated      = "api_token_created"
 	ActionAPITokenDeleted      = "api_token_deleted"
 	ActionUserLoginPasskey     = "user_login_passkey"
+	ActionUserLoginRejected    = "user_login_rejected"
 	ActionPasskeyCreated       = "passkey_created"
 	ActionPasskeyRenamed       = "passkey_renamed"
 	ActionPasskeyDeleted       = "passkey_deleted"
@@ -61,6 +62,15 @@ const (
 	ActionAdminClubsListed = "admin_clubs_listed"
 	ActionAdminClubViewed  = "admin_club_viewed"
 	ActionAdminExport      = "admin_export"
+
+	// Instance admin interventions (Phase 3).
+	ActionAdminUserDisabled         = "admin_user_disabled"
+	ActionAdminUserEnabled          = "admin_user_enabled"
+	ActionAdminSessionsRevoked      = "admin_sessions_revoked"
+	ActionAdminTokenRevoked         = "admin_token_revoked"
+	ActionAdminClubOwnerTransferred = "admin_club_owner_transferred"
+	ActionAdminUserDeleted          = "admin_user_deleted"
+	ActionAdminClubDeleted          = "admin_club_deleted"
 )
 
 // LogAudit writes an audit log entry, including the client IP (c.IP() honours

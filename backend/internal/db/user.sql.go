@@ -25,7 +25,7 @@ INSERT INTO users (
     $4,
     $5
 )
-RETURNING id, email, password_hash, created_at, updated_at, password_changed_at, notify_gameday_settled, is_instance_admin, last_login_at
+RETURNING id, email, password_hash, created_at, updated_at, password_changed_at, notify_gameday_settled, is_instance_admin, last_login_at, disabled_at, sessions_valid_after
 `
 
 type CreateUserParams struct {
@@ -55,12 +55,14 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.NotifyGamedaySettled,
 		&i.IsInstanceAdmin,
 		&i.LastLoginAt,
+		&i.DisabledAt,
+		&i.SessionsValidAfter,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, password_hash, created_at, updated_at, password_changed_at, notify_gameday_settled, is_instance_admin, last_login_at FROM users
+SELECT id, email, password_hash, created_at, updated_at, password_changed_at, notify_gameday_settled, is_instance_admin, last_login_at, disabled_at, sessions_valid_after FROM users
 WHERE email = $1
 `
 
@@ -77,12 +79,14 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.NotifyGamedaySettled,
 		&i.IsInstanceAdmin,
 		&i.LastLoginAt,
+		&i.DisabledAt,
+		&i.SessionsValidAfter,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, password_hash, created_at, updated_at, password_changed_at, notify_gameday_settled, is_instance_admin, last_login_at FROM users
+SELECT id, email, password_hash, created_at, updated_at, password_changed_at, notify_gameday_settled, is_instance_admin, last_login_at, disabled_at, sessions_valid_after FROM users
 WHERE id = $1
 `
 
@@ -99,6 +103,8 @@ func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
 		&i.NotifyGamedaySettled,
 		&i.IsInstanceAdmin,
 		&i.LastLoginAt,
+		&i.DisabledAt,
+		&i.SessionsValidAfter,
 	)
 	return i, err
 }
@@ -124,7 +130,7 @@ const updateUserNotifyGameDaySettled = `-- name: UpdateUserNotifyGameDaySettled 
 UPDATE users
 SET notify_gameday_settled = $2, updated_at = $3
 WHERE id = $1
-RETURNING id, email, password_hash, created_at, updated_at, password_changed_at, notify_gameday_settled, is_instance_admin, last_login_at
+RETURNING id, email, password_hash, created_at, updated_at, password_changed_at, notify_gameday_settled, is_instance_admin, last_login_at, disabled_at, sessions_valid_after
 `
 
 type UpdateUserNotifyGameDaySettledParams struct {
@@ -146,6 +152,8 @@ func (q *Queries) UpdateUserNotifyGameDaySettled(ctx context.Context, arg Update
 		&i.NotifyGamedaySettled,
 		&i.IsInstanceAdmin,
 		&i.LastLoginAt,
+		&i.DisabledAt,
+		&i.SessionsValidAfter,
 	)
 	return i, err
 }

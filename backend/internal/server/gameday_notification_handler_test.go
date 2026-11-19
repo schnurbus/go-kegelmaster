@@ -49,7 +49,7 @@ func newNotifyingTestServer(t *testing.T) (*Server, sqlmock.Sqlmock, string, str
 }
 
 var (
-	userCols    = []string{"id", "email", "password_hash", "created_at", "updated_at", "password_changed_at", "notify_gameday_settled", "is_instance_admin", "last_login_at"}
+	userCols    = []string{"id", "email", "password_hash", "created_at", "updated_at", "password_changed_at", "notify_gameday_settled", "is_instance_admin", "last_login_at", "disabled_at", "sessions_valid_after"}
 	clubCols    = []string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}
 	gameDayCols = []string{"id", "club_id", "date", "notes", "is_draft", "created_at", "updated_at"}
 )
@@ -58,7 +58,7 @@ var (
 func expectOwner(mock sqlmock.Sqlmock, userID, clubID string, now time.Time) {
 	mock.ExpectQuery(`SELECT id, email, password_hash`).
 		WithArgs(userID).
-		WillReturnRows(sqlmock.NewRows(userCols).AddRow(userID, "user@example.com", "hash", now, now, nil, false, false, nil))
+		WillReturnRows(sqlmock.NewRows(userCols).AddRow(userID, "user@example.com", "hash", now, now, nil, false, false, nil, nil, nil))
 	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee`).
 		WithArgs(clubID).
 		WillReturnRows(sqlmock.NewRows(clubCols).AddRow(clubID, "Test Club", 0, 0, 0, true, false, userID, now, now))
@@ -227,10 +227,10 @@ func TestUpdateCurrentUser_EnablesGameDayNotification(t *testing.T) {
 
 	mock.ExpectQuery(`SELECT id, email, password_hash`).
 		WithArgs(userID).
-		WillReturnRows(sqlmock.NewRows(userCols).AddRow(userID, "user@example.com", "hash", now, now, nil, false, false, nil))
+		WillReturnRows(sqlmock.NewRows(userCols).AddRow(userID, "user@example.com", "hash", now, now, nil, false, false, nil, nil, nil))
 	mock.ExpectQuery(`UPDATE users\s+SET notify_gameday_settled`).
 		WithArgs(userID, true, sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows(userCols).AddRow(userID, "user@example.com", "hash", now, now, nil, true, false, nil))
+		WillReturnRows(sqlmock.NewRows(userCols).AddRow(userID, "user@example.com", "hash", now, now, nil, true, false, nil, nil, nil))
 
 	req := mustJSONRequest(t, http.MethodPatch, "/api/auth/me", `{"notify_gameday_settled":true}`)
 	req.AddCookie(&http.Cookie{Name: authCookieName, Value: token})
@@ -263,7 +263,7 @@ func TestUpdateCurrentUser_UnchangedSkipsWrite(t *testing.T) {
 
 	mock.ExpectQuery(`SELECT id, email, password_hash`).
 		WithArgs(userID).
-		WillReturnRows(sqlmock.NewRows(userCols).AddRow(userID, "user@example.com", "hash", now, now, nil, false, false, nil))
+		WillReturnRows(sqlmock.NewRows(userCols).AddRow(userID, "user@example.com", "hash", now, now, nil, false, false, nil, nil, nil))
 
 	req := mustJSONRequest(t, http.MethodPatch, "/api/auth/me", `{"notify_gameday_settled":false}`)
 	req.AddCookie(&http.Cookie{Name: authCookieName, Value: token})

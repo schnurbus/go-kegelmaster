@@ -280,6 +280,10 @@ func (h *Handler) HandleFinishPasskeyLogin(c fiber.Ctx) error {
 		slog.Error("lookup passkey user", "error", err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
+	if u.Disabled() {
+		audit.LogAudit(c, u.ID, audit.ActionUserLoginRejected, "user_id", u.ID, "reason", "disabled", "passkey_id", cred.ID)
+		return fiber.NewError(fiber.StatusForbidden, errMsgAccountDisabled)
+	}
 	if err := h.IssueAuthCookie(c, u.ID, req.RememberMe); err != nil {
 		slog.Error("issue auth cookie", "error", err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")

@@ -45,7 +45,8 @@ SELECT COUNT(*)::bigint
 FROM users u
 WHERE ($1::text = '' OR u.email ILIKE '%' || $1::text || '%')
   AND (NOT $2::boolean OR u.is_instance_admin)
-  AND (NOT $3::boolean OR (
+  AND (NOT $3::boolean OR u.disabled_at IS NOT NULL)
+  AND (NOT $4::boolean OR (
         u.created_at < now() - interval '30 days'
         AND NOT EXISTS (SELECT 1 FROM clubs c WHERE c.user_id = u.id)
         AND NOT EXISTS (SELECT 1 FROM players p WHERE p.user_id = u.id)))
@@ -54,14 +55,84 @@ WHERE ($1::text = '' OR u.email ILIKE '%' || $1::text || '%')
 type CountAdminUsersParams struct {
 	Search       string `json:"search"`
 	OnlyAdmins   bool   `json:"only_admins"`
+	OnlyDisabled bool   `json:"only_disabled"`
 	OnlyOrphaned bool   `json:"only_orphaned"`
 }
 
 func (q *Queries) CountAdminUsers(ctx context.Context, arg CountAdminUsersParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countAdminUsers, arg.Search, arg.OnlyAdmins, arg.OnlyOrphaned)
+	row := q.db.QueryRowContext(ctx, countAdminUsers,
+		arg.Search,
+		arg.OnlyAdmins,
+		arg.OnlyDisabled,
+		arg.OnlyOrphaned,
+	)
 	var column_1 int64
 	err := row.Scan(&column_1)
 	return column_1, err
+}
+
+const deleteAdminUserWithoutClubs = `-- name: DeleteAdminUserWithoutClubs :execrows
+DELETE FROM users u
+WHERE u.id = $1
+  AND NOT EXISTS (SELECT 1 FROM clubs c WHERE c.user_id = u.id)
+`
+
+// Löscht das Konto nur, wenn es keinen Klub (mehr) besitzt: clubs.user_id
+// kaskadiert, ein Owner würde sonst seine Klubs samt Fachdaten mitlöschen.
+// Spieler bleiben erhalten (players.user_id ON DELETE SET NULL), Salden und
+// Buchungen der Klubs sind davon nicht betroffen.
+func (q *Queries) DeleteAdminUserWithoutClubs(ctx context.Context, id string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteAdminUserWithoutClubs, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const disableAdminUser = `-- name: DisableAdminUser :execrows
+
+UPDATE users
+SET disabled_at = COALESCE(disabled_at, $1::timestamptz),
+    sessions_valid_after = $1::timestamptz,
+    updated_at = $1::timestamptz
+WHERE id = $2
+`
+
+type DisableAdminUserParams struct {
+	At time.Time `json:"at"`
+	ID string    `json:"id"`
+}
+
+// Admin-Eingriffe (Phase 3, KEG-10). Zugriffsschutz und Audit im Handler.
+// Sperrt das Konto. sessions_valid_after wird mitgesetzt, damit ein späteres
+// Entsperren alte Browser-Sessions nicht wiederbelebt. Ein bereits gesperrtes
+// Konto behält seinen ursprünglichen Sperrzeitpunkt.
+func (q *Queries) DisableAdminUser(ctx context.Context, arg DisableAdminUserParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, disableAdminUser, arg.At, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const enableAdminUser = `-- name: EnableAdminUser :execrows
+UPDATE users
+SET disabled_at = NULL,
+    updated_at = $1::timestamptz
+WHERE id = $2
+`
+
+type EnableAdminUserParams struct {
+	At time.Time `json:"at"`
+	ID string    `json:"id"`
+}
+
+func (q *Queries) EnableAdminUser(ctx context.Context, arg EnableAdminUserParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, enableAdminUser, arg.At, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const getAdminClub = `-- name: GetAdminClub :one
@@ -126,6 +197,7 @@ SELECT
     (SELECT COUNT(*) FROM users u WHERE u.created_at >= now() - interval '30 days')::bigint AS users_new_30d,
     (SELECT COUNT(*) FROM users u WHERE u.last_login_at >= now() - interval '30 days')::bigint AS users_active_30d,
     (SELECT COUNT(*) FROM users u WHERE u.is_instance_admin)::bigint AS users_instance_admins,
+    (SELECT COUNT(*) FROM users u WHERE u.disabled_at IS NOT NULL)::bigint AS users_disabled,
     (SELECT COUNT(*) FROM users u
         WHERE u.created_at < now() - interval '30 days'
           AND NOT EXISTS (SELECT 1 FROM clubs c WHERE c.user_id = u.id)
@@ -155,6 +227,7 @@ type GetAdminStatsRow struct {
 	UsersNew30d            int64 `json:"users_new_30d"`
 	UsersActive30d         int64 `json:"users_active_30d"`
 	UsersInstanceAdmins    int64 `json:"users_instance_admins"`
+	UsersDisabled          int64 `json:"users_disabled"`
 	UsersOrphaned          int64 `json:"users_orphaned"`
 	ClubsTotal             int64 `json:"clubs_total"`
 	ClubsActive90d         int64 `json:"clubs_active_90d"`
@@ -188,6 +261,7 @@ func (q *Queries) GetAdminStats(ctx context.Context) (GetAdminStatsRow, error) {
 		&i.UsersNew30d,
 		&i.UsersActive30d,
 		&i.UsersInstanceAdmins,
+		&i.UsersDisabled,
 		&i.UsersOrphaned,
 		&i.ClubsTotal,
 		&i.ClubsActive90d,
@@ -212,6 +286,8 @@ SELECT
     u.updated_at,
     u.password_changed_at,
     u.last_login_at,
+    u.disabled_at,
+    u.sessions_valid_after,
     (u.created_at < now() - interval '30 days'
         AND NOT EXISTS (SELECT 1 FROM clubs c WHERE c.user_id = u.id)
         AND NOT EXISTS (SELECT 1 FROM players p WHERE p.user_id = u.id))::boolean AS orphaned
@@ -220,14 +296,16 @@ WHERE u.id = $1
 `
 
 type GetAdminUserRow struct {
-	ID                string       `json:"id"`
-	Email             string       `json:"email"`
-	IsInstanceAdmin   bool         `json:"is_instance_admin"`
-	CreatedAt         time.Time    `json:"created_at"`
-	UpdatedAt         time.Time    `json:"updated_at"`
-	PasswordChangedAt sql.NullTime `json:"password_changed_at"`
-	LastLoginAt       sql.NullTime `json:"last_login_at"`
-	Orphaned          bool         `json:"orphaned"`
+	ID                 string       `json:"id"`
+	Email              string       `json:"email"`
+	IsInstanceAdmin    bool         `json:"is_instance_admin"`
+	CreatedAt          time.Time    `json:"created_at"`
+	UpdatedAt          time.Time    `json:"updated_at"`
+	PasswordChangedAt  sql.NullTime `json:"password_changed_at"`
+	LastLoginAt        sql.NullTime `json:"last_login_at"`
+	DisabledAt         sql.NullTime `json:"disabled_at"`
+	SessionsValidAfter sql.NullTime `json:"sessions_valid_after"`
+	Orphaned           bool         `json:"orphaned"`
 }
 
 func (q *Queries) GetAdminUser(ctx context.Context, id string) (GetAdminUserRow, error) {
@@ -241,6 +319,8 @@ func (q *Queries) GetAdminUser(ctx context.Context, id string) (GetAdminUserRow,
 		&i.UpdatedAt,
 		&i.PasswordChangedAt,
 		&i.LastLoginAt,
+		&i.DisabledAt,
+		&i.SessionsValidAfter,
 		&i.Orphaned,
 	)
 	return i, err
@@ -807,6 +887,7 @@ SELECT
     u.is_instance_admin,
     u.created_at,
     u.last_login_at,
+    u.disabled_at,
     (SELECT COUNT(*) FROM clubs c WHERE c.user_id = u.id)::bigint AS owned_club_count,
     (SELECT COUNT(DISTINCT p.club_id) FROM players p WHERE p.user_id = u.id)::bigint AS player_club_count,
     (SELECT COUNT(*) FROM webauthn_credentials w WHERE w.user_id = u.id)::bigint AS passkey_count,
@@ -817,24 +898,26 @@ SELECT
 FROM users u
 WHERE ($1::text = '' OR u.email ILIKE '%' || $1::text || '%')
   AND (NOT $2::boolean OR u.is_instance_admin)
-  AND (NOT $3::boolean OR (
+  AND (NOT $3::boolean OR u.disabled_at IS NOT NULL)
+  AND (NOT $4::boolean OR (
         u.created_at < now() - interval '30 days'
         AND NOT EXISTS (SELECT 1 FROM clubs c WHERE c.user_id = u.id)
         AND NOT EXISTS (SELECT 1 FROM players p WHERE p.user_id = u.id)))
 ORDER BY
-    CASE WHEN $4::text = 'email_asc' THEN u.email END ASC,
-    CASE WHEN $4::text = 'email_desc' THEN u.email END DESC,
-    CASE WHEN $4::text = 'created_at_asc' THEN u.created_at END ASC,
-    CASE WHEN $4::text = 'created_at_desc' THEN u.created_at END DESC,
-    CASE WHEN $4::text = 'last_login_at_asc' THEN u.last_login_at END ASC NULLS FIRST,
-    CASE WHEN $4::text = 'last_login_at_desc' THEN u.last_login_at END DESC NULLS LAST,
+    CASE WHEN $5::text = 'email_asc' THEN u.email END ASC,
+    CASE WHEN $5::text = 'email_desc' THEN u.email END DESC,
+    CASE WHEN $5::text = 'created_at_asc' THEN u.created_at END ASC,
+    CASE WHEN $5::text = 'created_at_desc' THEN u.created_at END DESC,
+    CASE WHEN $5::text = 'last_login_at_asc' THEN u.last_login_at END ASC NULLS FIRST,
+    CASE WHEN $5::text = 'last_login_at_desc' THEN u.last_login_at END DESC NULLS LAST,
     u.id
-LIMIT $6::int OFFSET $5::int
+LIMIT $7::int OFFSET $6::int
 `
 
 type ListAdminUsersParams struct {
 	Search       string `json:"search"`
 	OnlyAdmins   bool   `json:"only_admins"`
+	OnlyDisabled bool   `json:"only_disabled"`
 	OnlyOrphaned bool   `json:"only_orphaned"`
 	Sort         string `json:"sort"`
 	PageOffset   int32  `json:"page_offset"`
@@ -847,6 +930,7 @@ type ListAdminUsersRow struct {
 	IsInstanceAdmin bool         `json:"is_instance_admin"`
 	CreatedAt       time.Time    `json:"created_at"`
 	LastLoginAt     sql.NullTime `json:"last_login_at"`
+	DisabledAt      sql.NullTime `json:"disabled_at"`
 	OwnedClubCount  int64        `json:"owned_club_count"`
 	PlayerClubCount int64        `json:"player_club_count"`
 	PasskeyCount    int64        `json:"passkey_count"`
@@ -858,6 +942,7 @@ func (q *Queries) ListAdminUsers(ctx context.Context, arg ListAdminUsersParams) 
 	rows, err := q.db.QueryContext(ctx, listAdminUsers,
 		arg.Search,
 		arg.OnlyAdmins,
+		arg.OnlyDisabled,
 		arg.OnlyOrphaned,
 		arg.Sort,
 		arg.PageOffset,
@@ -876,6 +961,7 @@ func (q *Queries) ListAdminUsers(ctx context.Context, arg ListAdminUsersParams) 
 			&i.IsInstanceAdmin,
 			&i.CreatedAt,
 			&i.LastLoginAt,
+			&i.DisabledAt,
 			&i.OwnedClubCount,
 			&i.PlayerClubCount,
 			&i.PasskeyCount,
@@ -935,6 +1021,27 @@ func (q *Queries) ListInstanceAdmins(ctx context.Context) ([]ListInstanceAdminsR
 		return nil, err
 	}
 	return items, nil
+}
+
+const revokeAdminUserSessions = `-- name: RevokeAdminUserSessions :execrows
+UPDATE users
+SET sessions_valid_after = $1::timestamptz
+WHERE id = $2
+`
+
+type RevokeAdminUserSessionsParams struct {
+	At time.Time `json:"at"`
+	ID string    `json:"id"`
+}
+
+// Browser-Sessions, die vor at ausgestellt wurden, werden abgelehnt.
+// Kein updated_at: das Konto selbst ändert sich nicht.
+func (q *Queries) RevokeAdminUserSessions(ctx context.Context, arg RevokeAdminUserSessionsParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, revokeAdminUserSessions, arg.At, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const setInstanceAdminByEmail = `-- name: SetInstanceAdminByEmail :one

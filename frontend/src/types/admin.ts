@@ -1,4 +1,4 @@
-// Types of the read-only instance admin API (/api/admin), see openapi.yaml (tag "admin").
+// Types of the instance admin API (/api/admin), see openapi.yaml (tag "admin").
 
 export type AdminStats = {
   users: {
@@ -7,6 +7,7 @@ export type AdminStats = {
     new_30d: number;
     active_30d: number;
     instance_admins: number;
+    disabled: number;
   };
   clubs: { total: number; active_90d: number };
   players: { total: number; linked: number };
@@ -39,6 +40,8 @@ export type AdminUserListItem = {
   orphaned: boolean;
   created_at: string;
   last_login_at: string | null;
+  /** Set while the account is disabled. */
+  disabled_at: string | null;
   owned_club_count: number;
   player_club_count: number;
   passkey_count: number;
@@ -54,6 +57,10 @@ export type AdminUserDetail = {
   updated_at: string;
   password_changed_at: string | null;
   last_login_at: string | null;
+  /** Set while the account is disabled. */
+  disabled_at: string | null;
+  /** Browser sessions issued before this were revoked by an admin. */
+  sessions_valid_after: string | null;
   owned_clubs: { id: string; name: string; created_at: string; player_count: number }[];
   players: {
     player_id: string;

@@ -7,6 +7,7 @@ import {
   AdminLoading,
   AdminPagination,
   AdminSearchInput,
+  DisabledBadge,
   OrphanedBadge,
   SortableHead,
 } from "@/components/admin/admin-ui";
@@ -21,8 +22,9 @@ function UserStatus({ user }: { user: AdminUserListItem }) {
   return (
     <div className="flex flex-wrap gap-1">
       {user.is_instance_admin && <AdminBadge />}
+      {user.disabled_at && <DisabledBadge />}
       {user.orphaned && <OrphanedBadge />}
-      {!user.is_instance_admin && !user.orphaned && <Badge variant="outline">aktiv</Badge>}
+      {!user.is_instance_admin && !user.orphaned && !user.disabled_at && <Badge variant="outline">aktiv</Badge>}
     </div>
   );
 }
@@ -48,6 +50,7 @@ function AdminUsersPage() {
             <SelectItem value="all">Alle Benutzer</SelectItem>
             <SelectItem value="orphaned">Verwaist</SelectItem>
             <SelectItem value="admin">Admins</SelectItem>
+            <SelectItem value="disabled">Gesperrt</SelectItem>
           </SelectContent>
         </Select>
       </CardHeader>

@@ -10,6 +10,7 @@ import {
   LinkedBadge,
   OwnerBadge,
 } from "@/components/admin/admin-ui";
+import { AdminClubActions } from "@/components/admin/admin-club-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { usePageTitle } from "@/context/PageTitleContext";
@@ -18,7 +19,7 @@ import type { AdminClubDetail } from "@/types/admin";
 
 function AdminClubDetailPage() {
   const { id = "" } = useParams();
-  const { data: club, error, loading } = useAdminFetch<AdminClubDetail>(
+  const { data: club, error, loading, reload } = useAdminFetch<AdminClubDetail>(
     `/api/admin/clubs/${encodeURIComponent(id)}`,
   );
   const { setTitle } = usePageTitle();
@@ -56,6 +57,8 @@ function AdminClubDetailPage() {
           />
         </CardContent>
       </Card>
+
+      <AdminClubActions club={club} onChanged={reload} />
 
       <Card>
         <CardHeader>

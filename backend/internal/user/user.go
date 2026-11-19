@@ -21,16 +21,31 @@ type User struct {
 	IsInstanceAdmin bool
 	// LastLoginAt is the last successful password or passkey login (nil = unknown).
 	LastLoginAt *time.Time
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	// DisabledAt is set when an instance admin disabled the account. A disabled
+	// account cannot log in; its sessions and API tokens are rejected.
+	DisabledAt *time.Time
+	// SessionsValidAfter is set when an instance admin revoked the sessions.
+	// Sessions issued before this point are rejected (like PasswordChangedAt).
+	SessionsValidAfter *time.Time
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+}
+
+// Disabled reports whether an instance admin disabled the account.
+func (u User) Disabled() bool {
+	return u.DisabledAt != nil
 }
 
 // SessionValid reports whether a session issued at issuedAt is still valid,
-// i.e. it was not issued before the last password change. JWT timestamps
-// have second precision, so the comparison truncates to seconds.
+// i.e. it was issued neither before the last password change nor before the
+// last session revocation by an instance admin. JWT timestamps have second
+// precision, so the comparison truncates to seconds.
 func (u User) SessionValid(issuedAt time.Time) bool {
-	if u.PasswordChangedAt == nil {
-		return true
+	issued := issuedAt.Truncate(time.Second)
+	for _, after := range []*time.Time{u.PasswordChangedAt, u.SessionsValidAfter} {
+		if after != nil && issued.Before(after.Truncate(time.Second)) {
+			return false
+		}
 	}
-	return !issuedAt.Truncate(time.Second).Before(u.PasswordChangedAt.Truncate(time.Second))
+	return true
 }

@@ -159,6 +159,12 @@ func (h *Handler) HandleLogin(c fiber.Ctx) error {
 	if err := h.AuthSvc.ComparePassword(u.PasswordHash, strings.TrimSpace(req.Password)); err != nil {
 		return fiber.NewError(fiber.StatusUnauthorized, "Ungültige Anmeldedaten")
 	}
+	// Checked only after the password, so the response does not reveal to
+	// strangers that the account exists and is disabled.
+	if u.Disabled() {
+		audit.LogAudit(c, u.ID, audit.ActionUserLoginRejected, "user_id", u.ID, "reason", "disabled")
+		return fiber.NewError(fiber.StatusForbidden, errMsgAccountDisabled)
+	}
 
 	if err := h.IssueAuthCookie(c, u.ID, req.RememberMe); err != nil {
 		slog.Error("issue auth cookie", "error", err)

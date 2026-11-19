@@ -13,6 +13,7 @@ const (
 
 	UserFilterOrphaned = "orphaned"
 	UserFilterAdmin    = "admin"
+	UserFilterDisabled = "disabled"
 	ClubFilterInactive = "inactive"
 
 	OrderAsc  = "asc"
@@ -39,7 +40,7 @@ type ListParams struct {
 // UserListQuery is a normalized query for ListUsers.
 type UserListQuery struct {
 	Search string
-	Filter string // "", UserFilterOrphaned, UserFilterAdmin
+	Filter string // "", UserFilterOrphaned, UserFilterAdmin, UserFilterDisabled
 	Sort   string // email, created_at, last_login_at
 	Order  string // asc, desc
 	Page   int
@@ -64,7 +65,7 @@ func ParseUserListQuery(p ListParams) (UserListQuery, error) {
 	if q.Search, err = parseSearch(p.Search); err != nil {
 		return q, err
 	}
-	if q.Filter, err = parseEnum("filter", p.Filter, "", UserFilterOrphaned, UserFilterAdmin); err != nil {
+	if q.Filter, err = parseEnum("filter", p.Filter, "", UserFilterOrphaned, UserFilterAdmin, UserFilterDisabled); err != nil {
 		return q, err
 	}
 	if q.Sort, err = parseEnum("sort", p.Sort, "created_at", "email", "created_at", "last_login_at"); err != nil {

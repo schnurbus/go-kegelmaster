@@ -91,7 +91,11 @@ func (h *Handler) UserFromCookie(ctx context.Context, c fiber.Ctx) (user.User, e
 	if err != nil {
 		return user.User{}, err
 	}
-	// Tokens issued before the last password reset are no longer accepted.
+	if u.Disabled() {
+		return user.User{}, errAccountDisabled
+	}
+	// Tokens issued before the last password reset or the last session
+	// revocation by an instance admin are no longer accepted.
 	if claims.IssuedAt == nil || !u.SessionValid(claims.IssuedAt.Time) {
 		return user.User{}, errSessionRevoked
 	}
@@ -115,7 +119,12 @@ func (h *Handler) userFromAPIToken(ctx context.Context, c fiber.Ctx, plain strin
 	if err != nil {
 		return user.User{}, err
 	}
+	if u.Disabled() {
+		return user.User{}, errAccountDisabled
+	}
 	// Like sessions, tokens created before the last password reset are revoked.
+	// (An admin session revocation does not affect API tokens; the admin
+	// revokes them individually.)
 	// Unlike JWTs, token timestamps are exact, so no second truncation here.
 	if u.PasswordChangedAt != nil && t.CreatedAt.Before(*u.PasswordChangedAt) {
 		return user.User{}, errSessionRevoked
@@ -128,7 +137,13 @@ func (h *Handler) userFromAPIToken(ctx context.Context, c fiber.Ctx, plain strin
 	return u, nil
 }
 
-var errSessionRevoked = errors.New("session issued before last password change")
+// errMsgAccountDisabled is shown when a disabled account tries to log in.
+const errMsgAccountDisabled = "Dieses Konto ist gesperrt. Bitte wende dich an den Betreiber."
+
+var (
+	errSessionRevoked  = errors.New("session issued before last password change or session revocation")
+	errAccountDisabled = errors.New("account disabled by instance admin")
+)
 
 // IssueAuthCookie sets the authentication cookie for the user.
 // When rememberMe is false, the cookie has no Expires (session cookie); when true, it lasts RememberMeDays.
