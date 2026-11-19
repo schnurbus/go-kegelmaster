@@ -326,6 +326,7 @@ Weitere Entitäten kommen mit der Zeit dazu
 - `docker-compose.yaml` orchestriert Postgres, Redis, Backend & Frontend
 - Persistenz via benannten Volumes (`pg-data`, `redis-data`)
 - Makefile stellt Shortcuts für Builds, Tests, Compose und Migrationen bereit
+- Renovate (`renovate.json`) hält Go-, npm-, Docker- und GitHub-Actions-Abhängigkeiten aktuell (wöchentliche, gebündelte PRs; Sicherheits-Updates sofort). Erfordert die installierte Renovate GitHub App (Details in `AGENTS.md`).
 
 ---
 

@@ -1,0 +1,77 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":semanticCommits",
+    ":dependencyDashboard"
+  ],
+  "timezone": "Europe/Berlin",
+  "schedule": ["before 6am on monday"],
+  "labels": ["dependencies"],
+  "semanticCommitType": "chore",
+  "semanticCommitScope": "deps",
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "automerge": false,
+  "postUpdateOptions": ["gomodTidy"],
+  "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "schedule": ["at any time"],
+    "labels": ["dependencies", "security"],
+    "semanticCommitType": "fix",
+    "prCreation": "immediate"
+  },
+  "packageRules": [
+    {
+      "description": "Alle Abhängigkeits-PRs als chore(deps) – auch Produktiv-Abhängigkeiten (config:recommended würde sonst fix(deps) nutzen und Releases auslösen)",
+      "matchPackageNames": ["*"],
+      "semanticCommitType": "chore",
+      "semanticCommitScope": "deps"
+    },
+    {
+      "description": "Go-Module: Minor/Patch gebündelt",
+      "matchManagers": ["gomod"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "groupName": "Go-Abhängigkeiten"
+    },
+    {
+      "description": "Frontend (npm): Minor/Patch gebündelt",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "Frontend-Abhängigkeiten"
+    },
+    {
+      "description": "ESLint-Ökosystem: Majors gemeinsam aktualisieren",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["major"],
+      "matchPackageNames": [
+        "eslint",
+        "@eslint/**",
+        "eslint-plugin-**",
+        "typescript-eslint",
+        "globals"
+      ],
+      "groupName": "ESLint"
+    },
+    {
+      "description": "GitHub Actions: Minor/Patch gebündelt",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "groupName": "GitHub Actions"
+    },
+    {
+      "description": "Docker-Images (Dockerfiles, docker-compose): Minor/Patch gebündelt",
+      "matchManagers": ["dockerfile", "docker-compose"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "groupName": "Docker-Images"
+    },
+    {
+      "description": "Datenbank-Majors (Postgres/Redis) erfordern Datenmigration – nur nach Freigabe im Dependency Dashboard",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["postgres", "redis"],
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
+    }
+  ]
+}

@@ -207,6 +207,13 @@ func TestRepository_Create(t *testing.T) {
 ### GitHub Actions / Release Please
 - **RELEASE_PLEASE_TOKEN:** (Repository-Secret) Personal Access Token (PAT) mit mindestens Scope `repo`. Wird vom Workflow `.github/workflows/release-please.yaml` verwendet. Ohne dieses Secret nutzt Release Please den Standard-`GITHUB_TOKEN`; dann lösen von Release Please erzeugte Events (z. B. „release published“) keine weiteren Workflows aus – der Workflow `docker-release` würde nach einem Release nicht starten. Secret unter Settings → Secrets and variables → Actions anlegen (z. B. Name `RELEASE_PLEASE_TOKEN`).
 
+### Abhängigkeits-Updates (Renovate)
+- Konfiguration in `renovate.json` (Repo-Root). Voraussetzung: Ein Repo-Admin muss die [Renovate GitHub App](https://github.com/apps/renovate) für `schnurbus/go-kegelmaster` installieren; danach legt Renovate ein „Dependency Dashboard“-Issue an.
+- Abgedeckt: Go-Module (`backend/go.mod`, mit `go mod tidy`), npm (`frontend/`), Dockerfiles, `docker-compose.yaml`, GitHub Actions.
+- Zeitplan: montags vor 6 Uhr (Europe/Berlin), max. 5 offene PRs / 2 pro Stunde. Minor/Patch werden je Ökosystem gebündelt (Go-Abhängigkeiten, Frontend-Abhängigkeiten, GitHub Actions, Docker-Images), Majors kommen einzeln. Kein Automerge.
+- PR-Titel: `chore(deps): ...` (kein Release). Sicherheits-Updates (GitHub-Alerts/OSV) kommen sofort, mit Label `security` und als `fix(deps): ...`, damit Release Please ein Patch-Release erzeugt.
+- Majors von `postgres`/`redis`-Images (Datenmigration nötig) erst nach Freigabe im Dependency Dashboard.
+
 ### Security / Production
 - **JWT_SECRET:** In Production zwingend setzen (kein Default „dev-secret-change-me“ verwenden). Fehlt das Secret, beendet sich die App beim Start.
 - **PUBLIC_BASE_URL:** Muss auf die vertrauenswürdige App-Origin zeigen (z. B. Frontend-URL). Wird u. a. für Passwort-Reset-Links in E-Mails verwendet. Bei Deployment prüfen, dass keine fremde/Phishing-Domain konfiguriert ist.
