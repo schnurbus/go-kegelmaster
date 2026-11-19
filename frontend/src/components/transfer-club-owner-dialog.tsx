@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/AuthContext";
 
@@ -117,9 +118,8 @@ export function TransferClubOwnerDialog({
           </div>
           <div className="space-y-2">
             <Label htmlFor="transfer-password">Ihr Passwort zur Bestätigung</Label>
-            <Input
+            <PasswordInput
               id="transfer-password"
-              type="password"
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

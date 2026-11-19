@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 
 const initialState = { email: "", password: "" };
@@ -148,9 +149,8 @@ function RegisterPage() {
                 <Label htmlFor="register-password" className="text-foreground">
                   Passwort
                 </Label>
-                <Input
+                <PasswordInput
                   id="register-password"
-                  type="password"
                   autoComplete="new-password"
                   minLength={8}
                   maxLength={128}

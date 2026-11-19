@@ -353,6 +353,7 @@ Weitere Entitäten kommen mit der Zeit dazu
 - ✅ Create Club Dialog
 - ✅ ClubContext für globales State Management
 - ✅ Shadcn UI Komponenten-Integration
+- ✅ Passwortfelder mit Augen-Symbol zum Anzeigen/Verbergen der Eingabe (`components/ui/password-input.tsx`, in allen Passwortfeldern)
 
 ### In Arbeit ⏳
 - ⏳ Player Entity & CRUD
