@@ -14,6 +14,7 @@ import {
   ShieldIcon,
   UsersIcon,
   AlertCircleIcon,
+  ShieldCheckIcon,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -129,6 +130,10 @@ function useDashboardData() {
       },
     ],
     navSecondary: [
+      // Operator area: only for instance admins, regardless of the selected club.
+      ...(user?.is_instance_admin
+        ? [{ title: "Administration", url: "/admin", icon: ShieldCheckIcon }]
+        : []),
       {
         title: "Hilfe",
         url: "/app/help",

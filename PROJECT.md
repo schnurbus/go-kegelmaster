@@ -346,7 +346,7 @@ Weitere Entitäten kommen mit der Zeit dazu
 - ✅ Registrierung per `REGISTRATION_MODE` steuerbar (`open`/`invite_only`/`closed`)
 - ✅ Passkeys als zusätzliche Anmeldemethode (inkl. Autofill)
 - ✅ E-Mail-Benachrichtigung „Spieltag abgerechnet“ (Opt-in in den Account-Einstellungen)
-- ✅ Instanz-Admin und read-only Admin-API `/api/admin` (Betreiber-Übersicht Phase 1, Backend; UI folgt mit KEG-8)
+- ✅ Instanz-Admin und read-only Admin-API `/api/admin` (Betreiber-Übersicht Phase 1, Backend)
 - ✅ MCP-Server `/mcp` (Phase 1: 7 Lese-Tools, Spieltag als Entwurf erfassen, veröffentlichen, Buchung erfassen)
 - ✅ Club Entity mit vollständigem CRUD
 - ✅ Owner-basierte Berechtigungen für Club-Updates/Deletes
@@ -362,6 +362,7 @@ Weitere Entitäten kommen mit der Zeit dazu
 - ✅ ClubContext für globales State Management
 - ✅ Shadcn UI Komponenten-Integration
 - ✅ Passwortfelder mit Augen-Symbol zum Anzeigen/Verbergen der Eingabe (`components/ui/password-input.tsx`, in allen Passwortfeldern)
+- ✅ Administrationsbereich für Betreiber `/admin` (Dashboard, Benutzer, Klubs, CSV-Export; nur für Instanz-Admins)
 
 ### In Arbeit ⏳
 - ⏳ Player Entity & CRUD
@@ -576,7 +577,7 @@ Auch wenn ein Klub Auto-Tip aktiviert hat, kann es für eine einzelne Einzahlung
 
 ## Letzte Implementierung: Instanz-Admin und Admin-API, read-only (19. November 2026)
 
-Phase 1 (Backend) der Betreiber-Übersicht (KEG-7, Konzept `docs/konzept-betreiber-uebersicht.md`). Die Admin-UI folgt separat (KEG-8).
+Phase 1 (Backend) der Betreiber-Übersicht (KEG-7, Konzept `docs/konzept-betreiber-uebersicht.md`). Die Admin-UI ist im nächsten Abschnitt beschrieben (KEG-8).
 
 - **Datenmodell:** Migration `000030_instance_admin`: `users.is_instance_admin` (Standard `false`), `users.last_login_at` (NULL = unbekannt, Bestandskonten bis zum nächsten Login), Index auf `users.created_at`. `last_login_at` wird bei Passwort- und Passkey-Login gesetzt (Fehler werden nur geloggt, der Login läuft weiter).
 - **Rolle vergeben:** nur per CLI im Haupt-Binary (`kegelmaster admin grant <email>`, `admin revoke <email>`, `admin list`; im Container per `kubectl exec`/`docker compose exec`) oder per `INSTANCE_ADMIN_EMAILS` (kommagetrennt, setzt beim Start das Flag für bestehende Konten, entzieht nie). **Keine** Vergabe über die Weboberfläche.
@@ -586,3 +587,13 @@ Phase 1 (Backend) der Betreiber-Übersicht (KEG-7, Konzept `docs/konzept-betreib
 - **Audit:** nur über `slog` (keine DB-Tabelle): `admin_stats_viewed`, `admin_users_listed`, `admin_user_viewed`, `admin_clubs_listed`, `admin_club_viewed`, `admin_export` mit `admin=true`; CLI-Änderungen als `admin_role_granted`/`admin_role_revoked`. Alle Audit-Einträge enthalten jetzt die Client-IP (`ip`, berücksichtigt `PROXY_HEADER`/`TRUSTED_PROXIES`).
 - **Datenschutz:** Die Datenschutzerklärung der Instanz muss ergänzt werden: Der Betreiber sieht Konto-Metadaten (E-Mail, Registrierungs- und Login-Zeitpunkte, Klubzugehörigkeiten, Anzahl/Namen von API-Tokens und Passkeys) zum Betrieb und zur Missbrauchsabwehr (Art. 6 Abs. 1 lit. f DSGVO); `last_login_at` wird mit dem Konto gelöscht; Aufbewahrung der Audit-Logs laut Log-Stack.
 - **Tests:** `internal/server/admin_handler_test.go` (ohne Anmeldung/Nicht-Admin/Bearer-Token → 404, Admin → 200 für alle Endpunkte, ungültige Parameter → 400), `internal/admin` (Parameter, CLI, Env-Bootstrap), Audit (`admin=true`, IP).
+
+## Letzte Implementierung: Administrationsbereich für Betreiber (19. November 2026)
+
+Phase 1 (Frontend) der Betreiber-Übersicht (KEG-8, Konzept `docs/konzept-betreiber-uebersicht.md` §4, §9), baut auf der Admin-API (KEG-7) auf. Rein lesend, keine Backend-Änderungen.
+
+- **Seiten** (`frontend/src/routes/admin/`, Layout `DashboardLayout` + `AdminLayout`): `/admin` (Kennzahlen-Kacheln, Liste „Auffälligkeiten“ mit Links auf die gefilterten Listen), `/admin/users` (E-Mail, registriert, letzter Login, Owner von / Spieler in n Klubs, Passkeys/Tokens, Status; Suche, Filter verwaist/Admin, Sortierung per Spaltenkopf, serverseitige Paginierung), `/admin/users/:id` (Stammdaten, eigene Klubs, Spieler-Verknüpfungen mit Rolle, API-Tokens, Passkeys), `/admin/clubs` (Name, Owner, Spieler gesamt/verknüpft, angelegt, letzte Aktivität, Spieltage; Suche, Filter inaktiv), `/admin/clubs/:id` (Owner, Spieler mit verknüpftem Benutzer bzw. „nicht verknüpft“, Rolle, offene Einladungen, Rollen mit Anzahl). Benutzer und Klubs sind gegenseitig verlinkt. Such-, Filter-, Sortier- und Seitenzustand stehen in der URL (verlinkbar, z. B. `/admin/users?filter=orphaned`).
+- **CSV-Export:** Button „Verknüpfungen als CSV“ auf allen Admin-Seiten (`/api/admin/export/memberships.csv`).
+- **Navigation:** Menüeintrag „Administration“ in der Sidebar nur bei `is_instance_admin` aus `/api/auth/me`, unabhängig vom ausgewählten Klub; der Bereich liest den `ClubContext` nicht. Nicht-Admins sehen auf `/admin*` die Fehlerseite „Seite nicht gefunden“ (ohne Admin-Request), unbekannte IDs ebenso (API 404).
+- **Komponenten:** Shadcn `Table`, `Badge` (Admin, verwaist, Owner, verknüpft / nicht verknüpft, inaktiv), `Card`, `Select`; gemeinsame Bausteine in `components/admin/admin-ui.tsx`, Daten-Hook `useAdminFetch` und URL-Listenzustand `useAdminListParams` in `lib/admin.ts`, Typen in `types/admin.ts`. Mobil: Listen als Kartenliste statt Tabelle, Detailtabellen horizontal scrollbar.
+- **Tests:** Playwright `frontend/e2e/admin.spec.ts`: Admin (Rolle per CLI `go run ./cmd/api admin grant`) sieht Benutzer und Klubs inkl. Querverweisen und CSV; normaler Benutzer sieht keinen Menüeintrag und bekommt auf `/admin` die Fehlerseite.
