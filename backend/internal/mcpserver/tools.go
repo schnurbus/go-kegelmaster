@@ -105,7 +105,7 @@ func registerTools(s *mcp.Server, api API) {
 		Description: "Bucht eine manuelle Kassenbewegung: einzahlung (Spieler zahlt Geld in die Kasse, erhöht seinen Saldo und den Kassenstand), " +
 			"trinkgeld (Spieler gibt der Kasse freiwillig Geld, erhöht nur den Kassenstand, sein Saldo bleibt gleich) " +
 			"oder ausgabe (Ausgabe aus der Klubkasse ohne Spieler, verringert den Kassenstand). betrag_cent ist immer positiv. Einzahlung und Trinkgeld brauchen spieler_id; im Paar-Modus kann eine Einzahlung mit spieler_ids auf mehrere Spieler verteilt werden. " +
-			"Ist im Klub Auto-Trinkgeld aktiv, wird bei einer Einzahlung der Teil, der über die Schulden des Spielers hinausgeht, automatisch als Trinkgeld gebucht. " +
+			"Ist im Klub Auto-Trinkgeld aktiv, wird bei einer Einzahlung der Teil, der über die Schulden des Spielers hinausgeht, automatisch als Trinkgeld gebucht; mit ohne_auto_trinkgeld=true lässt sich das für diese eine Einzahlung abschalten (der volle Betrag wird dann als Einzahlung gebucht). " +
 			"Strafen und Grundgebühren entstehen nur über Spieltage. Bei Erfolg nicht erneut aufrufen.",
 		Annotations: &mcp.ToolAnnotations{DestructiveHint: boolPtr(true), OpenWorldHint: boolPtr(false)},
 	}, createTransaction)
@@ -986,6 +986,8 @@ type createTxInput struct {
 	SpielerIDs   []string `json:"spieler_ids,omitempty" jsonschema:"mehrere Spieler für eine Paar-Einzahlung (nur im Paar-Modus, mindestens 2)"`
 	Beschreibung string   `json:"beschreibung,omitempty" jsonschema:"Buchungstext (optional)"`
 	Datum        string   `json:"datum,omitempty" jsonschema:"Buchungsdatum JJJJ-MM-TT (Standard: heute)"`
+	// OhneAutoTrinkgeld disables the club's auto tip for this one deposit.
+	OhneAutoTrinkgeld bool `json:"ohne_auto_trinkgeld,omitempty" jsonschema:"nur bei einzahlung: true schaltet Auto-Trinkgeld für diese eine Einzahlung ab, der volle Betrag wird als Einzahlung gebucht (Standard: false)"`
 }
 
 func createTransaction(ctx context.Context, c *client, in createTxInput) (any, error) {
@@ -1001,6 +1003,9 @@ func createTransaction(ctx context.Context, c *client, in createTxInput) (any, e
 	}
 	if in.SpielerID != "" && len(in.SpielerIDs) > 0 {
 		return nil, errors.New("bitte entweder spieler_id oder spieler_ids angeben")
+	}
+	if in.OhneAutoTrinkgeld && apiType != "deposit" {
+		return nil, errors.New("ohne_auto_trinkgeld gilt nur für einzahlung")
 	}
 	if apiType == "expense" && (in.SpielerID != "" || len(in.SpielerIDs) > 0) {
 		return nil, errors.New("eine Ausgabe wird ohne Spieler gebucht")
@@ -1019,6 +1024,9 @@ func createTransaction(ctx context.Context, c *client, in createTxInput) (any, e
 	}
 	if in.Datum != "" {
 		body["transaction_date"] = in.Datum
+	}
+	if in.OhneAutoTrinkgeld {
+		body["skip_auto_tip"] = true
 	}
 	var raw json.RawMessage
 	if err := c.send(ctx, http.MethodPost, clubPath(in.ClubID, "transactions"), body, &raw); err != nil {

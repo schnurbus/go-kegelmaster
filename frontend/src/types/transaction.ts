@@ -37,6 +37,8 @@ export interface CreateTransactionRequest {
   description: string;
   /** Optional; YYYY-MM-DD. Defaults to today if omitted. */
   transaction_date?: string;
+  /** Only for deposits: disable the club's auto-tip for this single deposit. */
+  skip_auto_tip?: boolean;
 }
 
 export interface TransactionSummary {

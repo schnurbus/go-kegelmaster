@@ -45,6 +45,8 @@ export function TransactionDialog({
   const [isLoadingPlayers, setIsLoadingPlayers] = React.useState(false);
   const [autoTipEnabled, setAutoTipEnabled] = React.useState(true);
   const [couplesModeEnabled, setCouplesModeEnabled] = React.useState(false);
+  // Per-deposit opt-out: lets a single deposit skip the club's auto-tip.
+  const [applyAutoTip, setApplyAutoTip] = React.useState(true);
   const [clubBalance, setClubBalance] = React.useState<number>(0);
 
   const [transactionType, setTransactionType] = React.useState<
@@ -122,12 +124,19 @@ export function TransactionDialog({
       setAmount("");
       setDescription("");
       setTransactionDate(today);
+      setApplyAutoTip(true);
     }
   }, [open]);
 
   // Calculate auto-tip preview
   const getAutoTipPreview = () => {
-    if (transactionType !== "deposit" || !playerId || !amount || !autoTipEnabled) {
+    if (
+      transactionType !== "deposit" ||
+      !playerId ||
+      !amount ||
+      !autoTipEnabled ||
+      !applyAutoTip
+    ) {
       return null;
     }
 
@@ -204,6 +213,9 @@ export function TransactionDialog({
         description: description.trim(),
         transaction_date: transactionDate,
       };
+      if (transactionType === "deposit" && autoTipEnabled && !applyAutoTip) {
+        body.skip_auto_tip = true;
+      }
       if (useCouplesMode) {
         body.player_ids = playerIds;
       } else {
@@ -489,13 +501,27 @@ export function TransactionDialog({
           </div>
 
           {transactionType === "deposit" && autoTipEnabled && (
-            <div className="rounded-md border bg-muted p-3">
+            <div className="rounded-md border bg-muted p-3 space-y-3">
               <div className="flex items-start gap-2">
                 <InfoIcon className="size-4 mt-0.5" />
                 <p className="text-sm text-muted-foreground">
-                  Auto-Tip ist für diesen Club aktiviert. Überschüssige Einzahlungen
-                  werden automatisch als Trinkgeld verbucht.
+                  {applyAutoTip
+                    ? "Auto-Tip ist für diesen Club aktiviert. Überschüssige Einzahlungen werden automatisch als Trinkgeld verbucht."
+                    : "Auto-Tip ist für diese Einzahlung deaktiviert. Der volle Betrag wird als Einzahlung gebucht, ein Überschuss bleibt als Guthaben beim Spieler."}
                 </p>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="apply_auto_tip"
+                  checked={applyAutoTip}
+                  onCheckedChange={(checked) => setApplyAutoTip(checked === true)}
+                />
+                <Label
+                  htmlFor="apply_auto_tip"
+                  className="text-sm font-normal cursor-pointer"
+                >
+                  Auto-Tip für diese Einzahlung anwenden
+                </Label>
               </div>
             </div>
           )}

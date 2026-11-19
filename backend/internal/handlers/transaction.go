@@ -145,6 +145,15 @@ type createTransactionRequest struct {
 	Amount          int      `json:"amount"`
 	Description     string   `json:"description,omitempty"`
 	TransactionDate *string  `json:"transaction_date,omitempty"` // YYYY-MM-DD, optional
+	// SkipAutoTip disables the club's auto-tip for this single deposit, so
+	// the full amount is booked as deposit even beyond the player's debt.
+	SkipAutoTip bool `json:"skip_auto_tip,omitempty"`
+}
+
+// autoTipFor reports whether auto-tip applies to this request: only when
+// the club has it enabled and the request does not opt out.
+func (r createTransactionRequest) autoTipFor(clubAutoTipEnabled bool) bool {
+	return clubAutoTipEnabled && !r.SkipAutoTip
 }
 
 func (r createTransactionRequest) validate() error {
@@ -246,10 +255,12 @@ func (h *Handler) HandleCreateTransaction(c fiber.Ctx) error {
 		}
 	}
 
+	autoTip := req.autoTipFor(clubEntity.AutoTipEnabled)
+
 	var transactions []transaction.Transaction
 	if txType == transaction.TransactionTypeDeposit && clubEntity.CouplesModeEnabled && len(req.PlayerIDs) >= 2 {
 		// Paar-Modus: Einzahlung auf mehrere Spieler verteilen
-		transactions, err = h.TransactionRepo.CreateDepositCouplesMode(ctx, clubID, req.PlayerIDs, req.Amount, strings.TrimSpace(req.Description), txDate, clubEntity.AutoTipEnabled)
+		transactions, err = h.TransactionRepo.CreateDepositCouplesMode(ctx, clubID, req.PlayerIDs, req.Amount, strings.TrimSpace(req.Description), txDate, autoTip)
 	} else {
 		// Single player or non-couples: require player_id for deposit/tip
 		if (txType == transaction.TransactionTypeDeposit || txType == transaction.TransactionTypeTip) && req.PlayerID == nil {
@@ -270,7 +281,7 @@ func (h *Handler) HandleCreateTransaction(c fiber.Ctx) error {
 			params.Amount = -params.Amount
 		}
 		if txType == transaction.TransactionTypeDeposit {
-			transactions, err = h.TransactionRepo.CreateWithAutoTip(ctx, params, clubEntity.AutoTipEnabled)
+			transactions, err = h.TransactionRepo.CreateWithAutoTip(ctx, params, autoTip)
 		} else {
 			var tx *transaction.Transaction
 			tx, err = h.TransactionRepo.Create(ctx, params)
