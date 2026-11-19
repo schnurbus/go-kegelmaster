@@ -242,6 +242,35 @@ func (q *Queries) GetTransactionByID(ctx context.Context, id string) (GetTransac
 	return i, err
 }
 
+const getTransactionByIDForUpdate = `-- name: GetTransactionByIDForUpdate :one
+SELECT id, club_id, player_id, transaction_type, amount, description, game_day_fee_id, game_day_id, player_balance_before, player_balance_after, club_balance_before, club_balance_after, transaction_date, created_at, updated_at FROM transactions
+WHERE id = $1
+FOR UPDATE
+`
+
+func (q *Queries) GetTransactionByIDForUpdate(ctx context.Context, id string) (Transaction, error) {
+	row := q.db.QueryRowContext(ctx, getTransactionByIDForUpdate, id)
+	var i Transaction
+	err := row.Scan(
+		&i.ID,
+		&i.ClubID,
+		&i.PlayerID,
+		&i.TransactionType,
+		&i.Amount,
+		&i.Description,
+		&i.GameDayFeeID,
+		&i.GameDayID,
+		&i.PlayerBalanceBefore,
+		&i.PlayerBalanceAfter,
+		&i.ClubBalanceBefore,
+		&i.ClubBalanceAfter,
+		&i.TransactionDate,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const listTransactionsByClub = `-- name: ListTransactionsByClub :many
 SELECT t.id, t.club_id, t.player_id, t.transaction_type, t.amount, t.description, t.game_day_fee_id, t.game_day_id, t.player_balance_before, t.player_balance_after, t.club_balance_before, t.club_balance_after, t.transaction_date, t.created_at, t.updated_at, p.name as player_name
 FROM transactions t
@@ -633,23 +662,47 @@ func (q *Queries) SumTransactionsByPlayer(ctx context.Context, playerID *string)
 
 const updateTransaction = `-- name: UpdateTransaction :one
 UPDATE transactions
-SET amount = $2, description = $3, updated_at = $4
+SET player_id = $2,
+    transaction_type = $3,
+    amount = $4,
+    description = $5,
+    player_balance_before = $6,
+    player_balance_after = $7,
+    club_balance_before = $8,
+    club_balance_after = $9,
+    transaction_date = $10,
+    updated_at = $11
 WHERE id = $1
 RETURNING id, club_id, player_id, transaction_type, amount, description, game_day_fee_id, game_day_id, player_balance_before, player_balance_after, club_balance_before, club_balance_after, transaction_date, created_at, updated_at
 `
 
 type UpdateTransactionParams struct {
-	ID          string         `json:"id"`
-	Amount      int32          `json:"amount"`
-	Description sql.NullString `json:"description"`
-	UpdatedAt   time.Time      `json:"updated_at"`
+	ID                  string         `json:"id"`
+	PlayerID            *string        `json:"player_id"`
+	TransactionType     string         `json:"transaction_type"`
+	Amount              int32          `json:"amount"`
+	Description         sql.NullString `json:"description"`
+	PlayerBalanceBefore sql.NullInt32  `json:"player_balance_before"`
+	PlayerBalanceAfter  sql.NullInt32  `json:"player_balance_after"`
+	ClubBalanceBefore   int32          `json:"club_balance_before"`
+	ClubBalanceAfter    int32          `json:"club_balance_after"`
+	TransactionDate     time.Time      `json:"transaction_date"`
+	UpdatedAt           time.Time      `json:"updated_at"`
 }
 
+// UpdateTransaction rewrites an edited manual booking including its balance snapshots.
 func (q *Queries) UpdateTransaction(ctx context.Context, arg UpdateTransactionParams) (Transaction, error) {
 	row := q.db.QueryRowContext(ctx, updateTransaction,
 		arg.ID,
+		arg.PlayerID,
+		arg.TransactionType,
 		arg.Amount,
 		arg.Description,
+		arg.PlayerBalanceBefore,
+		arg.PlayerBalanceAfter,
+		arg.ClubBalanceBefore,
+		arg.ClubBalanceAfter,
+		arg.TransactionDate,
 		arg.UpdatedAt,
 	)
 	var i Transaction

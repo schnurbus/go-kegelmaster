@@ -320,6 +320,7 @@ func (s *Server) registerRoutes() {
 	clubsGroup.Get("/:clubId/transactions", s.handlers.HandleListTransactions)
 	clubsGroup.Get("/:clubId/transactions/:id", s.handlers.HandleGetTransaction)
 	clubsGroup.Post("/:clubId/transactions", s.handlers.HandleCreateTransaction)
+	clubsGroup.Put("/:clubId/transactions/:id", s.handlers.HandleUpdateTransaction)
 	clubsGroup.Delete("/:clubId/transactions/:id", s.handlers.HandleDeleteTransaction)
 	clubsGroup.Get("/:clubId/players/:playerId/transactions", s.handlers.HandleListPlayerTransactions)
 	clubsGroup.Get("/:clubId/gamedays/:gamedayId/transactions", s.handlers.HandleListGameDayTransactions)

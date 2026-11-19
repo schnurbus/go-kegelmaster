@@ -51,6 +51,7 @@ const (
 	ActionCompetitionValues    = "gameday_participant_competition_values_updated"
 	ActionTransactionCreated   = "transaction_created"
 	ActionTransactionDeleted   = "transaction_deleted"
+	ActionTransactionUpdated   = "transaction_updated"
 )
 
 // LogAudit writes an audit log entry. userID may be empty; then "anonymous" is logged for unauthenticated actions (e.g. register).

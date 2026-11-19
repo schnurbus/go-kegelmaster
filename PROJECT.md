@@ -506,6 +506,17 @@ claude mcp add --transport http kegelmaster https://<host>/mcp --header "Authori
 - 📋 API-Tokens mit Scope (z. B. nur lesen)
 - 📋 OAuth für Custom Connectors auf claude.ai
 
+## Letzte Implementierung: Transaktionen bearbeiten (19. November 2026)
+
+Fehleingaben bei manuellen Buchungen lassen sich korrigieren, ohne die Transaktion zu löschen und neu anzulegen (KEG-3).
+
+- **API:** `PUT /api/clubs/:clubId/transactions/:id` mit `transaction_type` (deposit/tip/expense), `player_id` (Pflicht bei deposit/tip), `amount` (Cent, positiv), `description`, `transaction_date` (optional, leer = unverändert). Benötigt die Berechtigung `transactions/update` (Rollen-Berechtigungstabelle, Spalte „Bearbeiten“); Audit-Eintrag `transaction_updated`.
+- **Bearbeitbar:** nur manuelle Buchungen (Einzahlung, Trinkgeld, Ausgabe) – auch Auto-Tip-Einträge und Paar-Modus-Teilbuchungen, da jede Zeile für sich im Ledger steht. Grund- und Strafgebühren (vom Spieltag erzeugt) werden mit 400 abgelehnt; sie werden über den Spieltag korrigiert, sonst laufen Strafzeilen und Ledger auseinander.
+- **Salden:** In einer DB-Transaktion wird die Buchung gesperrt, die betroffenen Spieler (alt und neu, in ID-Reihenfolge) gesperrt, die Wirkung der alten Buchung zurückgenommen und die neue angewendet; der Kassenstand ändert sich atomar um die Differenz. Damit bleibt Saldo = Startsaldo + Summe der Buchungen (wie bei recalculate-balance). Die Saldo-Snapshots der bearbeiteten Zeile werden neu gesetzt (als ob jetzt gebucht), andere Zeilen bleiben unverändert (wie beim Löschen).
+- **Keine Neuaufteilung:** Beim Bearbeiten gibt es keine Auto-Tip-Aufteilung und keinen Paar-Modus; der Betrag wird genau so gebucht.
+- **Frontend:** Auf der Transaktionsseite Stift-Symbol für manuelle Buchungen (nur mit Bearbeiten-Berechtigung), Dialog `EditTransactionDialog`.
+- **Hinweis:** Bestehende Rollen erhalten die Bearbeiten-Berechtigung nicht automatisch; der Klub-Owner kann sie in der Rollenverwaltung setzen.
+
 ## Letzte Implementierung: Abwesende Teilnehmer (18. November 2026)
 
 Sonderfall: Ein Spieler fehlt am Spieltag, bekommt aber trotzdem eine Strafe (z. B. „Puppe vergessen“).

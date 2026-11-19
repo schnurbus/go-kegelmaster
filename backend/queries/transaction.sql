@@ -59,9 +59,24 @@ LIMIT $3 OFFSET $4;
 SELECT COUNT(*) FROM transactions 
 WHERE club_id = $1 AND transaction_type = $2;
 
+-- name: GetTransactionByIDForUpdate :one
+SELECT * FROM transactions
+WHERE id = $1
+FOR UPDATE;
+
+-- UpdateTransaction rewrites an edited manual booking including its balance snapshots.
 -- name: UpdateTransaction :one
 UPDATE transactions
-SET amount = $2, description = $3, updated_at = $4
+SET player_id = $2,
+    transaction_type = $3,
+    amount = $4,
+    description = $5,
+    player_balance_before = $6,
+    player_balance_after = $7,
+    club_balance_before = $8,
+    club_balance_after = $9,
+    transaction_date = $10,
+    updated_at = $11
 WHERE id = $1
 RETURNING *;
 
