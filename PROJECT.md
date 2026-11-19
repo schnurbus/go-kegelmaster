@@ -524,3 +524,11 @@ Sonderfall: Ein Spieler fehlt am Spieltag, bekommt aber trotzdem eine Strafe (z.
 - **Inhalte:** Teilnahmequote und Serien, Strafen gesamt / Ø pro Spieltag mit Klubvergleich, Platz im Klub (Ø-Strafen), strafenfreie Abende, teuerster/günstigster Abend, Strafen nach Typ (eigener Ø vs. Klub-Ø), Wettbewerbe (Ø, Bestwert, Siege, letzte Plätze, Platz nach Ø, Verlauf), Kontoverlauf mit Einzahlungen/Strafen/Grundgebühren.
 - **MCP:** Tool `meine_statistik` (von/bis).
 - **Frontend:** Route `/app/statistics` (Sidebar „Statistiken“), Zeitraum-Auswahl (Presets + benutzerdefiniert) im URL-Query gespeichert.
+
+## Letzte Implementierung: Auto-Tip pro Einzahlung abschaltbar (19. November 2026)
+
+Auch wenn ein Klub Auto-Tip aktiviert hat, kann es für eine einzelne Einzahlung abgeschaltet werden (KEG-2).
+
+- **API:** `POST /api/clubs/:clubId/transactions` akzeptiert optional `"skip_auto_tip": true` (nur bei `deposit` wirksam). Dann wird der volle Betrag als Einzahlung gebucht, ein Überschuss bleibt als Guthaben beim Spieler; im Paar-Modus wird der Überschuss wie bei deaktiviertem Auto-Tip auf die Spieler verteilt. Standardverhalten unverändert, keine Schemaänderung.
+- **Frontend:** Im Transaktionsdialog erscheint bei Einzahlungen (nur wenn der Klub Auto-Tip aktiviert hat) der Haken „Auto-Tip für diese Einzahlung anwenden“ (standardmäßig gesetzt). Abgehakt entfällt die Auto-Tip-Vorschau.
+- **MCP:** `buchung_erfassen` hat den optionalen Parameter `ohne_auto_trinkgeld` (nur für `einzahlung`).

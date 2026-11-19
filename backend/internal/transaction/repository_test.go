@@ -320,6 +320,50 @@ func TestCreateWithAutoTip_SplitsInOneTransaction(t *testing.T) {
 	}
 }
 
+// Without auto-tip (club setting off or skipped for this deposit) the full
+// amount is booked as one deposit, even beyond the player's debt.
+func TestCreateWithAutoTip_DisabledBooksFullDeposit(t *testing.T) {
+	repo, mock, done := newTestRepo(t)
+	defer done()
+
+	clubID := uuid.NewString()
+	playerID := testPlayerA
+	now := time.Now().UTC()
+	txDate := time.Date(2025, 2, 20, 12, 0, 0, 0, time.UTC)
+
+	mock.ExpectBegin()
+	mock.ExpectQuery("GetPlayerByIDForUpdate").
+		WithArgs(playerID).
+		WillReturnRows(playerRow(playerID, clubID, -300, now))
+	mock.ExpectQuery("IncrementClubBalance").
+		WithArgs(500, sqlmock.AnyArg(), clubID).
+		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(1500))
+	mock.ExpectQuery("INSERT INTO transactions").
+		WithArgs(sqlmock.AnyArg(), clubID, playerID, "deposit", 500, sqlmock.AnyArg(), nil, nil, -300, 200, 1000, 1500, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnRows(couplesTxRow(clubID, playerID, "deposit", 500, -300, 200, txDate, now))
+	mock.ExpectExec("UpdatePlayerBalance").
+		WithArgs(200, sqlmock.AnyArg(), playerID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	results, err := repo.CreateWithAutoTip(context.Background(), CreateTransactionParams{
+		ClubID:          clubID,
+		PlayerID:        &playerID,
+		TransactionType: TransactionTypeDeposit,
+		Amount:          500,
+		TransactionDate: txDate,
+	}, false)
+	if err != nil {
+		t.Fatalf("CreateWithAutoTip: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet expectations: %v", err)
+	}
+	if len(results) != 1 || results[0].TransactionType != TransactionTypeDeposit || results[0].Amount != 500 {
+		t.Fatalf("unexpected results: %+v", results)
+	}
+}
+
 func couplesTxRow(clubID, playerID, txType string, amount, before, after int, txDate, now time.Time) *sqlmock.Rows {
 	return sqlmock.NewRows([]string{
 		"id", "club_id", "player_id", "transaction_type", "amount", "description", "game_day_fee_id", "game_day_id",

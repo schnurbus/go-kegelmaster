@@ -1525,16 +1525,24 @@ paths:
           application/json:
             schema:
               type: object
-              required: [type, amount_cents]
+              required: [transaction_type, amount]
               properties:
-                type: { type: string, enum: [deposit, withdrawal, tip, other_income, other_expense] }
-                amount_cents: { type: integer }
-                player_id: { type: string, format: uuid }
-                gameday_id: { type: string, format: uuid }
-                note: { type: string }
+                transaction_type: { type: string, enum: [deposit, tip, expense] }
+                amount: { type: integer, minimum: 1, description: "Betrag in Cent, immer positiv" }
+                player_id: { type: string, format: uuid, description: "Pflicht bei deposit und tip" }
+                player_ids:
+                  type: array
+                  items: { type: string, format: uuid }
+                  description: "Paar-Modus: Einzahlung auf mindestens zwei Spieler verteilen"
+                description: { type: string }
+                transaction_date: { type: string, format: date, description: "YYYY-MM-DD, Standard: heute" }
+                skip_auto_tip:
+                  type: boolean
+                  default: false
+                  description: "Nur bei deposit: Auto-Tip des Klubs für diese eine Einzahlung deaktivieren. Der volle Betrag wird als Einzahlung gebucht (auch über die Schulden hinaus); im Paar-Modus wird der Überschuss auf die Spieler verteilt."
       responses:
         "201":
-          description: Transaktion erstellt
+          description: Transaktion erstellt (bei Aufteilung durch Auto-Tip oder Paar-Modus ein Array von Transaktionen)
   /api/clubs/{clubId}/transactions/{id}:
     get:
       summary: Einzelne Transaktion

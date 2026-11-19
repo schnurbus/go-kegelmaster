@@ -390,6 +390,35 @@ func TestCreateTransaction_AutoTipSplit(t *testing.T) {
 	}
 }
 
+func TestCreateTransaction_SkipAutoTip(t *testing.T) {
+	api := newFakeAPI()
+	api.on("POST /api/clubs/club-1/transactions", 201, map[string]any{
+		"id": "tx-1", "player_name": "Anna", "transaction_type": "deposit", "amount": 1000, "club_balance_after": 1000,
+	})
+	s := connect(t, api)
+
+	if out, isErr := callTool(t, s, "buchung_erfassen", map[string]any{"club_id": clubID, "typ": "einzahlung", "betrag_cent": 1000, "spieler_id": "p-1", "ohne_auto_trinkgeld": true}); isErr {
+		t.Fatal(out)
+	}
+	if out, isErr := callTool(t, s, "buchung_erfassen", map[string]any{"club_id": clubID, "typ": "einzahlung", "betrag_cent": 1000, "spieler_id": "p-1"}); isErr {
+		t.Fatal(out)
+	}
+	posted := api.called("POST", "/api/clubs/club-1/transactions")
+	if len(posted) != 2 {
+		t.Fatalf("expected 2 calls, got %d", len(posted))
+	}
+	if posted[0].Body["skip_auto_tip"] != true {
+		t.Errorf("expected skip_auto_tip=true, got %+v", posted[0].Body)
+	}
+	if _, ok := posted[1].Body["skip_auto_tip"]; ok {
+		t.Errorf("skip_auto_tip must be omitted by default, got %+v", posted[1].Body)
+	}
+
+	if out, isErr := callTool(t, s, "buchung_erfassen", map[string]any{"club_id": clubID, "typ": "trinkgeld", "betrag_cent": 100, "spieler_id": "p-1", "ohne_auto_trinkgeld": true}); !isErr {
+		t.Errorf("expected error for tip with ohne_auto_trinkgeld, got %s", out)
+	}
+}
+
 func TestAPIErrorsAreShownToModel(t *testing.T) {
 	api := newFakeAPI()
 	api.on("GET /api/clubs/club-1", 403, map[string]any{"message": "Keine Berechtigung"})

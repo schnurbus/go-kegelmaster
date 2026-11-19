@@ -6,7 +6,7 @@ Datenmodell und Regeln:
 - Rollen: Pro Klub definiert (z.B. Kassenwart, Mitglied, Gast). Rollen haben Berechtigungen (wer darf was: Spieler anlegen, Spielabende verwalten, Strafentypen bearbeiten usw.). Die Berechtigungen sind pro Klub konfigurierbar.
 - Strafentypen: Pro Klub, mit Name und Gebührenwert. Werden bei Spielabenden pro Spieler erfasst.
 - Spielabende: Haben ein Datum, gehören zu einem Klub. Teilnehmer (Spieler) werden hinzugefügt; pro Spieler und Strafentyp wird die Anzahl der Strafen eingetragen. Daraus entstehen Salden.
-- Transaktionen: Einzahlungen von Spielern (Saldo-Ausgleich), Trinkgeld usw. Salden von Spielern und Klub werden daraus berechnet.
+- Transaktionen: Einzahlungen von Spielern (Saldo-Ausgleich), Trinkgeld usw. Salden von Spielern und Klub werden daraus berechnet. Ist im Klub Auto-Tip aktiviert, wird bei einer Einzahlung der Teil über den Schulden des Spielers automatisch als Trinkgeld gebucht; im Transaktionsdialog lässt sich das per Haken „Auto-Tip für diese Einzahlung anwenden“ für eine einzelne Einzahlung abschalten.
 
 Navigation (Sidebar im App-Bereich):
 Dashboard, Spieler, Rollen, Strafentypen, Wettbewerbe, Spielabende, Transaktionen, Klub bearbeiten. Zuerst den aktiven Klub im Switcher wählen, dann die gewünschte Seite ansteuern.
