@@ -80,6 +80,8 @@ jobs:
       env:
         BASE_URL: "http://localhost:5173"
         VITE_BACKEND_URL: "http://localhost:8080"
+        # Used by e2e/admin.spec.ts to grant the instance admin role via the CLI.
+        E2E_DATABASE_URL: "postgres://kegelmaster:kegelmaster@localhost:5432/kegelmaster?sslmode=disable"
 
     - uses: actions/upload-artifact@v4
       if: always()
