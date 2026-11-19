@@ -96,6 +96,7 @@ export async function adminMutation<T = unknown>(
   });
   if (!resp.ok) {
     const data = await resp.json().catch(() => ({}));
+    if (isReauthRequired(resp.status, data)) notifyAdminReauthRequired();
     throw new AdminApiError(resp.status, data.message || `Fehler ${resp.status}`);
   }
   if (resp.status === 204) return null;
