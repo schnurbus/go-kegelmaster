@@ -70,6 +70,17 @@ Instanz-Admins sehen unter `/api/admin` eine read-only Übersicht über Benutzer
 
 - oder per `config.INSTANCE_ADMIN_EMAILS` (kommagetrennt): beim Start erhalten diese bestehenden Konten das Flag; es wird nie etwas entzogen. Zum Entziehen die E-Mail aus der Liste entfernen **und** `admin revoke` ausführen.
 
+## Umgebungen (FluxCD)
+
+Das Chart wird per FluxCD aus dem Repo `talos-fluxcd` deployt (Chart-Quelle: `helm/` auf `main`):
+
+| Umgebung | Flux-Pfad | Image-Tags | Hostname |
+| --- | --- | --- | --- |
+| Produktion | `clusters/talos/apps/kegelmaster` | SemVer (`0.9.0`, nur Releases) | `kegelmaster.schnurbus.net` |
+| Test | `clusters/talos/apps/kegelmaster-test` | `main-<YYYYMMDDHHmmss>-<sha>` (jeder Push auf `main`) | `kegelmaster-test.schnurbus.net` |
+
+Die `main-*`-Tags erzeugt `.github/workflows/docker-publish.yaml`; Flux' `ImagePolicy` wählt per Zeitstempel das neueste. Die Test-Umgebung hat eine eigene Datenbank, verschickt keine E-Mails (kein `RESEND_API_KEY`; Einladungslinks stehen im Pod-Log) und läuft mit `replicaCount: 1`.
+
 ## Prüfen ohne Cluster
 
 ```bash

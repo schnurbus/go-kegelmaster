@@ -325,6 +325,11 @@ Weitere Entitäten kommen mit der Zeit dazu
 
 ### CI/CD
 - GitHub Actions: Tests → Build
+- Jeder Push auf `main` baut `ghcr.io/schnurbus/go-kegelmaster` mit den Tags `<sha>` und `main-<YYYYMMDDHHmmss>-<sha>` (UTC, sortierbar); Releases (Release Please) zusätzlich mit SemVer-Tags.
+
+### Umgebungen
+- **Produktion** `https://kegelmaster.schnurbus.net`: Kubernetes (FluxCD, Repo `talos-fluxcd`, `clusters/talos/apps/kegelmaster`), folgt nur SemVer-Releases.
+- **Test** `https://kegelmaster-test.schnurbus.net`: gleiches Helm-Chart in Namespace `kegelmaster-test` (`clusters/talos/apps/kegelmaster-test`), eigene Datenbank. Flux' Image-Automation übernimmt automatisch das neueste `main-*`-Image, d. h. jeder Merge auf `main` ist nach wenigen Minuten testbar – ohne Release. Kein E-Mail-Versand (kein `RESEND_API_KEY`), Registrierung `invite_only`.
 
 ### Infrastruktur & Developer Experience
 - `docker-compose.yaml` orchestriert Postgres, Redis, Backend & Frontend

@@ -34,8 +34,13 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository }}
+          # type=sha: short commit SHA (unchanged).
+          # main-<UTC timestamp>-<sha>: sortable tag for the test environment
+          # (kegelmaster-test.schnurbus.net). Flux' ImagePolicy picks the newest
+          # one via the timestamp; SHA tags alone cannot be ordered.
           tags: |
             type=sha,prefix=
+            type=raw,value=main-{{date 'YYYYMMDDHHmmss' tz='UTC'}}-{{sha}}
 
       - name: Build and push
         uses: docker/build-push-action@v6
