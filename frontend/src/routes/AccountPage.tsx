@@ -4,6 +4,7 @@ import { ChevronRightIcon, KeyRoundIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -137,6 +138,59 @@ function ChangePasswordCard() {
   );
 }
 
+function NotificationsCard() {
+  const { user, updateSettings } = useAuth();
+  const [isSaving, setIsSaving] = React.useState(false);
+
+  const handleChange = async (checked: boolean) => {
+    setIsSaving(true);
+    try {
+      await updateSettings({ notify_gameday_settled: checked });
+      toast.success(
+        checked
+          ? "Benachrichtigung für abgerechnete Spieltage aktiviert"
+          : "Benachrichtigung für abgerechnete Spieltage deaktiviert",
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Einstellung konnte nicht gespeichert werden.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Benachrichtigungen</CardTitle>
+        <CardDescription className="max-w-2xl">
+          Benachrichtigungen werden an die unter „Mein Account“ angezeigte E-Mail-Adresse geschickt.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-start gap-3">
+          <Checkbox
+            id="notify-gameday-settled"
+            className="mt-0.5"
+            checked={user?.notify_gameday_settled ?? false}
+            disabled={!user || isSaving}
+            onCheckedChange={(checked) => handleChange(checked === true)}
+          />
+          <div className="grid gap-1">
+            <Label htmlFor="notify-gameday-settled">
+              E-Mail, wenn ein Spieltag abgerechnet wurde
+            </Label>
+            <p className="text-sm text-muted-foreground">
+              Sobald ein Spieltag in einem Ihrer Clubs veröffentlicht wird, erhalten Sie eine
+              E-Mail mit Ihren Buchungen des Abends und Ihrem aktuellen Saldo. Voraussetzung:
+              Ihr Account ist mit einem Spieler im Club verknüpft.
+            </p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function AccountPage() {
   const { user } = useAuth();
   const { clubs, isLoading: clubsLoading } = useClub();
@@ -189,6 +243,8 @@ function AccountPage() {
           )}
         </CardContent>
       </Card>
+
+      <NotificationsCard />
 
       <ChangePasswordCard />
 

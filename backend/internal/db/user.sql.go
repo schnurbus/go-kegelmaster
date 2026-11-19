@@ -25,7 +25,7 @@ INSERT INTO users (
     $4,
     $5
 )
-RETURNING id, email, password_hash, created_at, updated_at, password_changed_at
+RETURNING id, email, password_hash, created_at, updated_at, password_changed_at, notify_gameday_settled
 `
 
 type CreateUserParams struct {
@@ -52,12 +52,13 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PasswordChangedAt,
+		&i.NotifyGamedaySettled,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, password_hash, created_at, updated_at, password_changed_at FROM users
+SELECT id, email, password_hash, created_at, updated_at, password_changed_at, notify_gameday_settled FROM users
 WHERE email = $1
 `
 
@@ -71,12 +72,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PasswordChangedAt,
+		&i.NotifyGamedaySettled,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, password_hash, created_at, updated_at, password_changed_at FROM users
+SELECT id, email, password_hash, created_at, updated_at, password_changed_at, notify_gameday_settled FROM users
 WHERE id = $1
 `
 
@@ -90,6 +92,35 @@ func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PasswordChangedAt,
+		&i.NotifyGamedaySettled,
+	)
+	return i, err
+}
+
+const updateUserNotifyGameDaySettled = `-- name: UpdateUserNotifyGameDaySettled :one
+UPDATE users
+SET notify_gameday_settled = $2, updated_at = $3
+WHERE id = $1
+RETURNING id, email, password_hash, created_at, updated_at, password_changed_at, notify_gameday_settled
+`
+
+type UpdateUserNotifyGameDaySettledParams struct {
+	ID                   string    `json:"id"`
+	NotifyGamedaySettled bool      `json:"notify_gameday_settled"`
+	UpdatedAt            time.Time `json:"updated_at"`
+}
+
+func (q *Queries) UpdateUserNotifyGameDaySettled(ctx context.Context, arg UpdateUserNotifyGameDaySettledParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, updateUserNotifyGameDaySettled, arg.ID, arg.NotifyGamedaySettled, arg.UpdatedAt)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PasswordChangedAt,
+		&i.NotifyGamedaySettled,
 	)
 	return i, err
 }

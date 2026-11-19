@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"time"
+
 	"github.com/schnurbus/go-kegelmaster/backend/internal/apitoken"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/auth"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
@@ -39,6 +41,14 @@ type Handler struct {
 	APITokenRepo      *apitoken.Repository
 	StatisticsRepo    *statistics.Repository
 	PasskeySvc        *passkey.Service
+	// GameDayNotifier announces published game days by e-mail; nil disables it.
+	GameDayNotifier GameDayNotifier
+}
+
+// GameDayNotifier is called after a game day changed from draft to published
+// and its bookings were committed. Implementations must not block.
+type GameDayNotifier interface {
+	GameDaySettled(clubID, gameDayID string, date time.Time)
 }
 
 // NewHandler creates a new handler instance with the given dependencies.
@@ -61,25 +71,27 @@ func NewHandler(cfg config.Config, deps Dependencies) *Handler {
 		APITokenRepo:      deps.APITokenRepo,
 		StatisticsRepo:    deps.StatisticsRepo,
 		PasskeySvc:        deps.PasskeyService,
+		GameDayNotifier:   deps.GameDayNotifier,
 	}
 }
 
 // Dependencies aggregates components the HTTP handlers rely on.
 type Dependencies struct {
-	UserRepo        *user.Repository
-	ClubRepo        *club.Repository
-	RoleRepo        *role.Repository
-	PlayerRepo      *player.Repository
-	PenaltyTypeRepo *penaltytype.Repository
-	CompetitionRepo *competition.Repository
-	GameDayRepo     *gameday.Repository
-	TransactionRepo *transaction.Repository
-	AuthService     *auth.Service
-	PermissionCheck *permission.Checker
-	InvitationRepo  *invitation.Repository
-	EmailService    *email.Service
+	UserRepo          *user.Repository
+	ClubRepo          *club.Repository
+	RoleRepo          *role.Repository
+	PlayerRepo        *player.Repository
+	PenaltyTypeRepo   *penaltytype.Repository
+	CompetitionRepo   *competition.Repository
+	GameDayRepo       *gameday.Repository
+	TransactionRepo   *transaction.Repository
+	AuthService       *auth.Service
+	PermissionCheck   *permission.Checker
+	InvitationRepo    *invitation.Repository
+	EmailService      *email.Service
 	PasswordResetRepo *passwordreset.Repository
 	APITokenRepo      *apitoken.Repository
 	StatisticsRepo    *statistics.Repository
 	PasskeyService    *passkey.Service
+	GameDayNotifier   GameDayNotifier
 }

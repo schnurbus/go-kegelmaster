@@ -21,8 +21,8 @@ var txColumns = []string{
 func expectUserAndClub(mock sqlmock.Sqlmock, userID, clubID, ownerID string, now time.Time) {
 	mock.ExpectQuery(`SELECT id, email, password_hash`).
 		WithArgs(userID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at", "password_changed_at"}).
-			AddRow(userID, "user@example.com", "hash", now, now, nil))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at", "password_changed_at", "notify_gameday_settled"}).
+			AddRow(userID, "user@example.com", "hash", now, now, nil, false))
 	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
 		WithArgs(clubID).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).

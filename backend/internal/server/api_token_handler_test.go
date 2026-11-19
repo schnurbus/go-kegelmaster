@@ -19,7 +19,7 @@ import (
 const testAPIToken = "kgm_test-token-0123456789abcdefghijklmnopqrstuvw"
 
 var apiTokenColumns = []string{"id", "user_id", "name", "token_hash", "token_prefix", "expires_at", "last_used_at", "created_at", "updated_at"}
-var userColumns = []string{"id", "email", "password_hash", "created_at", "updated_at", "password_changed_at"}
+var userColumns = []string{"id", "email", "password_hash", "created_at", "updated_at", "password_changed_at", "notify_gameday_settled"}
 
 func expectAPITokenLookup(mock sqlmock.Sqlmock, tokenID, userID string, createdAt time.Time, expiresAt driver.Value) {
 	mock.ExpectQuery(`SELECT .* FROM api_tokens\s+WHERE token_hash = \$1`).
@@ -32,7 +32,7 @@ func expectUserByID(mock sqlmock.Sqlmock, userID string, passwordChangedAt drive
 	now := time.Now().UTC()
 	mock.ExpectQuery(`SELECT id, email, password_hash`).
 		WithArgs(userID).
-		WillReturnRows(sqlmock.NewRows(userColumns).AddRow(userID, "agent@example.com", "hash", now, now, passwordChangedAt))
+		WillReturnRows(sqlmock.NewRows(userColumns).AddRow(userID, "agent@example.com", "hash", now, now, passwordChangedAt, false))
 }
 
 func bearerRequest(method, path, body string) *http.Request {

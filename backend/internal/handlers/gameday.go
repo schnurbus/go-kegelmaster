@@ -143,6 +143,7 @@ func (h *Handler) HandleCreateGameDay(c fiber.Ctx) error {
 		if err != nil {
 			return gameDayChargeError(err)
 		}
+		h.notifyGameDaySettled(gameDayEntity)
 	}
 
 	audit.LogAudit(c, u.ID, audit.ActionGameDayCreated, "club_id", clubID, "gameday_id", gameDayEntity.ID)
@@ -343,6 +344,7 @@ func (h *Handler) HandleUpdateGameDay(c fiber.Ctx) error {
 		if err != nil {
 			return gameDayChargeError(err)
 		}
+		h.notifyGameDaySettled(updated)
 	} else {
 		updated, err = h.GameDayRepo.Update(ctx, gameday.UpdateGameDayParams{
 			ID:      gameDayID,
@@ -361,6 +363,16 @@ func (h *Handler) HandleUpdateGameDay(c fiber.Ctx) error {
 
 	audit.LogAudit(c, u.ID, audit.ActionGameDayUpdated, "club_id", clubID, "gameday_id", gameDayID)
 	return c.JSON(GameDayResponseFromEntity(updated))
+}
+
+// notifyGameDaySettled e-mails opted-in users once a game day was published
+// ("abgerechnet"). Call it only after the bookings were committed; sending
+// runs in the background and cannot fail the request.
+func (h *Handler) notifyGameDaySettled(gd gameday.GameDay) {
+	if h.GameDayNotifier == nil || gd.IsDraft {
+		return
+	}
+	h.GameDayNotifier.GameDaySettled(gd.ClubID, gd.ID, gd.Date)
 }
 
 func gameDayChargeError(err error) error {

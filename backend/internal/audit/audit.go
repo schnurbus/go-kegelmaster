@@ -12,6 +12,7 @@ const (
 	ActionUserLogin            = "user_login"
 	ActionUserPasswordReset    = "user_password_reset"
 	ActionUserPasswordChanged  = "user_password_changed"
+	ActionUserSettingsUpdated  = "user_settings_updated"
 	ActionAPITokenCreated      = "api_token_created"
 	ActionAPITokenDeleted      = "api_token_deleted"
 	ActionUserLoginPasskey     = "user_login_passkey"

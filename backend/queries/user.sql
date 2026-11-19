@@ -27,3 +27,9 @@ UPDATE users
 SET password_hash = $2, password_changed_at = $3, updated_at = $3
 WHERE id = $1;
 
+-- name: UpdateUserNotifyGameDaySettled :one
+UPDATE users
+SET notify_gameday_settled = $2, updated_at = $3
+WHERE id = $1
+RETURNING *;
+

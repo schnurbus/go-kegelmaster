@@ -57,6 +57,7 @@ type Dependencies struct {
 	APITokenRepo      *apitoken.Repository
 	StatisticsRepo    *statistics.Repository
 	PasskeyService    *passkey.Service
+	GameDayNotifier   handlers.GameDayNotifier
 }
 
 // Server wraps the Fiber application and its dependencies.
@@ -135,6 +136,7 @@ func New(cfg config.Config, deps Dependencies) *Server {
 		APITokenRepo:      deps.APITokenRepo,
 		StatisticsRepo:    deps.StatisticsRepo,
 		PasskeyService:    deps.PasskeyService,
+		GameDayNotifier:   deps.GameDayNotifier,
 	})
 
 	server := &Server{
@@ -204,6 +206,7 @@ func (s *Server) registerRoutes() {
 	authGroup := api.Group("/auth")
 	authGroup.Get("/csrf-token", s.handlers.HandleCSRFCookie)
 	authGroup.Get("/me", s.handlers.HandleCurrentUser)
+	authGroup.Patch("/me", s.handlers.HandleUpdateCurrentUser)
 	authGroup.Post("/register", s.handlers.HandleRegister)
 	// Brute-force protection: per client IP (see PROXY_HEADER behind a reverse proxy).
 	authGroup.Post("/login", limiter.New(limiter.Config{

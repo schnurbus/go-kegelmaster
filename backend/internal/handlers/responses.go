@@ -20,15 +20,18 @@ type UserResponse struct {
 	UpdatedAt time.Time `json:"updated_at"`
 	// PasswordChangedAt is null until the password was changed or reset once.
 	PasswordChangedAt *time.Time `json:"password_changed_at"`
+	// NotifyGameDaySettled: e-mail when a game day of one of the user's clubs was settled.
+	NotifyGameDaySettled bool `json:"notify_gameday_settled"`
 }
 
 func UserResponseFromEntity(u user.User) UserResponse {
 	return UserResponse{
-		ID:                u.ID,
-		Email:             u.Email,
-		CreatedAt:         u.CreatedAt,
-		UpdatedAt:         u.UpdatedAt,
-		PasswordChangedAt: u.PasswordChangedAt,
+		ID:                   u.ID,
+		Email:                u.Email,
+		CreatedAt:            u.CreatedAt,
+		UpdatedAt:            u.UpdatedAt,
+		PasswordChangedAt:    u.PasswordChangedAt,
+		NotifyGameDaySettled: u.NotifyGameDaySettled,
 	}
 }
 
