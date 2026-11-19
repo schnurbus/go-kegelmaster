@@ -1560,6 +1560,47 @@ paths:
       responses:
         "200":
           description: Transaktion
+    put:
+      summary: Transaktion bearbeiten
+      description: |
+        Bearbeitet eine manuelle Transaktion (Einzahlung, Trinkgeld, Ausgabe). Benötigt die Berechtigung
+        `transactions/update`. Die Wirkung der alten Buchung auf Spieler- und Klubsaldo wird in derselben
+        Datenbanktransaktion zurückgenommen und die neue angewendet. Es gibt keine Auto-Tip-Aufteilung und
+        keinen Paar-Modus: der Betrag wird genau so gebucht. Grund- und Strafgebühren (vom Spieltag erzeugt)
+        können nicht bearbeitet werden (400).
+      tags: [Transaktionen]
+      security: [cookieAuth: [], bearerAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [transaction_type, amount]
+              properties:
+                transaction_type: { type: string, enum: [deposit, tip, expense] }
+                amount: { type: integer, minimum: 1, description: "Betrag in Cent, immer positiv (Ausgaben werden negativ gespeichert)" }
+                player_id: { type: string, format: uuid, description: "Pflicht bei deposit und tip" }
+                description: { type: string }
+                transaction_date: { type: string, format: date, description: "YYYY-MM-DD; leer = Datum bleibt unverändert" }
+      responses:
+        "200":
+          description: Bearbeitete Transaktion
+        "400":
+          description: Ungültige Eingabe oder Transaktion ist nicht bearbeitbar (Grund-/Strafgebühr)
+        "403":
+          description: Keine Berechtigung
+        "404":
+          description: Transaktion nicht gefunden
     delete:
       summary: Transaktion löschen
       tags: [Transaktionen]

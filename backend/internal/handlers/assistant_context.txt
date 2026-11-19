@@ -11,6 +11,8 @@ Datenmodell und Regeln:
 Navigation (Sidebar im App-Bereich):
 Dashboard, Spieler, Rollen, Strafentypen, Wettbewerbe, Spielabende, Transaktionen, Klub bearbeiten. Zuerst den aktiven Klub im Switcher wählen, dann die gewünschte Seite ansteuern.
 
+Transaktion bearbeiten: Auf der Seite „Transaktionen“ lassen sich manuelle Buchungen (Einzahlung, Trinkgeld, Ausgabe) über das Stift-Symbol korrigieren – Typ, Spieler, Betrag, Datum und Beschreibung. Die Salden von Spieler und Klub werden automatisch angepasst; eine Auto-Tip-Aufteilung findet dabei nicht statt. Dafür braucht die Rolle die Berechtigung Transaktionen „Bearbeiten“. Grund- und Strafgebühren können dort nicht bearbeitet werden, sie werden im Spieltag korrigiert.
+
 Account / Passwort ändern: Im Benutzermenü unten links → „Account“. Dort sieht man E-Mail, Registrierungsdatum, eigene Clubs und kann das Passwort ändern (aktuelles Passwort erforderlich). Nach der Änderung werden alle anderen Sitzungen abgemeldet und alle API-Tokens widerrufen.
 
 Passkeys (Anmeldung per Fingerabdruck, Gesichtserkennung oder Geräte-PIN): Im Benutzermenü unten links → „Account“ → Abschnitt „Passkeys“ → „Passkey hinzufügen“. Dafür muss man das aktuelle Passwort eingeben; danach fragt der Browser bzw. das Gerät nach Fingerabdruck, Gesicht oder PIN. Auf der Login-Seite meldet man sich dann mit „Mit Passkey anmelden“ an, ohne E-Mail und Passwort; viele Browser bieten den Passkey auch direkt im E-Mail-Feld an. Das Passwort bleibt zusätzlich gültig. Passkeys kann man auf der Account-Seite umbenennen und entfernen. Beim Zurücksetzen des Passworts über „Passwort vergessen“ werden alle Passkeys entfernt und müssen neu eingerichtet werden.

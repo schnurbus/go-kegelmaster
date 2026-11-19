@@ -106,6 +106,7 @@ type Querier interface {
 	GetRolesByClubID(ctx context.Context, clubID string) ([]Role, error)
 	GetTransactionByGameDayFee(ctx context.Context, gameDayFeeID *string) (Transaction, error)
 	GetTransactionByID(ctx context.Context, id string) (GetTransactionByIDRow, error)
+	GetTransactionByIDForUpdate(ctx context.Context, id string) (Transaction, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id string) (User, error)
 	GetWebAuthnCredentialByCredentialID(ctx context.Context, credentialID []byte) (WebauthnCredential, error)
@@ -154,6 +155,7 @@ type Querier interface {
 	UpdatePlayer(ctx context.Context, arg UpdatePlayerParams) (Player, error)
 	UpdatePlayerBalance(ctx context.Context, arg UpdatePlayerBalanceParams) error
 	UpdateRole(ctx context.Context, arg UpdateRoleParams) (Role, error)
+	// UpdateTransaction rewrites an edited manual booking including its balance snapshots.
 	UpdateTransaction(ctx context.Context, arg UpdateTransactionParams) (Transaction, error)
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error
 	UpdateWebAuthnCredentialAfterLogin(ctx context.Context, arg UpdateWebAuthnCredentialAfterLoginParams) error
