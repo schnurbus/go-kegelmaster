@@ -12,7 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 
 function ResetPasswordPage() {
@@ -134,9 +134,8 @@ function ResetPasswordPage() {
                 <Label htmlFor="reset-password" className="text-foreground">
                   Neues Passwort
                 </Label>
-                <Input
+                <PasswordInput
                   id="reset-password"
-                  type="password"
                   autoComplete="new-password"
                   minLength={8}
                   maxLength={128}
@@ -150,9 +149,8 @@ function ResetPasswordPage() {
                 <Label htmlFor="reset-confirm" className="text-foreground">
                   Passwort wiederholen
                 </Label>
-                <Input
+                <PasswordInput
                   id="reset-confirm"
-                  type="password"
                   autoComplete="new-password"
                   minLength={8}
                   maxLength={128}
