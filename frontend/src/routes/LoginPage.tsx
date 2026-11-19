@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useRegistrationMode } from "@/hooks/use-public-config";
 import {
   PasskeyCancelledError,
   conditionalMediationAvailable,
@@ -41,6 +42,14 @@ function LoginPage() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const inviteToken = searchParams.get("invite_token");
+  const registrationMode = useRegistrationMode();
+  // Registrieren nur bei offener Registrierung bzw. mit Einladung (invite_only).
+  const registerLink =
+    registrationMode === "open" || (registrationMode === "invite_only" && inviteToken)
+      ? inviteToken
+        ? `/register?invite_token=${encodeURIComponent(inviteToken)}`
+        : "/register"
+      : null;
   const redirectTo = (location.state as { from?: string })?.from ?? "/app";
 
   const acceptInvitation = async (token: string) => {
@@ -79,12 +88,11 @@ function LoginPage() {
         throw new Error(errorMessage);
       }
 
-      const data = await response.json();
       toast.success("Einladung erfolgreich akzeptiert!", {
         id: "accept-invite-after-login",
         duration: 4000,
       });
-      return data.player_id;
+      return responseData.player_id;
     } catch (error) {
       console.error("Error accepting invitation:", error);
       toast.error(
@@ -287,12 +295,14 @@ function LoginPage() {
                   </Button>
                 </>
               )}
-              <p className="text-center text-sm text-muted-foreground">
-                Kein Account?{" "}
-                <Link to="/register" className="text-primary hover:underline font-medium">
-                  Jetzt registrieren
-                </Link>
-              </p>
+              {registerLink && (
+                <p className="text-center text-sm text-muted-foreground">
+                  Kein Account?{" "}
+                  <Link to={registerLink} className="text-primary hover:underline font-medium">
+                    Jetzt registrieren
+                  </Link>
+                </p>
+              )}
             </CardFooter>
           </form>
         </Card>

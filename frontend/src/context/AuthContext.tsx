@@ -28,7 +28,7 @@ type AuthContextValue = {
   status: AuthStatus;
   csrfToken: string | null;
   login: (payload: AuthCredentials) => Promise<AuthUser>;
-  register: (payload: AuthCredentials) => Promise<AuthUser>;
+  register: (payload: RegisterPayload) => Promise<AuthUser>;
   logout: () => Promise<void>;
   refreshCsrf: () => Promise<string>;
   changePassword: (payload: ChangePasswordPayload) => Promise<AuthUser>;
@@ -57,6 +57,11 @@ type AuthCredentials = {
   email: string;
   password: string;
   remember_me?: boolean;
+};
+
+type RegisterPayload = AuthCredentials & {
+  /** Einladungs-Token; Pflicht bei REGISTRATION_MODE=invite_only. */
+  invite_token?: string;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -123,7 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const register = useCallback(
-    async (payload: AuthCredentials) => {
+    async (payload: RegisterPayload) => {
       setStatus("loading");
       const token = await ensureCsrf();
       const resp = await fetch("/api/auth/register", {

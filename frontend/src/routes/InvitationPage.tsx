@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/context/AuthContext";
+import { useRegistrationMode } from "@/hooks/use-public-config";
 import { toast } from "sonner";
 import type { InvitationResponse } from "@/types/invitation";
 import { MailIcon, UserIcon, UsersIcon } from "lucide-react";
@@ -19,6 +20,7 @@ function InvitationPage() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const { user, status } = useAuth();
+  const registrationMode = useRegistrationMode();
   const [invitation, setInvitation] = React.useState<InvitationResponse | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isAccepting, setIsAccepting] = React.useState(false);
@@ -193,6 +195,8 @@ function InvitationPage() {
   }
 
   const isAuthenticated = status === "authenticated" && user !== null;
+  // Mit Einladung ist die Registrierung bei "open" und "invite_only" möglich.
+  const canRegister = registrationMode !== "closed";
 
   return (
     <AppLayout>
@@ -248,14 +252,18 @@ function InvitationPage() {
             ) : (
               <div className="space-y-2">
                 <p className="text-sm text-center text-muted-foreground mb-4">
-                  Bitte melden Sie sich an oder registrieren Sie sich, um die Einladung anzunehmen.
+                  {canRegister
+                    ? "Bitte melden Sie sich an oder registrieren Sie sich, um die Einladung anzunehmen."
+                    : "Bitte melden Sie sich mit einem bestehenden Account an, um die Einladung anzunehmen. Neue Accounts können auf dieser Instanz nicht angelegt werden."}
                 </p>
                 <Button onClick={handleLogin} variant="default" className="w-full">
                   Anmelden
                 </Button>
-                <Button onClick={handleRegister} variant="outline" className="w-full">
-                  Registrieren
-                </Button>
+                {canRegister && (
+                  <Button onClick={handleRegister} variant="outline" className="w-full">
+                    Registrieren
+                  </Button>
+                )}
               </div>
             )}
           </CardContent>

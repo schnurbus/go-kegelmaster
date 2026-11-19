@@ -199,6 +199,7 @@ func TestRepository_Create(t *testing.T) {
 - `AUTO_MIGRATE`: Optional. When set (e.g. `true`, `1`, `on`), the app runs pending DB migrations on startup using embedded migration files. Default: false.
 - `JWT_SECRET`: JWT signing secret
 - `JWT_TTL`: Token time-to-live
+- `REGISTRATION_MODE`: (optional) Wer ein Konto anlegen darf: `open` (Default, rückwärtskompatibel), `invite_only` (`POST /api/auth/register` nur mit `invite_token` einer gültigen, nicht abgelaufenen, nicht angenommenen Einladung aus `player_invitations`; die E-Mail muss zur Einladung passen) oder `closed` (Registrierung antwortet immer mit 403). Groß-/Kleinschreibung egal; ungültige Werte verhindern den Start. Wird als `registration_mode` unter `GET /api/config/public` ausgeliefert; das Frontend blendet Registrierungsformular und -links entsprechend aus. Bestehende Konten (Login, Passkeys, Einladung annehmen) sind nicht betroffen.
 - `GEMINI_API_KEY`: (optional) API-Key für den Chatbot-Assistenten (Hilfe zur App). Wenn nicht gesetzt, antwortet `POST /api/chat` mit 503 und `GET /api/config/public` liefert `chat_enabled: false`, sodass das Chat-Widget im Frontend ausgeblendet wird.
 - `GEMINI_MODEL`: (optional) Gemini-Modellname (z.B. `gemini-1.5-flash`, `gemini-2.0-flash`). Default: `gemini-1.5-flash`.
 - `CHAT_RATE_LIMIT_MAX`: (optional) Max. Chat-Requests pro User pro Fenster. Default: 30.

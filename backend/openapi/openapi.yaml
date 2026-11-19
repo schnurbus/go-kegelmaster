@@ -85,6 +85,10 @@ paths:
                   version: { type: string, description: "App-Version (Build-Info)" }
                   chat_enabled: { type: boolean, description: "true wenn GEMINI_API_KEY konfiguriert ist und der Hilfe-Chat verfügbar ist." }
                   buy_me_a_coffee_url: { type: string, format: uri, description: "Nur gesetzt wenn BUY_ME_A_COFFEE_URL konfiguriert ist." }
+                  registration_mode:
+                    type: string
+                    enum: [open, invite_only, closed]
+                    description: "Wert von REGISTRATION_MODE (Default open). Das Frontend blendet Registrierungsformular und -links entsprechend aus."
   /api/auth/csrf-token:
     get:
       summary: CSRF-Token abrufen
@@ -137,6 +141,13 @@ paths:
   /api/auth/register:
     post:
       summary: Registrieren und einloggen
+      description: |
+        Abhängig von `REGISTRATION_MODE` (siehe `registration_mode` in `GET /api/config/public`):
+        `open` (Default) – jeder darf sich registrieren, `invite_token` wird ignoriert;
+        `invite_only` – nur mit gültigem, nicht abgelaufenem und noch nicht angenommenem Einladungs-Token,
+        die E-Mail muss zur Einladung passen (Groß-/Kleinschreibung egal). Die Einladung wird danach wie gewohnt
+        über `POST /api/invitations/{token}/accept` angenommen;
+        `closed` – immer 403.
       tags: [Auth]
       requestBody:
         content:
@@ -147,11 +158,18 @@ paths:
               properties:
                 email: { type: string, format: email }
                 password: { type: string }
+                invite_token:
+                  type: string
+                  description: Token aus dem Einladungslink (`/invite/{token}`). Pflicht bei `REGISTRATION_MODE=invite_only`.
       responses:
         "201":
           description: User angelegt und eingeloggt
         "400":
           description: Ungültige Anfrage
+        "403":
+          description: Registrierung nicht erlaubt (`closed`, oder `invite_only` ohne gültige Einladung bzw. mit abweichender E-Mail)
+        "409":
+          description: E-Mail ist bereits registriert
   /api/auth/login:
     post:
       summary: Login (setzt HTTP-Only Cookie)

@@ -180,6 +180,8 @@ func (s *Server) registerRoutes() {
 		m := fiber.Map{
 			"version":      s.cfg.Version,
 			"chat_enabled": strings.TrimSpace(s.cfg.GeminiAPIKey) != "",
+			// open | invite_only | closed; the frontend hides registration accordingly.
+			"registration_mode": s.cfg.EffectiveRegistrationMode(),
 		}
 		if s.cfg.BuyMeACoffeeURL != "" {
 			m["buy_me_a_coffee_url"] = s.cfg.BuyMeACoffeeURL

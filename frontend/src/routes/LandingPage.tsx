@@ -16,6 +16,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
+import { useRegistrationMode } from "@/hooks/use-public-config";
 import { cn } from "@/lib/utils";
 
 type IconType = ComponentType<{ className?: string }>;
@@ -201,6 +202,8 @@ const steps = [
 function LandingPage() {
   const { status } = useAuth();
   const isAuthed = status === "authenticated";
+  // Ohne offene Registrierung verweisen die Aufrufe zum Handeln auf den Login.
+  const canRegister = useRegistrationMode() === "open";
   const { hash } = useLocation();
 
   // Anker-Links aus dem Header (/#funktionen) auch nach Client-Navigation anspringen
@@ -217,8 +220,8 @@ function LandingPage() {
     </Button>
   ) : (
     <Button asChild size="lg" className="h-11 rounded-full px-6">
-      <Link to="/register">
-        Jetzt starten <ArrowRightIcon />
+      <Link to={canRegister ? "/register" : "/login"}>
+        {canRegister ? "Jetzt starten" : "Anmelden"} <ArrowRightIcon />
       </Link>
     </Button>
   );
@@ -451,8 +454,8 @@ function LandingPage() {
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               <Button asChild size="lg" variant="secondary" className="h-11 rounded-full px-6">
-                <Link to={isAuthed ? "/app" : "/register"}>
-                  {isAuthed ? "Zum Dashboard" : "Account erstellen"} <ArrowRightIcon />
+                <Link to={isAuthed ? "/app" : canRegister ? "/register" : "/login"}>
+                  {isAuthed ? "Zum Dashboard" : canRegister ? "Account erstellen" : "Anmelden"} <ArrowRightIcon />
                 </Link>
               </Button>
             </div>

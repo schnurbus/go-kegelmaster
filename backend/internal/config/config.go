@@ -29,6 +29,8 @@ type Config struct {
 	ChatRateLimitMax            int
 	ChatRateLimitWindowMin      int
 	AutoMigrate                 bool
+	// RegistrationMode: wer ein Konto anlegen darf (REGISTRATION_MODE), siehe registration.go.
+	RegistrationMode string
 	// Legal pages: file path (read at request time) or inline HTML from env.
 	// LEGAL_IMPRESSUM_PATH / LEGAL_DATENSCHUTZ_PATH, or IMPRESSUM_HTML / DATENSCHUTZ_HTML.
 	LegalImpressumPath   string
@@ -77,6 +79,7 @@ func Load() Config {
 		ChatRateLimitMax:            getEnvInt("CHAT_RATE_LIMIT_MAX", 30),
 		ChatRateLimitWindowMin:      getEnvInt("CHAT_RATE_LIMIT_WINDOW_MINUTES", 1),
 		AutoMigrate:                 getEnvBool("AUTO_MIGRATE", false),
+		RegistrationMode:            strings.ToLower(strings.TrimSpace(getEnv("REGISTRATION_MODE", RegistrationModeOpen))),
 		LegalImpressumPath:          os.Getenv("LEGAL_IMPRESSUM_PATH"),
 		LegalDatenschutzPath:        os.Getenv("LEGAL_DATENSCHUTZ_PATH"),
 		ImpressumHTML:               os.Getenv("IMPRESSUM_HTML"),
