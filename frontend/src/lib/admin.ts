@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
+import { isReauthRequired, notifyAdminReauthRequired } from "@/lib/admin-reauth";
+
 /** Error of an admin API request; status 404 also means "not an instance admin". */
 export class AdminApiError extends Error {
   status: number;
@@ -32,6 +34,7 @@ export function useAdminFetch<T>(url: string) {
         const resp = await fetch(url, { credentials: "include", signal: controller.signal });
         if (!resp.ok) {
           const body = await resp.json().catch(() => ({}));
+          if (isReauthRequired(resp.status, body)) notifyAdminReauthRequired();
           throw new AdminApiError(resp.status, body.message || `Fehler ${resp.status}`);
         }
         const data: T = await resp.json();
@@ -93,6 +96,7 @@ export async function adminMutation<T = unknown>(
   });
   if (!resp.ok) {
     const data = await resp.json().catch(() => ({}));
+    if (isReauthRequired(resp.status, data)) notifyAdminReauthRequired();
     throw new AdminApiError(resp.status, data.message || `Fehler ${resp.status}`);
   }
   if (resp.status === 204) return null;

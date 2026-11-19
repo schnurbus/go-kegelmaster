@@ -35,6 +35,12 @@ const (
 
 func newTestServer(t *testing.T, opts ...func(*Dependencies)) (*Server, sqlmock.Sqlmock, *auth.Service) {
 	t.Helper()
+	return newTestServerWithConfig(t, nil, opts...)
+}
+
+// newTestServerWithConfig is newTestServer with an adjustable config.
+func newTestServerWithConfig(t *testing.T, cfgOpt func(*config.Config), opts ...func(*Dependencies)) (*Server, sqlmock.Sqlmock, *auth.Service) {
+	t.Helper()
 
 	db, mock, err := sqlmock.New()
 	if err != nil {
@@ -84,11 +90,15 @@ func newTestServer(t *testing.T, opts ...func(*Dependencies)) (*Server, sqlmock.
 		opt(&deps)
 	}
 
-	srv := New(config.Config{
+	cfg := config.Config{
 		AppEnv:      "test",
 		HTTPPort:    "0",
 		CORSOrigins: "http://localhost:5173",
-	}, deps)
+	}
+	if cfgOpt != nil {
+		cfgOpt(&cfg)
+	}
+	srv := New(cfg, deps)
 
 	return srv, mock, authSvc
 }

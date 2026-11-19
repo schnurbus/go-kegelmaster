@@ -10,10 +10,10 @@ import (
 
 // Service handles password hashing and JWT issuance.
 type Service struct {
-	secret         []byte
-	sessionTTL     time.Duration
-	rememberMeTTL  time.Duration
-	nowFn          func() time.Time
+	secret        []byte
+	sessionTTL    time.Duration
+	rememberMeTTL time.Duration
+	nowFn         func() time.Time
 }
 
 func NewService(secret string, ttlMinutes int, rememberMeDays int) *Service {
@@ -55,14 +55,40 @@ func (s *Service) ComparePassword(hash, password string) error {
 
 type Claims struct {
 	UserID string `json:"uid"`
+	// AuthTime is when the user last actually authenticated for this session
+	// (password or passkey login, or an explicit re-authentication). Unlike
+	// IssuedAt it must be carried over unchanged if a token is ever reissued
+	// without a fresh authentication. Tokens issued before the claim existed
+	// have none and count as not recently authenticated.
+	AuthTime *jwt.NumericDate `json:"auth_time,omitempty"`
 	jwt.RegisteredClaims
 }
 
+// AuthenticatedAt returns the time of the last real authentication of the
+// session; ok is false for tokens without the auth_time claim.
+func (c Claims) AuthenticatedAt() (time.Time, bool) {
+	if c.AuthTime == nil {
+		return time.Time{}, false
+	}
+	return c.AuthTime.Time, true
+}
+
+// GenerateToken issues a session token for a user who just authenticated
+// (login, registration, password change or re-authentication), so auth_time
+// is set to now.
 func (s *Service) GenerateToken(userID string, remember bool) (string, error) {
+	return s.GenerateTokenWithAuthTime(userID, remember, s.nowFn())
+}
+
+// GenerateTokenWithAuthTime issues a session token with a new lifetime but the
+// given auth_time. Use it to reissue a session without a fresh authentication
+// (e.g. a sliding refresh), so it does not count as a re-authentication.
+func (s *Service) GenerateTokenWithAuthTime(userID string, remember bool, authTime time.Time) (string, error) {
 	ttl := s.TokenTTL(remember)
 	now := s.nowFn()
 	claims := Claims{
-		UserID: userID,
+		UserID:   userID,
+		AuthTime: jwt.NewNumericDate(authTime),
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userID,
 			IssuedAt:  jwt.NewNumericDate(now),

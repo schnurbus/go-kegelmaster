@@ -225,17 +225,34 @@ func (s *Server) registerRoutes() {
 		Max:        10,
 		Expiration: 5 * time.Minute,
 	}), s.handlers.HandleChangePassword)
+	// Re-authentication of the logged-in user (fresh auth_time for the admin
+	// area, ADMIN_REAUTH_MINUTES); verifies the password, so limited like login.
+	authGroup.Post("/reauth", limiter.New(limiter.Config{
+		Max:        10,
+		Expiration: 5 * time.Minute,
+	}), s.handlers.HandleReauth)
 	authGroup.Get("/tokens", s.handlers.HandleListAPITokens)
 	authGroup.Post("/tokens", s.handlers.HandleCreateAPIToken)
 	authGroup.Delete("/tokens/:id", s.handlers.HandleDeleteAPIToken)
-	// Passkeys: login endpoints are public and rate limited like /login;
+	// Passkeys: login endpoints are public and rate limited per client IP;
 	// register/begin verifies the current password and is limited as well.
-	passkeyLimiter := limiter.New(limiter.Config{
+	// Each limiter has its own budget: login/begin runs on every visit of the
+	// login page (passkey autofill) and only issues a challenge, so it gets a
+	// larger budget than the verifying endpoints.
+	authGroup.Post("/passkeys/login/begin", limiter.New(limiter.Config{
+		Max:        60,
+		Expiration: 5 * time.Minute,
+	}), s.handlers.HandleBeginPasskeyLogin)
+	authGroup.Post("/passkeys/login/finish", limiter.New(limiter.Config{
 		Max:        20,
 		Expiration: 5 * time.Minute,
-	})
-	authGroup.Post("/passkeys/login/begin", passkeyLimiter, s.handlers.HandleBeginPasskeyLogin)
-	authGroup.Post("/passkeys/login/finish", passkeyLimiter, s.handlers.HandleFinishPasskeyLogin)
+	}), s.handlers.HandleFinishPasskeyLogin)
+	// Re-authentication with a passkey: ceremony from /passkeys/login/begin
+	// (the ceremony cookie is scoped to /api/auth/passkeys); limited like /reauth.
+	authGroup.Post("/passkeys/reauth", limiter.New(limiter.Config{
+		Max:        10,
+		Expiration: 5 * time.Minute,
+	}), s.handlers.HandlePasskeyReauth)
 	authGroup.Post("/passkeys/register/begin", limiter.New(limiter.Config{
 		Max:        10,
 		Expiration: 5 * time.Minute,

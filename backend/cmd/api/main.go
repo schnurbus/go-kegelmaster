@@ -62,6 +62,10 @@ func main() {
 		slog.Error("invalid configuration", "error", err)
 		os.Exit(1)
 	}
+	if err := cfg.ValidateAdminReauth(); err != nil {
+		slog.Error("invalid configuration", "error", err)
+		os.Exit(1)
+	}
 
 	slog.Info("starting backend service", "env", cfg.AppEnv, "port", cfg.HTTPPort, "registration_mode", cfg.EffectiveRegistrationMode())
 

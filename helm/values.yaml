@@ -140,6 +140,9 @@ config:
   # `kubectl exec deploy/<release> -- kegelmaster admin revoke <email>`
   # and remove the e-mail here, otherwise the next start grants it again.
   INSTANCE_ADMIN_EMAILS: ""
+  # Minutes since the last real login (password or passkey) during which the
+  # admin area is usable; afterwards admins confirm their login again (1-1440).
+  ADMIN_REAUTH_MINUTES: "15"
 
 # Sensitive data. Rendered as a Kubernetes Secret (or taken from an
 # existing Secret) and injected via envFrom.

@@ -303,6 +303,7 @@ Weitere Entitäten kommen mit der Zeit dazu
 - Persönliche API-Tokens: 256 Bit Zufall, nur Hash in der DB, optionaler Ablauf, Widerruf bei Passwort-Reset
 - Instanz-Admin-Bereich `/api/admin`: nur Browser-Session (kein API-Token, kein MCP); alle anderen erhalten 404; Vergabe der Rolle nur per CLI bzw. `INSTANCE_ADMIN_EMAILS`; jeder Zugriff wird mit `admin=true` und Client-IP über `slog` auditiert; Eingriffe zusätzlich mit CSRF-Schutz und Bestätigungsdialog
 - Gesperrte Konten (`users.disabled_at`): Login (Passwort/Passkey), Browser-Session und API-Tokens werden abgelehnt; Sessions lassen sich per `users.sessions_valid_after` widerrufen
+- Admin-Bereich nur mit frischer Anmeldung: Liegt der letzte Passwort- oder Passkey-Login länger als `ADMIN_REAUTH_MINUTES` (Default 15) zurück, muss der Instanz-Admin seine Anmeldung bestätigen (Claim `auth_time` im Session-Cookie)
 - Passkeys: Hinzufügen nur mit aktuellem Passwort und Browser-Session; Challenges einmalig und 5 Minuten gültig; Signaturzähler-Prüfung gegen geklonte Authenticators; alle Passkeys werden beim Zurücksetzen des Passworts („Passwort vergessen“) gelöscht, beim normalen Passwortwechsel bleiben sie erhalten
 
 ### Performance
@@ -353,6 +354,7 @@ Weitere Entitäten kommen mit der Zeit dazu
 - ✅ Passkeys als zusätzliche Anmeldemethode (inkl. Autofill)
 - ✅ E-Mail-Benachrichtigung „Spieltag abgerechnet“ (Opt-in in den Account-Einstellungen)
 - ✅ Instanz-Admin und read-only Admin-API `/api/admin` (Betreiber-Übersicht Phase 1, Backend)
+- ✅ Erneute Anmeldung für den Admin-Bereich (Re-Auth per Passwort oder Passkey nach `ADMIN_REAUTH_MINUTES`)
 - ✅ MCP-Server `/mcp` (Phase 1: 7 Lese-Tools, Spieltag als Entwurf erfassen, veröffentlichen, Buchung erfassen)
 - ✅ Club Entity mit vollständigem CRUD
 - ✅ Owner-basierte Berechtigungen für Club-Updates/Deletes
@@ -619,3 +621,15 @@ Phase 3 der Betreiber-Übersicht (KEG-10, Konzept `docs/konzept-betreiber-uebers
 - **Übersicht:** Benutzerliste mit Filter „Gesperrt“ und Badge „gesperrt“, Dashboard zählt gesperrte Konten (`users.disabled` in `/api/admin/stats`), Benutzer-Detail zeigt „Gesperrt seit“ und „Sessions widerrufen“.
 - **Frontend:** Karte „Eingriffe“ auf `/admin/users/:id` (Sperren/Entsperren, Sessions widerrufen, Benutzer löschen mit Eingabe der E-Mail; Löschen erst, wenn keine eigenen Klubs mehr bestehen) und `/admin/clubs/:id` (Owner übertragen, Klub löschen mit Eingabe des Namens); „Widerrufen“ je API-Token. Alle Eingriffe mit Bestätigungsdialog (`components/admin/admin-action-dialog.tsx`), Requests über `adminMutation` (CSRF-Header) in `lib/admin.ts`.
 - **Tests:** `internal/server/admin_actions_handler_test.go` (gesperrter Benutzer: Login 403, Cookie-Session und API-Token 401; widerrufene Session 401; gesperrter Admin → 404; alle Eingriffe: Nicht-Admin/Bearer → 404, ohne CSRF → 403, Erfolg, eigenes Konto, anderer Admin, falsche Bestätigung, Owner muss erst übertragen, gesperrter neuer Owner), `internal/user` (`SessionValid` mit `sessions_valid_after`), Playwright `frontend/e2e/admin.spec.ts` (Sperren: Session ungültig, Login mit Hinweis abgelehnt; Entsperren: Login wieder möglich).
+
+## Letzte Implementierung: Erneute Anmeldung für den Admin-Bereich (19. November 2026)
+
+Phase 2 der Betreiber-Übersicht (KEG-9, Konzept `docs/konzept-betreiber-uebersicht.md` §3 „Absicherung“).
+
+- **Entscheidung:** „Immer frische Session“. Der Admin-Bereich ist nur nutzbar, wenn die letzte echte Anmeldung (Passwort- oder Passkey-Login bzw. eine erneute Bestätigung) jünger als `ADMIN_REAUTH_MINUTES` ist – unabhängig davon, ob das Konto einen Passkey hat. Ein Passkey zählt als Bestätigung genauso wie das Passwort. Keine Passkey-Pflicht.
+- **Session:** Das Session-JWT enthält den Claim `auth_time`. Login, Registrierung, Passwortwechsel und erneute Bestätigung setzen ihn auf „jetzt“; ein künftiges Verlängern der Session ohne Anmeldung muss ihn übernehmen (`auth.Service.GenerateTokenWithAuthTime`). Cookies ohne `auth_time` (vor dieser Änderung ausgestellt) gelten als veraltet. Kein Datenbank-Schema geändert.
+- **Konfiguration:** `ADMIN_REAUTH_MINUTES` (Ganzzahl 1–1440, Default 15); ungültige Werte verhindern den Start. In Helm `config.ADMIN_REAUTH_MINUTES`.
+- **API:** `RequireInstanceAdmin` antwortet einem Instanz-Admin mit veralteter Anmeldung mit `401 {"error":"reauth_required","message":…}`; Nicht-Admins, Anfragen ohne Anmeldung und Bearer-Tokens erhalten weiterhin 404. Bestätigen: `POST /api/auth/reauth` (`password`) bzw. `POST /api/auth/passkeys/reauth` (Zeremonie über `POST /api/auth/passkeys/login/begin`; der Passkey muss zum angemeldeten Konto gehören). Beide nur mit Browser-Session (Bearer → 403), CSRF-geschützt, Rate-Limit wie Login; sie stellen das Cookie für den aktuellen Benutzer neu aus (Remember-Me bleibt, neues CSRF-Cookie).
+- **Audit:** `user_reauth` und `user_reauth_failed` (mit `method` = `password`/`passkey`), `admin_reauth_required` (mit `admin=true`).
+- **Frontend:** `useAdminFetch` meldet `reauth_required` an `lib/admin-reauth.ts`; der Dialog „Anmeldung bestätigen“ (`components/admin/admin-reauth-dialog.tsx`, in `AdminLayout`) fragt das Passwort ab bzw. bietet „Mit Passkey bestätigen“, wenn der Browser Passkeys unterstützt. Danach lädt die Admin-Seite ihre Daten neu; „Abbrechen“ führt zum Dashboard.
+- **Tests:** `internal/server/admin_reauth_handler_test.go` (frische, veraltete, fehlende und zukünftige `auth_time`, konfiguriertes Zeitfenster, Nicht-Admin/Bearer weiterhin 404, Re-Auth per Passwort: Erfolg, falsches Passwort, ohne Anmeldung/CSRF, Bearer; per Passkey mit Software-Authenticator: Erfolg, Passkey eines anderen Kontos, ohne Zeremonie), `internal/auth` (`auth_time` gesetzt bzw. beim Neuausstellen übernommen), `internal/config` (`ADMIN_REAUTH_MINUTES`), Playwright `frontend/e2e/admin-reauth.spec.ts` (veraltete Session → Dialog → falsches/richtiges Passwort bzw. virtueller Passkey → Admin-Bereich).

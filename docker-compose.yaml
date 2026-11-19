@@ -37,6 +37,8 @@ services:
       # Kommagetrennte E-Mails bestehender Konten, die beim Start Instanz-Admin werden
       # (alternativ: docker compose exec backend kegelmaster admin grant <email>).
       INSTANCE_ADMIN_EMAILS: ""
+      # Minuten seit dem letzten Login, in denen der Admin-Bereich ohne erneute Bestätigung nutzbar ist
+      ADMIN_REAUTH_MINUTES: "15"
     depends_on:
       - postgres
       - redis

@@ -23,6 +23,12 @@ info:
     Eingriffe brauchen zusätzlich den Header `X-CSRF-Token` und werden mit `admin=true` auditiert.
     Gesperrte Konten können sich nicht anmelden (Login 403); ihre Sessions und API-Tokens werden
     abgelehnt (401).
+
+    **Erneute Anmeldung für den Admin-Bereich:** Liegt die letzte echte Anmeldung eines Instanz-Admins
+    (Passwort- oder Passkey-Login bzw. Bestätigung über `POST /api/auth/reauth` oder
+    `POST /api/auth/passkeys/reauth`) länger als `ADMIN_REAUTH_MINUTES` (Default 15) zurück, antworten
+    alle `/api/admin`-Endpunkte mit **401** und `{"error":"reauth_required"}`. Nicht-Admins erhalten
+    weiterhin 404.
   version: 0.1.0
 servers:
   - url: ""
@@ -235,6 +241,40 @@ paths:
           description: CSRF-Token ungültig oder mit API-Token aufgerufen
         "429":
           description: Zu viele Versuche (Rate-Limit pro Client-IP)
+  /api/auth/reauth:
+    post:
+      summary: Anmeldung mit Passwort bestätigen (Re-Auth)
+      description: |
+        Bestätigt die aktuelle Browser-Session mit dem Passwort des angemeldeten Benutzers und stellt das
+        Auth-Cookie mit frischem `auth_time` neu aus (Remember-Me bleibt erhalten, neues CSRF-Cookie).
+        Wird für den Admin-Bereich benötigt, wenn dieser `reauth_required` meldet (`ADMIN_REAUTH_MINUTES`).
+        Nur mit Browser-Session (403 bei Bearer-Auth); X-CSRF-Token erforderlich. Rate-Limit pro Client-IP
+        wie beim Login. Audit: `user_reauth` bzw. `user_reauth_failed`.
+      tags: [Auth]
+      security: [cookieAuth: []]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password: { type: string, maxLength: 128 }
+      responses:
+        "200":
+          description: Bestätigt; Cookie neu ausgestellt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "400":
+          description: Ungültige Anfrage oder Passwort fehlt
+        "401":
+          description: Nicht angemeldet oder Passwort falsch
+        "403":
+          description: CSRF-Token ungültig oder mit API-Token aufgerufen
+        "429":
+          description: Zu viele Versuche (Rate-Limit pro Client-IP)
   /api/auth/tokens:
     get:
       summary: Eigene API-Tokens auflisten
@@ -364,6 +404,44 @@ paths:
           description: CSRF-Token ungültig
         "429":
           description: Zu viele Versuche
+  /api/auth/passkeys/reauth:
+    post:
+      summary: Anmeldung mit Passkey bestätigen (Re-Auth)
+      description: |
+        Schließt eine mit `POST /api/auth/passkeys/login/begin` gestartete Zeremonie (Cookie `passkey_ceremony`,
+        einmalig verwendbar) als Bestätigung der aktuellen Browser-Session ab. Der Passkey muss zum
+        angemeldeten Benutzer gehören; ein Passkey eines anderen Kontos wird mit 401 abgelehnt und meldet
+        nicht um. Bei Erfolg wie `POST /api/auth/reauth`: Cookie mit frischem `auth_time`, neues CSRF-Cookie.
+        Nur mit Browser-Session (403 bei Bearer-Auth); X-CSRF-Token erforderlich. Rate-Limit pro Client-IP.
+      tags: [Auth]
+      security: [cookieAuth: []]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [credential]
+              properties:
+                credential:
+                  type: object
+                  description: Ergebnis von `PublicKeyCredential.toJSON()` (AuthenticationResponseJSON)
+      responses:
+        "200":
+          description: Bestätigt; Cookie neu ausgestellt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "400":
+          description: Ungültige Anfrage oder Zeremonie abgelaufen / bereits verwendet
+        "401":
+          description: Nicht angemeldet, Prüfung fehlgeschlagen oder Passkey gehört nicht zum angemeldeten Konto
+        "403":
+          description: CSRF-Token ungültig oder mit API-Token aufgerufen
+        "429":
+          description: Zu viele Versuche
+        "503":
+          description: Passkeys nicht verfügbar
   /api/auth/passkeys/register/begin:
     post:
       summary: Passkey hinzufügen – starten
@@ -1746,6 +1824,8 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/AdminStats" }
+        "401":
+          $ref: "#/components/responses/AdminReauthRequired"
         "404":
           $ref: "#/components/responses/AdminNotFound"
   /api/admin/users:
@@ -1779,6 +1859,8 @@ paths:
               schema: { $ref: "#/components/schemas/AdminUserPage" }
         "400":
           description: Ungültiger Parameter
+        "401":
+          $ref: "#/components/responses/AdminReauthRequired"
         "404":
           $ref: "#/components/responses/AdminNotFound"
   /api/admin/users/{id}:
@@ -1800,6 +1882,8 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/AdminUserDetail" }
+        "401":
+          $ref: "#/components/responses/AdminReauthRequired"
         "404":
           description: Kein Instanz-Admin oder Benutzer nicht gefunden
     delete:
@@ -1931,6 +2015,8 @@ paths:
               schema: { $ref: "#/components/schemas/AdminClubPage" }
         "400":
           description: Ungültiger Parameter
+        "401":
+          $ref: "#/components/responses/AdminReauthRequired"
         "404":
           $ref: "#/components/responses/AdminNotFound"
   /api/admin/clubs/{id}:
@@ -1953,6 +2039,8 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/AdminClubDetail" }
+        "401":
+          $ref: "#/components/responses/AdminReauthRequired"
         "404":
           description: Kein Instanz-Admin oder Klub nicht gefunden
     delete:
@@ -2033,6 +2121,8 @@ paths:
           content:
             text/csv:
               schema: { type: string }
+        "401":
+          $ref: "#/components/responses/AdminReauthRequired"
         "404":
           $ref: "#/components/responses/AdminNotFound"
 components:
@@ -2079,6 +2169,19 @@ components:
             type: object
             properties:
               message: { type: string, example: "Not Found" }
+    AdminReauthRequired:
+      description: |
+        Instanz-Admin, dessen letzte echte Anmeldung länger als `ADMIN_REAUTH_MINUTES` zurückliegt
+        (oder Session-Cookie ohne `auth_time`). Die Anmeldung muss über `POST /api/auth/reauth`
+        (Passwort) oder `POST /api/auth/passkeys/reauth` (Passkey) bestätigt werden.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error, message]
+            properties:
+              error: { type: string, enum: [reauth_required] }
+              message: { type: string, example: "Erneute Anmeldung erforderlich, um den Admin-Bereich zu nutzen." }
   securitySchemes:
     cookieAuth:
       type: apiKey
