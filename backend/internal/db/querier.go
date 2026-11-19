@@ -19,6 +19,8 @@ type Querier interface {
 	// Deleting and returning in one statement makes each challenge single-use.
 	ConsumeWebAuthnSession(ctx context.Context, arg ConsumeWebAuthnSessionParams) (WebauthnSession, error)
 	CountAPITokensByUserID(ctx context.Context, userID string) (int64, error)
+	CountAdminClubs(ctx context.Context, arg CountAdminClubsParams) (int64, error)
+	CountAdminUsers(ctx context.Context, arg CountAdminUsersParams) (int64, error)
 	CountPlayersByRoleIDForClub(ctx context.Context, clubID string) ([]CountPlayersByRoleIDForClubRow, error)
 	CountTransactionsByClub(ctx context.Context, clubID string) (int64, error)
 	CountTransactionsByPlayer(ctx context.Context, arg CountTransactionsByPlayerParams) (int64, error)
@@ -68,6 +70,19 @@ type Querier interface {
 	DeleteWebAuthnCredential(ctx context.Context, arg DeleteWebAuthnCredentialParams) (int64, error)
 	DeleteWebAuthnCredentialsByUserID(ctx context.Context, userID string) error
 	GetAPITokenByHash(ctx context.Context, tokenHash string) (ApiToken, error)
+	GetAdminClub(ctx context.Context, id string) (GetAdminClubRow, error)
+	// Instanz-Administration (read-only Betreiber-Übersicht, KEG-7).
+	// Bewusst KEINE Fachdaten der Klubs (Salden, Transaktionen, Strafen einzelner
+	// Spieler); höchstens aggregierte Anzahlen.
+	//
+	// Gemeinsame Definitionen (in allen Queries gleich halten):
+	//   verwaist      = Benutzer ohne eigenen Klub und ohne Spieler-Verknüpfung,
+	//                   registriert vor mehr als 30 Tagen
+	//   Klub-Aktivität = MAX(game_days.date, transactions.created_at)
+	//   aktiver Klub   = Aktivität in den letzten 90 Tagen
+	//   inaktiver Klub = keine Aktivität seit 180 Tagen (ohne Aktivität: angelegt vor 180 Tagen)
+	GetAdminStats(ctx context.Context) (GetAdminStatsRow, error)
+	GetAdminUser(ctx context.Context, id string) (GetAdminUserRow, error)
 	GetAllClubs(ctx context.Context) ([]Club, error)
 	GetClubByID(ctx context.Context, id string) (Club, error)
 	GetClubsByUserID(ctx context.Context, userID string) ([]Club, error)
@@ -116,10 +131,26 @@ type Querier interface {
 	IncrementClubBalance(ctx context.Context, arg IncrementClubBalanceParams) (int32, error)
 	LinkPlayerToUser(ctx context.Context, arg LinkPlayerToUserParams) (int64, error)
 	ListAPITokensByUserID(ctx context.Context, userID string) ([]ApiToken, error)
+	ListAdminClubOpenInvitations(ctx context.Context, clubID string) ([]ListAdminClubOpenInvitationsRow, error)
+	ListAdminClubPlayers(ctx context.Context, clubID string) ([]ListAdminClubPlayersRow, error)
+	ListAdminClubRoles(ctx context.Context, clubID string) ([]ListAdminClubRolesRow, error)
+	ListAdminClubs(ctx context.Context, arg ListAdminClubsParams) ([]ListAdminClubsRow, error)
+	// CSV-Export: eine Zeile pro Spieler-Verknüpfung, dazu eine Zeile pro Klub,
+	// in dem der Owner keinen eigenen Spieler hat. Fehlende Werte sind ''.
+	ListAdminMemberships(ctx context.Context) ([]ListAdminMembershipsRow, error)
+	// Tage der letzten 30 Tage mit mehr als min_count Registrierungen (UTC).
+	ListAdminRegistrationSpikes(ctx context.Context, minCount int64) ([]ListAdminRegistrationSpikesRow, error)
+	// Nie den Hash ausliefern.
+	ListAdminUserAPITokens(ctx context.Context, userID string) ([]ListAdminUserAPITokensRow, error)
+	ListAdminUserOwnedClubs(ctx context.Context, userID string) ([]ListAdminUserOwnedClubsRow, error)
+	ListAdminUserPasskeys(ctx context.Context, userID string) ([]ListAdminUserPasskeysRow, error)
+	ListAdminUserPlayers(ctx context.Context, userID *string) ([]ListAdminUserPlayersRow, error)
+	ListAdminUsers(ctx context.Context, arg ListAdminUsersParams) ([]ListAdminUsersRow, error)
 	// Players of the club linked to a user who opted in to game day e-mails, with
 	// the sum of their bookings for the game day. Inactive players are only
 	// included when they were charged on that day.
 	ListGameDaySettledRecipients(ctx context.Context, arg ListGameDaySettledRecipientsParams) ([]ListGameDaySettledRecipientsRow, error)
+	ListInstanceAdmins(ctx context.Context) ([]ListInstanceAdminsRow, error)
 	ListTransactionsByClub(ctx context.Context, arg ListTransactionsByClubParams) ([]ListTransactionsByClubRow, error)
 	ListTransactionsByGameDay(ctx context.Context, gameDayID *string) ([]ListTransactionsByGameDayRow, error)
 	ListTransactionsByPlayer(ctx context.Context, arg ListTransactionsByPlayerParams) ([]ListTransactionsByPlayerRow, error)
@@ -130,6 +161,8 @@ type Querier interface {
 	RemoveRolePermission(ctx context.Context, arg RemoveRolePermissionParams) error
 	RenameWebAuthnCredential(ctx context.Context, arg RenameWebAuthnCredentialParams) (WebauthnCredential, error)
 	SetGameDayParticipantAttended(ctx context.Context, arg SetGameDayParticipantAttendedParams) (GameDayParticipant, error)
+	// Für CLI und INSTANCE_ADMIN_EMAILS. Liefert keine Zeile, wenn das Konto fehlt.
+	SetInstanceAdminByEmail(ctx context.Context, arg SetInstanceAdminByEmailParams) (SetInstanceAdminByEmailRow, error)
 	SetPenaltyTypeReplacedBy(ctx context.Context, arg SetPenaltyTypeReplacedByParams) error
 	StatsListCompetitionValues(ctx context.Context, arg StatsListCompetitionValuesParams) ([]StatsListCompetitionValuesRow, error)
 	StatsListFees(ctx context.Context, arg StatsListFeesParams) ([]StatsListFeesRow, error)
@@ -163,6 +196,8 @@ type Querier interface {
 	UpdateRole(ctx context.Context, arg UpdateRoleParams) (Role, error)
 	// UpdateTransaction rewrites an edited manual booking including its balance snapshots.
 	UpdateTransaction(ctx context.Context, arg UpdateTransactionParams) (Transaction, error)
+	// Does not touch updated_at: a login is no change to the account itself.
+	UpdateUserLastLogin(ctx context.Context, arg UpdateUserLastLoginParams) error
 	UpdateUserNotifyGameDaySettled(ctx context.Context, arg UpdateUserNotifyGameDaySettledParams) (User, error)
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error
 	UpdateWebAuthnCredentialAfterLogin(ctx context.Context, arg UpdateWebAuthnCredentialAfterLoginParams) error

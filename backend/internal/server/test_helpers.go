@@ -8,6 +8,7 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/gofiber/fiber/v3"
 
+	"github.com/schnurbus/go-kegelmaster/backend/internal/admin"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/apitoken"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/auth"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
@@ -77,6 +78,7 @@ func newTestServer(t *testing.T, opts ...func(*Dependencies)) (*Server, sqlmock.
 		APITokenRepo:      apitoken.NewRepository(db),
 		StatisticsRepo:    statistics.NewRepository(db),
 		PasskeyService:    passkeySvc,
+		AdminRepo:         admin.NewRepository(db),
 	}
 	for _, opt := range opts {
 		opt(&deps)

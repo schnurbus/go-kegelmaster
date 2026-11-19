@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -155,8 +156,22 @@ func (h *Handler) HandleLogin(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
+	u = h.recordLogin(ctx, u)
+
 	audit.LogAudit(c, u.ID, audit.ActionUserLogin, "user_id", u.ID)
 	return c.JSON(UserResponseFromEntity(u))
+}
+
+// recordLogin stores the login time for the operator overview. A failure is
+// only logged: it must never block a login.
+func (h *Handler) recordLogin(ctx context.Context, u user.User) user.User {
+	now := time.Now().UTC()
+	if err := h.UserRepo.RecordLogin(ctx, u.ID, now); err != nil {
+		slog.Warn("record last login", "error", err, "user_id", u.ID)
+		return u
+	}
+	u.LastLoginAt = &now
+	return u
 }
 
 func (h *Handler) HandleLogout(c fiber.Ctx) error {

@@ -34,6 +34,8 @@ Die Rollen und Berechtigungen müssen dynamisch pro Klub konfigurierbar sein. Zu
 - Rolle "Kassenwart" darf Spielabende und Strafen eintragen
 - Rolle "Kassenwart" darf nicht Grundgebühr des Klubs ändern
 
+Getrennt davon gibt es die Rolle **Instanz-Admin** (Betreiber, `users.is_instance_admin`). Sie gilt nicht für einen Klub, sondern für die Instanz, und gibt nur Lesezugriff auf die Betreiber-Übersicht (`/api/admin`). Ein Instanz-Admin wird dadurch weder Owner noch Mitglied eines Klubs und sieht keine Fachdaten der Klubs.
+
 ---
 
 ## 3. Funktionen (Featureliste)
@@ -299,6 +301,7 @@ Weitere Entitäten kommen mit der Zeit dazu
 - Rate Limiting
 - CSRF-Schutz (Double-Submit Token) & CORS-Konfiguration
 - Persönliche API-Tokens: 256 Bit Zufall, nur Hash in der DB, optionaler Ablauf, Widerruf bei Passwort-Reset
+- Instanz-Admin-Bereich `/api/admin`: nur Browser-Session (kein API-Token, kein MCP); alle anderen erhalten 404; Vergabe der Rolle nur per CLI bzw. `INSTANCE_ADMIN_EMAILS`; jeder Zugriff wird mit `admin=true` und Client-IP über `slog` auditiert
 - Passkeys: Hinzufügen nur mit aktuellem Passwort und Browser-Session; Challenges einmalig und 5 Minuten gültig; Signaturzähler-Prüfung gegen geklonte Authenticators; alle Passkeys werden beim Zurücksetzen des Passworts („Passwort vergessen“) gelöscht, beim normalen Passwortwechsel bleiben sie erhalten
 
 ### Performance
@@ -342,6 +345,7 @@ Weitere Entitäten kommen mit der Zeit dazu
 - ✅ Account-Seite mit Passwort ändern
 - ✅ Passkeys als zusätzliche Anmeldemethode (inkl. Autofill)
 - ✅ E-Mail-Benachrichtigung „Spieltag abgerechnet“ (Opt-in in den Account-Einstellungen)
+- ✅ Instanz-Admin und read-only Admin-API `/api/admin` (Betreiber-Übersicht Phase 1, Backend; UI folgt mit KEG-8)
 - ✅ MCP-Server `/mcp` (Phase 1: 7 Lese-Tools, Spieltag als Entwurf erfassen, veröffentlichen, Buchung erfassen)
 - ✅ Club Entity mit vollständigem CRUD
 - ✅ Owner-basierte Berechtigungen für Club-Updates/Deletes
@@ -559,3 +563,16 @@ Auch wenn ein Klub Auto-Tip aktiviert hat, kann es für eine einzelne Einzahlung
 - **API:** `POST /api/clubs/:clubId/transactions` akzeptiert optional `"skip_auto_tip": true` (nur bei `deposit` wirksam). Dann wird der volle Betrag als Einzahlung gebucht, ein Überschuss bleibt als Guthaben beim Spieler; im Paar-Modus wird der Überschuss wie bei deaktiviertem Auto-Tip auf die Spieler verteilt. Standardverhalten unverändert, keine Schemaänderung.
 - **Frontend:** Im Transaktionsdialog erscheint bei Einzahlungen (nur wenn der Klub Auto-Tip aktiviert hat) der Haken „Auto-Tip für diese Einzahlung anwenden“ (standardmäßig gesetzt). Abgehakt entfällt die Auto-Tip-Vorschau.
 - **MCP:** `buchung_erfassen` hat den optionalen Parameter `ohne_auto_trinkgeld` (nur für `einzahlung`).
+
+## Letzte Implementierung: Instanz-Admin und Admin-API, read-only (19. November 2026)
+
+Phase 1 (Backend) der Betreiber-Übersicht (KEG-7, Konzept `docs/konzept-betreiber-uebersicht.md`). Die Admin-UI folgt separat (KEG-8).
+
+- **Datenmodell:** Migration `000030_instance_admin`: `users.is_instance_admin` (Standard `false`), `users.last_login_at` (NULL = unbekannt, Bestandskonten bis zum nächsten Login), Index auf `users.created_at`. `last_login_at` wird bei Passwort- und Passkey-Login gesetzt (Fehler werden nur geloggt, der Login läuft weiter).
+- **Rolle vergeben:** nur per CLI im Haupt-Binary (`kegelmaster admin grant <email>`, `admin revoke <email>`, `admin list`; im Container per `kubectl exec`/`docker compose exec`) oder per `INSTANCE_ADMIN_EMAILS` (kommagetrennt, setzt beim Start das Flag für bestehende Konten, entzieht nie). **Keine** Vergabe über die Weboberfläche.
+- **API** (`internal/admin`, Queries in `queries/admin.sql`, Handler in `handlers/admin.go`): `GET /api/admin/stats`, `/users` (Suche, Filter `orphaned`/`admin`, Sortierung, Paginierung), `/users/:id`, `/clubs` (Suche, Filter `inactive`, Sortierung, Paginierung), `/clubs/:id`, `/export/memberships.csv`. `GET /api/auth/me` liefert zusätzlich `is_instance_admin`. Keine Fachdaten der Klubs (Salden, Transaktionen, Strafen), nur aggregierte Anzahlen.
+- **Definitionen:** verwaist = ohne eigenen Klub und ohne Spieler-Verknüpfung, älter als 30 Tage; aktiver Klub = Spieltag oder Transaktion in den letzten 90 Tagen; inaktiver Klub = keine Aktivität seit 180 Tagen; Registrierungsspitze = mehr als 10 Registrierungen an einem Tag (letzte 30 Tage); Tokens ungenutzt = aktiv, aber seit 90 Tagen nicht benutzt.
+- **Sicherheit:** Middleware `RequireInstanceAdmin` (unabhängig vom Klub-`PermissionChecker`): nur Cookie-Session; Anfragen mit `Authorization: Bearer` (API-Token, MCP), ohne Anmeldung oder ohne Admin-Flag erhalten **404** wie unbekannte Routen. Antworten mit `Cache-Control: no-store`. CSV-Export mit Schutz vor CSV-Injection.
+- **Audit:** nur über `slog` (keine DB-Tabelle): `admin_stats_viewed`, `admin_users_listed`, `admin_user_viewed`, `admin_clubs_listed`, `admin_club_viewed`, `admin_export` mit `admin=true`; CLI-Änderungen als `admin_role_granted`/`admin_role_revoked`. Alle Audit-Einträge enthalten jetzt die Client-IP (`ip`, berücksichtigt `PROXY_HEADER`/`TRUSTED_PROXIES`).
+- **Datenschutz:** Die Datenschutzerklärung der Instanz muss ergänzt werden: Der Betreiber sieht Konto-Metadaten (E-Mail, Registrierungs- und Login-Zeitpunkte, Klubzugehörigkeiten, Anzahl/Namen von API-Tokens und Passkeys) zum Betrieb und zur Missbrauchsabwehr (Art. 6 Abs. 1 lit. f DSGVO); `last_login_at` wird mit dem Konto gelöscht; Aufbewahrung der Audit-Logs laut Log-Stack.
+- **Tests:** `internal/server/admin_handler_test.go` (ohne Anmeldung/Nicht-Admin/Bearer-Token → 404, Admin → 200 für alle Endpunkte, ungültige Parameter → 400), `internal/admin` (Parameter, CLI, Env-Bootstrap), Audit (`admin=true`, IP).

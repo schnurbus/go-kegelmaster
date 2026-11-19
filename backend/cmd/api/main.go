@@ -2,12 +2,15 @@ package main
 
 import (
 	"context"
+	"flag"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/schnurbus/go-kegelmaster/backend/internal/admin"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/apitoken"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/auth"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/automigrate"
@@ -35,6 +38,11 @@ import (
 var Version string
 
 func main() {
+	// "kegelmaster admin ..." manages instance admins (also via kubectl exec).
+	if len(os.Args) > 1 && os.Args[1] == "admin" {
+		os.Exit(runAdminCLI(os.Args[2:]))
+	}
+
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 
 	cfg := config.Load()
@@ -63,6 +71,12 @@ func main() {
 	if err := automigrate.Run(context.Background(), cfg.DatabaseURL, cfg.AutoMigrate); err != nil {
 		slog.Error("auto migration failed", "error", err)
 		os.Exit(1)
+	}
+
+	if len(cfg.InstanceAdminEmails) > 0 {
+		bootstrapCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		admin.BootstrapFromEnv(bootstrapCtx, admin.NewRepository(db), cfg.InstanceAdminEmails)
+		cancel()
 	}
 
 	userRepo := user.NewRepository(db)
@@ -112,6 +126,7 @@ func main() {
 		StatisticsRepo:    statisticsRepo,
 		PasskeyService:    passkeySvc,
 		GameDayNotifier:   gameDayNotifier,
+		AdminRepo:         admin.NewRepository(db),
 	})
 
 	errCh := make(chan error, 1)
@@ -144,4 +159,36 @@ func main() {
 	if !gameDayNotifier.Wait(ctx) {
 		slog.Warn("pending game day notifications were not finished before shutdown")
 	}
+}
+
+// runAdminCLI runs "kegelmaster admin [--database-url URL] grant|revoke|list".
+// It never runs migrations; the server does that on start (AUTO_MIGRATE).
+func runAdminCLI(args []string) int {
+	// Log lines (audit) go to stderr, so stdout stays readable.
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, nil)))
+
+	fs := flag.NewFlagSet("admin", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+	fs.Usage = func() { fmt.Fprint(os.Stderr, admin.CLIUsage) }
+	databaseURL := fs.String("database-url", "", "PostgreSQL-URL (Standard: DATABASE_URL)")
+	if err := fs.Parse(args); err != nil {
+		if err == flag.ErrHelp {
+			return 0
+		}
+		return 2
+	}
+	if *databaseURL == "" {
+		*databaseURL = config.Load().DatabaseURL
+	}
+
+	db, err := database.New(*databaseURL)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Datenbankverbindung fehlgeschlagen: %v\n", err)
+		return 1
+	}
+	defer db.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	return admin.RunCLI(ctx, admin.NewRepository(db), fs.Args(), os.Stdout, os.Stderr)
 }

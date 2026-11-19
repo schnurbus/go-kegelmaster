@@ -41,6 +41,12 @@ This file contains essential information for agentic coding agents working in th
 - **Flags**: `--source` (Pflicht, URL der alten PostgreSQL-DB), `--target` (Pflicht, URL der neuen App-DB), `--dry-run` (nur lesen, keine Schreibzugriffe auf die Ziel-DB)
 - **Idempotenz**: Deterministische UUIDs aus alten bigint-IDs; `INSERT ... ON CONFLICT (id) DO NOTHING`. Mehrfaches Ausführen erzeugt keine Duplikate.
 
+### CLI Admin (Instanz-Admin vergeben)
+- Subcommand im Haupt-Binary, damit es im Container verfügbar ist: `kegelmaster admin [--database-url URL] grant <email> | revoke <email> | list` (lokal: `cd backend && go run ./cmd/api admin list`).
+- Im Cluster: `kubectl exec deploy/kegelmaster -- kegelmaster admin grant betreiber@example.com` (nutzt `DATABASE_URL` aus der Umgebung); mit Docker Compose: `docker compose exec backend kegelmaster admin list`.
+- Führt keine Migrationen aus. Exit-Codes: 0 ok, 1 Fehler/Konto nicht gefunden, 2 falsche Verwendung. Änderungen werden als Audit `admin_role_granted`/`admin_role_revoked` (stderr) geloggt.
+- Die Rolle wird bewusst **nie** über die Weboberfläche vergeben (siehe auch `INSTANCE_ADMIN_EMAILS`).
+
 ### Frontend Commands
 - **Dev server**: `make frontend-dev` or `cd frontend && npm run dev` (starts Vite dev server)
 - **Build**: `make frontend-build` or `cd frontend && npm run build`
@@ -61,6 +67,7 @@ backend/
 │   ├── import/          # CLI Import-Tool (Spieltag-CSV)
 │   └── migrate-old/     # CLI Migration alter DB → neue App-DB
 ├── internal/            # Private application code
+│   ├── admin/           # Instanz-Admin: read-only Betreiber-Übersicht (Queries in queries/admin.sql), CLI, Env-Bootstrap
 │   ├── auth/            # Authentication service
 │   ├── automigrate/     # Auto-run DB migrations on startup (embedded, optional)
 │   ├── club/            # Club entity & repository
@@ -181,6 +188,7 @@ func TestRepository_Create(t *testing.T) {
 - MCP server (`internal/mcpserver`, mounted at `/mcp`): Streamable HTTP, stateless, API-token auth only. Tools never touch repositories directly; they call the REST API in-process via `InProcessAPI` (Fiber request handler) with the caller's token, so new tools get permissions, validation, audit and balance invariants for free. Tool names/descriptions are German; amounts are cents. Register tools in `tools.go`, test them in `server_test.go` against `fakeAPI`.
 - Account settings: `PATCH /api/auth/me` (e.g. `notify_gameday_settled`, opt-in, default false)
 - E-mail notifications (`internal/notification`): when a game day goes from draft to published (create with `is_draft: false` or update draft → published), the game day handler calls `GameDayNotifier.GameDaySettled` after the bookings were committed. The notifier runs in a goroutine with its own timeout, claims the game day once in `game_day_notifications` (re-publishing sends nothing), and e-mails every user with `notify_gameday_settled` who has a player in the club (inactive players only if they were charged), including the day's bookings and current balance. Mail errors are only logged.
+- Instance admin (operator) area `/api/admin` (`internal/admin`, `handlers/admin.go`): read-only overview of users, clubs, owners and player↔user links (stats, users, clubs, details, CSV export). Guarded by `Handler.RequireInstanceAdmin` (route group middleware), which is independent of the club `PermissionChecker`: cookie session only, requests with `Authorization: Bearer` (API tokens, hence MCP) and non-admins get **404** (not 401/403). Never expose club business data there (balances, transactions, penalties of players), only aggregated counts. Every access is audited via `audit.LogAdminAudit` (adds `admin=true`; every audit entry carries the client `ip`). `users.is_instance_admin` is set only via CLI `kegelmaster admin …` or `INSTANCE_ADMIN_EMAILS`, never via the web UI. `GET /api/auth/me` returns `is_instance_admin`; `users.last_login_at` is set on password and passkey login.
 - User context available in handlers
 - Owner-based authorization for clubs
 
@@ -199,6 +207,7 @@ func TestRepository_Create(t *testing.T) {
 - `LEGAL_DATENSCHUTZ_PATH`: (optional) Absoluter Dateipfad zur Datenschutz-HTML-Datei. Wenn gesetzt, liefert `GET /api/legal/datenschutz` den Dateiinhalt.
 - `IMPRESSUM_HTML`: (optional) Inhalt für das Impressum (HTML-String). Überschreibt Datei, wenn gesetzt.
 - `DATENSCHUTZ_HTML`: (optional) Inhalt für die Datenschutzerklärung (HTML-String). Überschreibt Datei, wenn gesetzt.
+  - **Datenschutz-Hinweis für Betreiber:** Mit der Betreiber-Übersicht (`/api/admin`) sieht der Instanz-Admin Konto-Metadaten (E-Mail, Registrierungs- und Login-Zeitpunkte, Klubzugehörigkeiten, Namen/Präfixe von API-Tokens und Passkeys) zum Betrieb und zur Missbrauchsabwehr (Art. 6 Abs. 1 lit. f DSGVO). Das gehört in die Datenschutzerklärung der Instanz, ebenso die Aufbewahrungsfrist der Audit-Logs (im Log-Stack). Fachdaten der Klubs sind dort nicht sichtbar.
 - `BUY_ME_A_COFFEE_URL`: (optional) URL für „Buy Me a Coffee“. Wenn gesetzt, wird im App-Footer ein entsprechender Link angezeigt; ausgegeben unter `GET /api/config/public` als `buy_me_a_coffee_url`.
 - `PROXY_HEADER`: (optional) Header mit der echten Client-IP hinter einem Reverse Proxy (z. B. `X-Forwarded-For`). Ohne diese Einstellung sehen Rate-Limits (Login, Passwort-Reset, Chat) nur die Proxy-IP und gelten damit für alle Nutzer gemeinsam.
 - `TRUSTED_PROXIES`: (optional, nur mit `PROXY_HEADER`) Kommagetrennte IPs/CIDRs der vertrauenswürdigen Proxies; zusätzlich `private`, `loopback`, `linklocal`. Nur von diesen Adressen wird `PROXY_HEADER` ausgewertet.
@@ -206,6 +215,7 @@ func TestRepository_Create(t *testing.T) {
 - `WEBAUTHN_ORIGINS`: (optional) Kommagetrennte Origins (`https://host[:port]`), die Passkey-Anmeldungen ausführen dürfen. Default: Origin aus `PUBLIC_BASE_URL` plus `CORS_ALLOW_ORIGINS` (damit funktioniert der Vite-Dev-Server auf `:5173`). Ist die Konfiguration ungültig, startet der Server trotzdem; die Passkey-Endpunkte antworten dann mit `503`.
 - `RESEND_API_KEY`: (optional) API-Key für den E-Mail-Versand über Resend (Einladungen, Passwort-Reset, Benachrichtigung „Spieltag abgerechnet“). Ohne Key werden keine E-Mails verschickt; Spieltag-Benachrichtigungen werden dann mit einer Log-Zeile übersprungen.
 - `RESEND_FROM_EMAIL`: (optional) Absenderadresse für E-Mails. Default: `noreply@example.com`.
+- `INSTANCE_ADMIN_EMAILS`: (optional) Kommagetrennte E-Mails, die beim Start das Instanz-Admin-Flag erhalten (Betreiber-Übersicht `/api/admin`). Nur bestehende Konten (unbekannte E-Mails werden geloggt); es wird **nie** etwas entzogen. Zum Entziehen die E-Mail entfernen **und** `kegelmaster admin revoke <email>` ausführen, sonst setzt der nächste Start das Flag wieder.
 - `LOG_LEVEL`: (optional) Log-Level (`debug`, `info`, `warn`, `error`). Bei `debug` werden auch Leseanfragen (GET/HEAD) im Request-Log erfasst; sonst nur Mutationen und Fehler. Default: `info`.
 
 ### GitHub Actions / Release Please

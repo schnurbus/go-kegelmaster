@@ -132,6 +132,11 @@ config:
   DATENSCHUTZ_HTML: ""
   BUY_ME_A_COFFEE_URL: ""
   LOG_LEVEL: info
+  # Comma-separated e-mails that get the instance admin flag on start
+  # (existing accounts only; never revokes). Revoke via
+  # `kubectl exec deploy/<release> -- kegelmaster admin revoke <email>`
+  # and remove the e-mail here, otherwise the next start grants it again.
+  INSTANCE_ADMIN_EMAILS: ""
 
 # Sensitive data. Rendered as a Kubernetes Secret (or taken from an
 # existing Secret) and injected via envFrom.

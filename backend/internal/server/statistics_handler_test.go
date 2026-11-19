@@ -15,8 +15,8 @@ var playerColumns = []string{"id", "club_id", "user_id", "role_id", "name", "bal
 func expectStatsUser(mock sqlmock.Sqlmock, userID string, now time.Time) {
 	mock.ExpectQuery(`SELECT id, email, password_hash`).
 		WithArgs(userID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at", "password_changed_at", "notify_gameday_settled"}).
-			AddRow(userID, "user@example.com", "hash", now, now, nil, false))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at", "password_changed_at", "notify_gameday_settled", "is_instance_admin", "last_login_at"}).
+			AddRow(userID, "user@example.com", "hash", now, now, nil, false, false, nil))
 }
 
 func TestHandleGetMyStatistics_Unauthorized(t *testing.T) {

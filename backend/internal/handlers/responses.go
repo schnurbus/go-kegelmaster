@@ -22,6 +22,8 @@ type UserResponse struct {
 	PasswordChangedAt *time.Time `json:"password_changed_at"`
 	// NotifyGameDaySettled: e-mail when a game day of one of the user's clubs was settled.
 	NotifyGameDaySettled bool `json:"notify_gameday_settled"`
+	// IsInstanceAdmin: the user may open the operator area (/api/admin).
+	IsInstanceAdmin bool `json:"is_instance_admin"`
 }
 
 func UserResponseFromEntity(u user.User) UserResponse {
@@ -32,6 +34,7 @@ func UserResponseFromEntity(u user.User) UserResponse {
 		UpdatedAt:            u.UpdatedAt,
 		PasswordChangedAt:    u.PasswordChangedAt,
 		NotifyGameDaySettled: u.NotifyGameDaySettled,
+		IsInstanceAdmin:      u.IsInstanceAdmin,
 	}
 }
 

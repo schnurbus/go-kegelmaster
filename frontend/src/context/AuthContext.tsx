@@ -17,6 +17,8 @@ type AuthUser = {
   updated_at: string;
   password_changed_at: string | null;
   notify_gameday_settled: boolean;
+  /** Instance admin (operator): may open the read-only admin area (/api/admin). */
+  is_instance_admin: boolean;
 };
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated";

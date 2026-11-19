@@ -285,6 +285,8 @@ func (h *Handler) HandleFinishPasskeyLogin(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
 
+	u = h.recordLogin(ctx, u)
+
 	audit.LogAudit(c, u.ID, audit.ActionUserLoginPasskey, "user_id", u.ID, "passkey_id", cred.ID)
 	return c.JSON(UserResponseFromEntity(u))
 }

@@ -25,7 +25,7 @@ INSERT INTO users (
     $4,
     $5
 )
-RETURNING id, email, password_hash, created_at, updated_at, password_changed_at, notify_gameday_settled
+RETURNING id, email, password_hash, created_at, updated_at, password_changed_at, notify_gameday_settled, is_instance_admin, last_login_at
 `
 
 type CreateUserParams struct {
@@ -53,12 +53,14 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.UpdatedAt,
 		&i.PasswordChangedAt,
 		&i.NotifyGamedaySettled,
+		&i.IsInstanceAdmin,
+		&i.LastLoginAt,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, password_hash, created_at, updated_at, password_changed_at, notify_gameday_settled FROM users
+SELECT id, email, password_hash, created_at, updated_at, password_changed_at, notify_gameday_settled, is_instance_admin, last_login_at FROM users
 WHERE email = $1
 `
 
@@ -73,12 +75,14 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.UpdatedAt,
 		&i.PasswordChangedAt,
 		&i.NotifyGamedaySettled,
+		&i.IsInstanceAdmin,
+		&i.LastLoginAt,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, password_hash, created_at, updated_at, password_changed_at, notify_gameday_settled FROM users
+SELECT id, email, password_hash, created_at, updated_at, password_changed_at, notify_gameday_settled, is_instance_admin, last_login_at FROM users
 WHERE id = $1
 `
 
@@ -93,15 +97,34 @@ func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
 		&i.UpdatedAt,
 		&i.PasswordChangedAt,
 		&i.NotifyGamedaySettled,
+		&i.IsInstanceAdmin,
+		&i.LastLoginAt,
 	)
 	return i, err
+}
+
+const updateUserLastLogin = `-- name: UpdateUserLastLogin :exec
+UPDATE users
+SET last_login_at = $2
+WHERE id = $1
+`
+
+type UpdateUserLastLoginParams struct {
+	ID          string       `json:"id"`
+	LastLoginAt sql.NullTime `json:"last_login_at"`
+}
+
+// Does not touch updated_at: a login is no change to the account itself.
+func (q *Queries) UpdateUserLastLogin(ctx context.Context, arg UpdateUserLastLoginParams) error {
+	_, err := q.db.ExecContext(ctx, updateUserLastLogin, arg.ID, arg.LastLoginAt)
+	return err
 }
 
 const updateUserNotifyGameDaySettled = `-- name: UpdateUserNotifyGameDaySettled :one
 UPDATE users
 SET notify_gameday_settled = $2, updated_at = $3
 WHERE id = $1
-RETURNING id, email, password_hash, created_at, updated_at, password_changed_at, notify_gameday_settled
+RETURNING id, email, password_hash, created_at, updated_at, password_changed_at, notify_gameday_settled, is_instance_admin, last_login_at
 `
 
 type UpdateUserNotifyGameDaySettledParams struct {
@@ -121,6 +144,8 @@ func (q *Queries) UpdateUserNotifyGameDaySettled(ctx context.Context, arg Update
 		&i.UpdatedAt,
 		&i.PasswordChangedAt,
 		&i.NotifyGamedaySettled,
+		&i.IsInstanceAdmin,
+		&i.LastLoginAt,
 	)
 	return i, err
 }

@@ -183,6 +183,8 @@ type User struct {
 	UpdatedAt            time.Time    `json:"updated_at"`
 	PasswordChangedAt    sql.NullTime `json:"password_changed_at"`
 	NotifyGamedaySettled bool         `json:"notify_gameday_settled"`
+	IsInstanceAdmin      bool         `json:"is_instance_admin"`
+	LastLoginAt          sql.NullTime `json:"last_login_at"`
 }
 
 type WebauthnCredential struct {
