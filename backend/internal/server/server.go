@@ -16,6 +16,7 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/limiter"
 	"github.com/gofiber/fiber/v3/middleware/recover"
 
+	"github.com/schnurbus/go-kegelmaster/backend/internal/admin"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/apitoken"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/auth"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
@@ -58,6 +59,8 @@ type Dependencies struct {
 	StatisticsRepo    *statistics.Repository
 	PasskeyService    *passkey.Service
 	GameDayNotifier   handlers.GameDayNotifier
+	// AdminRepo backs the read-only operator area /api/admin; nil disables it (404).
+	AdminRepo *admin.Repository
 }
 
 // Server wraps the Fiber application and its dependencies.
@@ -137,6 +140,7 @@ func New(cfg config.Config, deps Dependencies) *Server {
 		StatisticsRepo:    deps.StatisticsRepo,
 		PasskeyService:    deps.PasskeyService,
 		GameDayNotifier:   deps.GameDayNotifier,
+		AdminRepo:         deps.AdminRepo,
 	})
 
 	server := &Server{
@@ -328,6 +332,16 @@ func (s *Server) registerRoutes() {
 	clubsGroup.Get("/:clubId/players/:playerId/transactions", s.handlers.HandleListPlayerTransactions)
 	clubsGroup.Get("/:clubId/gamedays/:gamedayId/transactions", s.handlers.HandleListGameDayTransactions)
 	clubsGroup.Get("/:clubId/gamedays/:gamedayId/transaction-summary", s.handlers.HandleGetGameDayTransactionSummary)
+
+	// Instance admin (operator) area, read-only. Cookie sessions of instance
+	// admins only; everyone else (incl. API tokens and MCP) gets 404.
+	adminGroup := api.Group("/admin", s.handlers.RequireInstanceAdmin)
+	adminGroup.Get("/stats", s.handlers.HandleAdminStats)
+	adminGroup.Get("/users", s.handlers.HandleAdminListUsers)
+	adminGroup.Get("/users/:id", s.handlers.HandleAdminGetUser)
+	adminGroup.Get("/clubs", s.handlers.HandleAdminListClubs)
+	adminGroup.Get("/clubs/:id", s.handlers.HandleAdminGetClub)
+	adminGroup.Get("/export/memberships.csv", s.handlers.HandleAdminExportMemberships)
 
 	// OpenAPI spec and Swagger UI (for technical users)
 	api.Get("/openapi.yaml", func(c fiber.Ctx) error {

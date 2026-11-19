@@ -15,6 +15,10 @@ info:
       ausschließlich das Token geprüft (kein Rückfall auf das Cookie). Tokens verfallen
       optional nach 1–365 Tagen und werden beim Zurücksetzen des Passworts widerrufen.
       Die Token-Verwaltung (`/api/auth/tokens`) ist nur mit Browser-Session möglich.
+
+    **Instanz-Administration** (`/api/admin`, Tag `admin`): read-only Betreiber-Übersicht. Nur
+    Browser-Session eines Instanz-Admins; API-Tokens und MCP sind ausgeschlossen. Alle anderen
+    Anfragen (auch ohne Anmeldung) erhalten **404**, damit der Bereich nicht auffindbar ist.
   version: 0.1.0
 servers:
   - url: ""
@@ -1702,7 +1706,183 @@ paths:
       responses:
         "200":
           description: Summary
+  /api/admin/stats:
+    get:
+      summary: Kennzahlen und Auffälligkeiten der Instanz
+      description: |
+        Dashboard der Betreiber-Übersicht. Definitionen: aktiv (Benutzer) = Login in den letzten 30 Tagen
+        (`last_login_at`, vor Einführung unbekannt); aktiver Klub = Spieltag oder Transaktion in den letzten
+        90 Tagen; inaktiver Klub = keine Aktivität seit 180 Tagen (ohne Aktivität: angelegt vor 180 Tagen);
+        verwaist = Benutzer ohne eigenen Klub und ohne Spieler-Verknüpfung, älter als 30 Tage;
+        Registrierungsspitze = mehr als 10 Registrierungen an einem Tag (UTC) in den letzten 30 Tagen.
+        Audit: `admin_stats_viewed`.
+      tags: [admin]
+      security: [cookieAuth: []]
+      responses:
+        "200":
+          description: Kennzahlen
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminStats" }
+        "404":
+          $ref: "#/components/responses/AdminNotFound"
+  /api/admin/users:
+    get:
+      summary: Benutzer auflisten
+      description: |
+        Serverseitig paginierte Benutzerliste mit Suche (Teilstring der E-Mail, ohne Groß-/Kleinschreibung),
+        Filter und Sortierung. Ungültige Parameter liefern 400. Audit: `admin_users_listed`.
+      tags: [admin]
+      security: [cookieAuth: []]
+      parameters:
+        - $ref: "#/components/parameters/AdminSearch"
+        - name: filter
+          in: query
+          description: "`orphaned` = verwaiste Konten (siehe /api/admin/stats), `admin` = Instanz-Admins"
+          schema: { type: string, enum: [orphaned, admin] }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [email, created_at, last_login_at], default: created_at }
+        - name: order
+          in: query
+          description: "Standard: `asc` bei `email`, sonst `desc`. Bei `last_login_at` stehen unbekannte Logins bei `desc` am Ende."
+          schema: { type: string, enum: [asc, desc] }
+        - $ref: "#/components/parameters/AdminPage"
+        - $ref: "#/components/parameters/AdminLimit"
+      responses:
+        "200":
+          description: Seite der Benutzerliste
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminUserPage" }
+        "400":
+          description: Ungültiger Parameter
+        "404":
+          $ref: "#/components/responses/AdminNotFound"
+  /api/admin/users/{id}:
+    get:
+      summary: Benutzer-Detail
+      description: |
+        Stammdaten, eigene Klubs, Spieler-Verknüpfungen mit Rolle, API-Tokens (nie der Hash) und Passkeys.
+        Audit: `admin_user_viewed`.
+      tags: [admin]
+      security: [cookieAuth: []]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Benutzer
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminUserDetail" }
+        "404":
+          description: Kein Instanz-Admin oder Benutzer nicht gefunden
+  /api/admin/clubs:
+    get:
+      summary: Klubs auflisten
+      description: |
+        Serverseitig paginierte Klubliste mit Owner, Spielerzahlen, Anzahl Spieltage und letzter Aktivität
+        (`MAX(game_days.date, transactions.created_at)`). Suche über Klubname und Owner-E-Mail.
+        Audit: `admin_clubs_listed`.
+      tags: [admin]
+      security: [cookieAuth: []]
+      parameters:
+        - $ref: "#/components/parameters/AdminSearch"
+        - name: filter
+          in: query
+          description: "`inactive` = keine Aktivität seit 180 Tagen"
+          schema: { type: string, enum: [inactive] }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [name, created_at, last_activity_at], default: name }
+        - name: order
+          in: query
+          description: "Standard: `asc` bei `name`, sonst `desc`. Bei `last_activity_at` stehen Klubs ohne Aktivität bei `desc` am Ende."
+          schema: { type: string, enum: [asc, desc] }
+        - $ref: "#/components/parameters/AdminPage"
+        - $ref: "#/components/parameters/AdminLimit"
+      responses:
+        "200":
+          description: Seite der Klubliste
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminClubPage" }
+        "400":
+          description: Ungültiger Parameter
+        "404":
+          $ref: "#/components/responses/AdminNotFound"
+  /api/admin/clubs/{id}:
+    get:
+      summary: Klub-Detail
+      description: |
+        Owner, Spieler mit verknüpftem Benutzer und Rolle, offene Einladungen, Rollen mit Spieleranzahl.
+        Bewusst **keine** Fachdaten (Salden, Transaktionen, Strafen einzelner Spieler), nur aggregierte Anzahlen.
+        Audit: `admin_club_viewed`.
+      tags: [admin]
+      security: [cookieAuth: []]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Klub
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminClubDetail" }
+        "404":
+          description: Kein Instanz-Admin oder Klub nicht gefunden
+  /api/admin/export/memberships.csv:
+    get:
+      summary: Verknüpfungen als CSV exportieren
+      description: |
+        Eine Zeile pro Spieler, der mit einem Benutzer verknüpft ist, plus eine Zeile pro Klub, in dem der Owner
+        keinen eigenen Spieler hat (`player_name` und `role_name` leer). Benutzer ohne Klub erscheinen nicht.
+        Werte, die mit `=`, `+`, `-` oder `@` beginnen, erhalten ein vorangestelltes `'` (Schutz vor CSV-Injection).
+        Audit: `admin_export`.
+      tags: [admin]
+      security: [cookieAuth: []]
+      responses:
+        "200":
+          description: CSV (UTF-8, kommagetrennt, Kopfzeile `user_email,club_name,is_owner,player_name,role_name`)
+          headers:
+            Content-Disposition:
+              schema: { type: string, example: 'attachment; filename="memberships-2026-11-19.csv"' }
+          content:
+            text/csv:
+              schema: { type: string }
+        "404":
+          $ref: "#/components/responses/AdminNotFound"
 components:
+  parameters:
+    AdminSearch:
+      name: search
+      in: query
+      description: Suchbegriff (Teilstring, ohne Groß-/Kleinschreibung, max. 200 Zeichen)
+      schema: { type: string, maxLength: 200 }
+    AdminPage:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    AdminLimit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+  responses:
+    AdminNotFound:
+      description: |
+        Kein Instanz-Admin, nicht angemeldet oder Anfrage mit `Authorization: Bearer` (API-Token/MCP).
+        Bewusst 404 statt 401/403.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message: { type: string, example: "Not Found" }
   securitySchemes:
     cookieAuth:
       type: apiKey
@@ -1731,6 +1911,219 @@ components:
           description: |
             E-Mail-Benachrichtigung, sobald ein Spieltag eines Clubs, in dem der User einen Spieler hat,
             abgerechnet (veröffentlicht) wurde. Standard: false.
+        is_instance_admin:
+          type: boolean
+          description: |
+            true, wenn der User Instanz-Admin (Betreiber) ist und den Bereich `/api/admin` nutzen darf.
+            Wird nur per CLI (`kegelmaster admin grant`) oder `INSTANCE_ADMIN_EMAILS` vergeben.
+    AdminStats:
+      type: object
+      required: [users, clubs, players, open_invitations, api_tokens, passkeys, anomalies]
+      properties:
+        users:
+          type: object
+          required: [total, new_7d, new_30d, active_30d, instance_admins]
+          properties:
+            total: { type: integer }
+            new_7d: { type: integer, description: Registriert in den letzten 7 Tagen }
+            new_30d: { type: integer, description: Registriert in den letzten 30 Tagen }
+            active_30d: { type: integer, description: Login in den letzten 30 Tagen }
+            instance_admins: { type: integer }
+        clubs:
+          type: object
+          required: [total, active_90d]
+          properties:
+            total: { type: integer }
+            active_90d: { type: integer, description: Spieltag oder Transaktion in den letzten 90 Tagen }
+        players:
+          type: object
+          required: [total, linked]
+          properties:
+            total: { type: integer }
+            linked: { type: integer, description: Mit einem Benutzer verknüpft }
+        open_invitations: { type: integer, description: Nicht angenommen und nicht abgelaufen }
+        api_tokens:
+          type: object
+          required: [active]
+          properties:
+            active: { type: integer, description: Nicht abgelaufen (inkl. ohne Ablaufdatum) }
+        passkeys: { type: integer }
+        anomalies:
+          type: object
+          required: [orphaned_users, inactive_clubs, api_tokens_without_expiry, api_tokens_unused_90d, registration_spikes]
+          properties:
+            orphaned_users: { type: integer, description: Ohne Klub und Spieler-Verknüpfung, älter als 30 Tage }
+            inactive_clubs: { type: integer, description: Keine Aktivität seit 180 Tagen }
+            api_tokens_without_expiry: { type: integer }
+            api_tokens_unused_90d: { type: integer, description: Aktiv, aber seit 90 Tagen (bzw. seit Erstellung) ungenutzt }
+            registration_spikes:
+              type: array
+              description: Tage (UTC) der letzten 30 Tage mit mehr als 10 Registrierungen, neueste zuerst
+              items:
+                type: object
+                required: [date, registrations]
+                properties:
+                  date: { type: string, format: date }
+                  registrations: { type: integer }
+    AdminUserRef:
+      type: object
+      required: [id, email]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+    AdminUserListItem:
+      type: object
+      required: [id, email, is_instance_admin, orphaned, created_at, last_login_at, owned_club_count, player_club_count, passkey_count, api_token_count]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        is_instance_admin: { type: boolean }
+        orphaned: { type: boolean, description: Ohne Klub und Spieler-Verknüpfung, älter als 30 Tage }
+        created_at: { type: string, format: date-time }
+        last_login_at: { type: string, format: date-time, nullable: true, description: null = unbekannt }
+        owned_club_count: { type: integer, description: Anzahl Klubs, deren Owner der Benutzer ist }
+        player_club_count: { type: integer, description: Anzahl Klubs, in denen ein Spieler mit dem Benutzer verknüpft ist }
+        passkey_count: { type: integer }
+        api_token_count: { type: integer }
+    AdminUserPage:
+      type: object
+      required: [data, page, limit, total, total_pages]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/AdminUserListItem" }
+        page: { type: integer }
+        limit: { type: integer }
+        total: { type: integer }
+        total_pages: { type: integer }
+    AdminUserDetail:
+      type: object
+      required: [id, email, is_instance_admin, orphaned, created_at, updated_at, password_changed_at, last_login_at, owned_clubs, players, api_tokens, passkeys]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        is_instance_admin: { type: boolean }
+        orphaned: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        password_changed_at: { type: string, format: date-time, nullable: true }
+        last_login_at: { type: string, format: date-time, nullable: true }
+        owned_clubs:
+          type: array
+          items:
+            type: object
+            required: [id, name, created_at, player_count]
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
+              created_at: { type: string, format: date-time }
+              player_count: { type: integer }
+        players:
+          type: array
+          description: Spieler, die mit dem Benutzer verknüpft sind
+          items:
+            type: object
+            required: [player_id, player_name, inactive, club_id, club_name, is_owner, role_id, role_name]
+            properties:
+              player_id: { type: string, format: uuid }
+              player_name: { type: string }
+              inactive: { type: boolean }
+              club_id: { type: string, format: uuid }
+              club_name: { type: string }
+              is_owner: { type: boolean, description: Der Benutzer ist auch Owner dieses Klubs }
+              role_id: { type: string, format: uuid, nullable: true }
+              role_name: { type: string, nullable: true }
+        api_tokens:
+          type: array
+          description: Ohne Token-Hash
+          items:
+            type: object
+            required: [id, name, token_prefix, created_at, expires_at, last_used_at]
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
+              token_prefix: { type: string, example: "kgm_AbCdEfGh" }
+              created_at: { type: string, format: date-time }
+              expires_at: { type: string, format: date-time, nullable: true }
+              last_used_at: { type: string, format: date-time, nullable: true }
+        passkeys:
+          type: array
+          items:
+            type: object
+            required: [id, name, created_at, last_used_at]
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
+              created_at: { type: string, format: date-time }
+              last_used_at: { type: string, format: date-time, nullable: true }
+    AdminClubListItem:
+      type: object
+      required: [id, name, created_at, owner, player_count, linked_player_count, game_day_count, last_activity_at]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        created_at: { type: string, format: date-time }
+        owner: { $ref: "#/components/schemas/AdminUserRef" }
+        player_count: { type: integer }
+        linked_player_count: { type: integer, description: Spieler mit verknüpftem Benutzer }
+        game_day_count: { type: integer, description: Alle Spieltage inkl. Entwürfe }
+        last_activity_at: { type: string, format: date-time, nullable: true, description: null = noch keine Aktivität }
+    AdminClubPage:
+      type: object
+      required: [data, page, limit, total, total_pages]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/AdminClubListItem" }
+        page: { type: integer }
+        limit: { type: integer }
+        total: { type: integer }
+        total_pages: { type: integer }
+    AdminClubDetail:
+      allOf:
+        - $ref: "#/components/schemas/AdminClubListItem"
+        - type: object
+          required: [transaction_count, players, open_invitations, roles]
+          properties:
+            transaction_count: { type: integer, description: Nur die Anzahl, keine Beträge }
+            players:
+              type: array
+              items:
+                type: object
+                required: [id, name, inactive, created_at, user, role_id, role_name]
+                properties:
+                  id: { type: string, format: uuid }
+                  name: { type: string }
+                  inactive: { type: boolean }
+                  created_at: { type: string, format: date-time }
+                  user:
+                    allOf: [{ $ref: "#/components/schemas/AdminUserRef" }]
+                    nullable: true
+                    description: Verknüpfter Benutzer; null = nicht verknüpft
+                  role_id: { type: string, format: uuid, nullable: true }
+                  role_name: { type: string, nullable: true }
+            open_invitations:
+              type: array
+              description: Nicht angenommen und nicht abgelaufen
+              items:
+                type: object
+                required: [id, player_id, player_name, email, created_at, expires_at]
+                properties:
+                  id: { type: string, format: uuid }
+                  player_id: { type: string, format: uuid }
+                  player_name: { type: string }
+                  email: { type: string, format: email, description: Eingeladene E-Mail }
+                  created_at: { type: string, format: date-time }
+                  expires_at: { type: string, format: date-time }
+            roles:
+              type: array
+              items:
+                type: object
+                required: [id, name, player_count]
+                properties:
+                  id: { type: string, format: uuid }
+                  name: { type: string }
+                  player_count: { type: integer }
     APIToken:
       type: object
       required: [id, name, token_prefix, expires_at, last_used_at, created_at]

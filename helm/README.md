@@ -54,6 +54,20 @@ Ingress und HTTPRoute (Gateway API) sind standardmäßig deaktiviert. Nach dem A
 
 Health-Check: `GET /healthz` auf Port 8080.
 
+### Instanz-Admin (Betreiber-Übersicht)
+
+Instanz-Admins sehen unter `/api/admin` eine read-only Übersicht über Benutzer, Klubs und Spieler-Verknüpfungen. Die Rolle wird nie über die Weboberfläche vergeben, sondern:
+
+- per CLI im laufenden Pod (nutzt `DATABASE_URL` aus dem Secret):
+
+  ```bash
+  kubectl -n kegelmaster exec deploy/kegelmaster -- kegelmaster admin grant betreiber@example.com
+  kubectl -n kegelmaster exec deploy/kegelmaster -- kegelmaster admin list
+  kubectl -n kegelmaster exec deploy/kegelmaster -- kegelmaster admin revoke betreiber@example.com
+  ```
+
+- oder per `config.INSTANCE_ADMIN_EMAILS` (kommagetrennt): beim Start erhalten diese bestehenden Konten das Flag; es wird nie etwas entzogen. Zum Entziehen die E-Mail aus der Liste entfernen **und** `admin revoke` ausführen.
+
 ## Prüfen ohne Cluster
 
 ```bash

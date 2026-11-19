@@ -102,6 +102,14 @@ func (r *Repository) UpdateNotifyGameDaySettled(ctx context.Context, userID stri
 	return dbUserToUser(dbUser), nil
 }
 
+// RecordLogin stores the time of a successful login (password or passkey).
+func (r *Repository) RecordLogin(ctx context.Context, userID string, at time.Time) error {
+	return r.queries.UpdateUserLastLogin(ctx, db.UpdateUserLastLoginParams{
+		ID:          userID,
+		LastLoginAt: sql.NullTime{Time: at, Valid: true},
+	})
+}
+
 // dbUserToUser converts a db.User to a user.User
 func dbUserToUser(dbUser db.User) User {
 	u := User{
@@ -111,6 +119,11 @@ func dbUserToUser(dbUser db.User) User {
 		CreatedAt:            dbUser.CreatedAt,
 		UpdatedAt:            dbUser.UpdatedAt,
 		NotifyGameDaySettled: dbUser.NotifyGamedaySettled,
+		IsInstanceAdmin:      dbUser.IsInstanceAdmin,
+	}
+	if dbUser.LastLoginAt.Valid {
+		lastLogin := dbUser.LastLoginAt.Time
+		u.LastLoginAt = &lastLogin
 	}
 	if dbUser.PasswordChangedAt.Valid {
 		changedAt := dbUser.PasswordChangedAt.Time

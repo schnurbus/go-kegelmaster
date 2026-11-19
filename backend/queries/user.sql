@@ -33,3 +33,9 @@ SET notify_gameday_settled = $2, updated_at = $3
 WHERE id = $1
 RETURNING *;
 
+
+-- name: UpdateUserLastLogin :exec
+-- Does not touch updated_at: a login is no change to the account itself.
+UPDATE users
+SET last_login_at = $2
+WHERE id = $1;

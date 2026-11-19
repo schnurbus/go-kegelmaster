@@ -32,6 +32,9 @@ services:
       JWT_SECRET: super-secret-change-me
       JWT_TTL_MINUTES: "1440"
       CORS_ALLOW_ORIGINS: "http://localhost:8080"
+      # Kommagetrennte E-Mails bestehender Konten, die beim Start Instanz-Admin werden
+      # (alternativ: docker compose exec backend kegelmaster admin grant <email>).
+      INSTANCE_ADMIN_EMAILS: ""
     depends_on:
       - postgres
       - redis

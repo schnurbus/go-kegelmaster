@@ -50,6 +50,9 @@ type Config struct {
 	// WebAuthnOrigins: kommagetrennte Origins, die Passkey-Zeremonien ausführen dürfen
 	// (Standard: Origin aus PUBLIC_BASE_URL plus CORS_ALLOW_ORIGINS).
 	WebAuthnOrigins string
+	// InstanceAdminEmails: kommagetrennte E-Mails, die beim Start das Instanz-Admin-Flag
+	// erhalten (nur bestehende Konten; es wird nie etwas entzogen).
+	InstanceAdminEmails []string
 }
 
 // Load builds a Config from process environment variables, applying defaults
@@ -84,6 +87,7 @@ func Load() Config {
 		TrustedProxies:              os.Getenv("TRUSTED_PROXIES"),
 		WebAuthnRPID:                strings.TrimSpace(os.Getenv("WEBAUTHN_RP_ID")),
 		WebAuthnOrigins:             os.Getenv("WEBAUTHN_ORIGINS"),
+		InstanceAdminEmails:         splitList(os.Getenv("INSTANCE_ADMIN_EMAILS")),
 	}
 
 	return cfg

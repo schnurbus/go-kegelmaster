@@ -53,16 +53,32 @@ const (
 	ActionTransactionCreated   = "transaction_created"
 	ActionTransactionDeleted   = "transaction_deleted"
 	ActionTransactionUpdated   = "transaction_updated"
+
+	// Instance admin (operator) actions; logged with LogAdminAudit.
+	ActionAdminStatsViewed = "admin_stats_viewed"
+	ActionAdminUsersListed = "admin_users_listed"
+	ActionAdminUserViewed  = "admin_user_viewed"
+	ActionAdminClubsListed = "admin_clubs_listed"
+	ActionAdminClubViewed  = "admin_club_viewed"
+	ActionAdminExport      = "admin_export"
 )
 
-// LogAudit writes an audit log entry. userID may be empty; then "anonymous" is logged for unauthenticated actions (e.g. register).
+// LogAudit writes an audit log entry, including the client IP (c.IP() honours
+// PROXY_HEADER/TRUSTED_PROXIES). userID may be empty; then "anonymous" is logged for unauthenticated actions (e.g. register).
 // keyValues are alternating key-value pairs (e.g. "club_id", clubID, "player_id", playerID).
 func LogAudit(c fiber.Ctx, userID, action string, keyValues ...any) {
 	if userID == "" {
 		userID = "anonymous"
 	}
-	attrs := make([]any, 0, 4+len(keyValues))
-	attrs = append(attrs, "event", "audit", "action", action, "user_id", userID)
+	attrs := make([]any, 0, 8+len(keyValues))
+	attrs = append(attrs, "event", "audit", "action", action, "user_id", userID, "ip", c.IP())
 	attrs = append(attrs, keyValues...)
 	slog.InfoContext(c.Context(), "audit", attrs...)
+}
+
+// LogAdminAudit writes an audit entry for an instance admin access. Every
+// entry carries admin=true, so operator accesses can be filtered in the log
+// stack. Read accesses are audited as well.
+func LogAdminAudit(c fiber.Ctx, adminUserID, action string, keyValues ...any) {
+	LogAudit(c, adminUserID, action, append([]any{"admin", true}, keyValues...)...)
 }

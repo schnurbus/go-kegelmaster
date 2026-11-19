@@ -15,8 +15,14 @@ type User struct {
 	// NotifyGameDaySettled enables an e-mail once a game day of one of the
 	// user's clubs was settled (published). Off by default.
 	NotifyGameDaySettled bool
-	CreatedAt            time.Time
-	UpdatedAt            time.Time
+	// IsInstanceAdmin grants access to the read-only operator area (/api/admin).
+	// It is independent of club permissions and only set via CLI or
+	// INSTANCE_ADMIN_EMAILS, never through the web UI.
+	IsInstanceAdmin bool
+	// LastLoginAt is the last successful password or passkey login (nil = unknown).
+	LastLoginAt *time.Time
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 // SessionValid reports whether a session issued at issuedAt is still valid,

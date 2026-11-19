@@ -114,3 +114,40 @@ func TestLogAudit_anonymousWhenUserIDEmpty(t *testing.T) {
 		t.Errorf("target_user_id: got %q", attrs["target_user_id"])
 	}
 }
+
+func TestLogAdminAudit_SetsAdminAndIP(t *testing.T) {
+	cap := &captureHandler{}
+	oldLogger := slog.Default()
+	slog.SetDefault(slog.New(cap))
+	defer slog.SetDefault(oldLogger)
+
+	app := fiber.New()
+	app.Get("/test", func(c fiber.Ctx) error {
+		LogAdminAudit(c, "admin-1", ActionAdminUserViewed, "target_user_id", "user-2")
+		return c.SendStatus(fiber.StatusOK)
+	})
+
+	req, _ := http.NewRequest(http.MethodGet, "/test", nil)
+	if _, err := app.Test(req, fiber.TestConfig{}); err != nil {
+		t.Fatal(err)
+	}
+
+	records := cap.getRecords()
+	if len(records) != 1 {
+		t.Fatalf("expected 1 audit log, got %d", len(records))
+	}
+	attrs := make(map[string]slog.Value)
+	records[0].Attrs(func(a slog.Attr) bool {
+		attrs[a.Key] = a.Value
+		return true
+	})
+	if !attrs["admin"].Bool() {
+		t.Errorf("admin: got %v", attrs["admin"])
+	}
+	if attrs["action"].String() != ActionAdminUserViewed || attrs["user_id"].String() != "admin-1" || attrs["target_user_id"].String() != "user-2" {
+		t.Errorf("unexpected attrs: %v", attrs)
+	}
+	if attrs["ip"].String() == "" {
+		t.Error("ip must be logged")
+	}
+}
