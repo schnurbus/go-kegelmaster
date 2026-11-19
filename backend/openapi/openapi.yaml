@@ -16,9 +16,13 @@ info:
       optional nach 1–365 Tagen und werden beim Zurücksetzen des Passworts widerrufen.
       Die Token-Verwaltung (`/api/auth/tokens`) ist nur mit Browser-Session möglich.
 
-    **Instanz-Administration** (`/api/admin`, Tag `admin`): read-only Betreiber-Übersicht. Nur
+    **Instanz-Administration** (`/api/admin`, Tag `admin`): Betreiber-Übersicht und Eingriffe
+    (Sperren, Sessions/API-Tokens widerrufen, Owner übertragen, Löschen). Nur
     Browser-Session eines Instanz-Admins; API-Tokens und MCP sind ausgeschlossen. Alle anderen
     Anfragen (auch ohne Anmeldung) erhalten **404**, damit der Bereich nicht auffindbar ist.
+    Eingriffe brauchen zusätzlich den Header `X-CSRF-Token` und werden mit `admin=true` auditiert.
+    Gesperrte Konten können sich nicht anmelden (Login 403); ihre Sessions und API-Tokens werden
+    abgelehnt (401).
   version: 0.1.0
 servers:
   - url: ""
@@ -1756,8 +1760,8 @@ paths:
         - $ref: "#/components/parameters/AdminSearch"
         - name: filter
           in: query
-          description: "`orphaned` = verwaiste Konten (siehe /api/admin/stats), `admin` = Instanz-Admins"
-          schema: { type: string, enum: [orphaned, admin] }
+          description: "`orphaned` = verwaiste Konten (siehe /api/admin/stats), `admin` = Instanz-Admins, `disabled` = gesperrte Konten"
+          schema: { type: string, enum: [orphaned, admin, disabled] }
         - name: sort
           in: query
           schema: { type: string, enum: [email, created_at, last_login_at], default: created_at }
@@ -1798,6 +1802,103 @@ paths:
               schema: { $ref: "#/components/schemas/AdminUserDetail" }
         "404":
           description: Kein Instanz-Admin oder Benutzer nicht gefunden
+    delete:
+      summary: Benutzer löschen
+      description: |
+        Löscht das Konto nach Bestätigung durch Eingabe seiner E-Mail-Adresse (ohne Groß-/Kleinschreibung).
+        Passkeys, API-Tokens und Reset-Links werden mitgelöscht; verknüpfte Spieler bleiben in ihren Klubs
+        (nur die Verknüpfung wird gelöst), Salden und Buchungen bleiben unverändert. Ist der Benutzer noch Owner
+        eines Klubs, wird mit 409 abgelehnt: erst den Owner übertragen, sonst würde die Kaskade den Klub löschen.
+        Das eigene Konto (400) und andere Instanz-Admins (409) können nicht gelöscht werden.
+        Audit: `admin_user_deleted`.
+      tags: [admin]
+      security: [cookieAuth: []]
+      parameters:
+        - $ref: "#/components/parameters/AdminUserId"
+        - $ref: "#/components/parameters/CSRFHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirm_email]
+              properties:
+                confirm_email: { type: string, description: E-Mail-Adresse des Kontos zur Bestätigung }
+      responses:
+        "204": { description: Gelöscht }
+        "400": { description: Bestätigung stimmt nicht oder eigenes Konto }
+        "403": { description: CSRF-Token ungültig }
+        "404": { description: Kein Instanz-Admin oder Benutzer nicht gefunden }
+        "409": { description: Benutzer ist noch Owner von Klubs oder Instanz-Admin }
+  /api/admin/users/{id}/disable:
+    post:
+      summary: Benutzer sperren
+      description: |
+        Setzt `disabled_at`. Login (Passwort und Passkey) wird mit 403 abgelehnt, bestehende Browser-Sessions und
+        API-Tokens mit 401. Die Browser-Sessions werden zusätzlich widerrufen (`sessions_valid_after`), damit ein
+        späteres Entsperren sie nicht wiederbelebt. Das eigene Konto (400) und andere Instanz-Admins (409) können
+        nicht gesperrt werden; die Admin-Rolle wird nur per CLI entzogen. Audit: `admin_user_disabled`.
+      tags: [admin]
+      security: [cookieAuth: []]
+      parameters:
+        - $ref: "#/components/parameters/AdminUserId"
+        - $ref: "#/components/parameters/CSRFHeader"
+      responses:
+        "204": { description: Gesperrt }
+        "400": { description: Eigenes Konto }
+        "403": { description: CSRF-Token ungültig }
+        "404": { description: Kein Instanz-Admin oder Benutzer nicht gefunden }
+        "409": { description: Ziel ist Instanz-Admin }
+  /api/admin/users/{id}/enable:
+    post:
+      summary: Benutzer entsperren
+      description: |
+        Entfernt `disabled_at`. Der Benutzer muss sich neu anmelden; seine API-Tokens gelten wieder.
+        Audit: `admin_user_enabled`.
+      tags: [admin]
+      security: [cookieAuth: []]
+      parameters:
+        - $ref: "#/components/parameters/AdminUserId"
+        - $ref: "#/components/parameters/CSRFHeader"
+      responses:
+        "204": { description: Entsperrt }
+        "403": { description: CSRF-Token ungültig }
+        "404": { description: Kein Instanz-Admin oder Benutzer nicht gefunden }
+  /api/admin/users/{id}/revoke-sessions:
+    post:
+      summary: Browser-Sessions widerrufen
+      description: |
+        Setzt `sessions_valid_after` auf jetzt: alle vorher ausgestellten Browser-Sessions werden abgelehnt
+        (zusätzlich zur Prüfung gegen `password_changed_at`). API-Tokens bleiben gültig und werden einzeln
+        widerrufen. Nicht für das eigene Konto (400). Audit: `admin_sessions_revoked`.
+      tags: [admin]
+      security: [cookieAuth: []]
+      parameters:
+        - $ref: "#/components/parameters/AdminUserId"
+        - $ref: "#/components/parameters/CSRFHeader"
+      responses:
+        "204": { description: Sessions widerrufen }
+        "400": { description: Eigenes Konto }
+        "403": { description: CSRF-Token ungültig }
+        "404": { description: Kein Instanz-Admin oder Benutzer nicht gefunden }
+  /api/admin/users/{id}/tokens/{tokenId}:
+    delete:
+      summary: API-Token eines Benutzers widerrufen
+      description: "Löscht das Token; es ist sofort ungültig. Audit: `admin_token_revoked`."
+      tags: [admin]
+      security: [cookieAuth: []]
+      parameters:
+        - $ref: "#/components/parameters/AdminUserId"
+        - name: tokenId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: "#/components/parameters/CSRFHeader"
+      responses:
+        "204": { description: Token widerrufen }
+        "403": { description: CSRF-Token ungültig }
+        "404": { description: Kein Instanz-Admin oder Token (dieses Benutzers) nicht gefunden }
   /api/admin/clubs:
     get:
       summary: Klubs auflisten
@@ -1854,6 +1955,65 @@ paths:
               schema: { $ref: "#/components/schemas/AdminClubDetail" }
         "404":
           description: Kein Instanz-Admin oder Klub nicht gefunden
+    delete:
+      summary: Klub löschen
+      description: |
+        Löscht den Klub samt allen Fachdaten (Spieler, Rollen, Spieltage, Transaktionen usw. per Kaskade) nach
+        Bestätigung durch Eingabe des exakten Klubnamens. Audit: `admin_club_deleted`.
+      tags: [admin]
+      security: [cookieAuth: []]
+      parameters:
+        - $ref: "#/components/parameters/AdminClubId"
+        - $ref: "#/components/parameters/CSRFHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirm_name]
+              properties:
+                confirm_name: { type: string, description: Name des Klubs zur Bestätigung }
+      responses:
+        "204": { description: Gelöscht }
+        "400": { description: Bestätigung stimmt nicht }
+        "403": { description: CSRF-Token ungültig }
+        "404": { description: Kein Instanz-Admin oder Klub nicht gefunden }
+  /api/admin/clubs/{id}/transfer-owner:
+    post:
+      summary: Klub-Owner übertragen
+      description: |
+        Macht ein anderes, nicht gesperrtes Konto zum Owner (gleiche Logik wie `POST /api/clubs/{id}/transfer-owner`,
+        aber ohne Owner- und Passwortprüfung), z. B. wenn der Owner nicht mehr erreichbar ist oder gelöscht werden soll.
+        Der Admin wird dadurch nicht Mitglied des Klubs. Audit: `admin_club_owner_transferred`.
+      tags: [admin]
+      security: [cookieAuth: []]
+      parameters:
+        - $ref: "#/components/parameters/AdminClubId"
+        - $ref: "#/components/parameters/CSRFHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [new_owner_email]
+              properties:
+                new_owner_email: { type: string, format: email }
+      responses:
+        "200":
+          description: Neuer Owner
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [club_id, owner]
+                properties:
+                  club_id: { type: string, format: uuid }
+                  owner: { $ref: "#/components/schemas/AdminUserRef" }
+        "400": { description: Ungültige E-Mail, Konto existiert nicht, ist gesperrt oder bereits Owner }
+        "403": { description: CSRF-Token ungültig }
+        "404": { description: Kein Instanz-Admin oder Klub nicht gefunden }
   /api/admin/export/memberships.csv:
     get:
       summary: Verknüpfungen als CSV exportieren
@@ -1877,6 +2037,24 @@ paths:
           $ref: "#/components/responses/AdminNotFound"
 components:
   parameters:
+    AdminUserId:
+      name: id
+      in: path
+      required: true
+      description: ID des Benutzers
+      schema: { type: string, format: uuid }
+    AdminClubId:
+      name: id
+      in: path
+      required: true
+      description: ID des Klubs
+      schema: { type: string, format: uuid }
+    CSRFHeader:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      description: Wert des Cookies `csrf_token`
+      schema: { type: string }
     AdminSearch:
       name: search
       in: query
@@ -1940,13 +2118,14 @@ components:
       properties:
         users:
           type: object
-          required: [total, new_7d, new_30d, active_30d, instance_admins]
+          required: [total, new_7d, new_30d, active_30d, instance_admins, disabled]
           properties:
             total: { type: integer }
             new_7d: { type: integer, description: Registriert in den letzten 7 Tagen }
             new_30d: { type: integer, description: Registriert in den letzten 30 Tagen }
             active_30d: { type: integer, description: Login in den letzten 30 Tagen }
             instance_admins: { type: integer }
+            disabled: { type: integer, description: Gesperrte Konten }
         clubs:
           type: object
           required: [total, active_90d]
@@ -1991,7 +2170,7 @@ components:
         email: { type: string, format: email }
     AdminUserListItem:
       type: object
-      required: [id, email, is_instance_admin, orphaned, created_at, last_login_at, owned_club_count, player_club_count, passkey_count, api_token_count]
+      required: [id, email, is_instance_admin, orphaned, created_at, last_login_at, disabled_at, owned_club_count, player_club_count, passkey_count, api_token_count]
       properties:
         id: { type: string, format: uuid }
         email: { type: string, format: email }
@@ -1999,6 +2178,7 @@ components:
         orphaned: { type: boolean, description: Ohne Klub und Spieler-Verknüpfung, älter als 30 Tage }
         created_at: { type: string, format: date-time }
         last_login_at: { type: string, format: date-time, nullable: true, description: null = unbekannt }
+        disabled_at: { type: string, format: date-time, nullable: true, description: Gesperrt seit (null = aktiv) }
         owned_club_count: { type: integer, description: Anzahl Klubs, deren Owner der Benutzer ist }
         player_club_count: { type: integer, description: Anzahl Klubs, in denen ein Spieler mit dem Benutzer verknüpft ist }
         passkey_count: { type: integer }
@@ -2016,7 +2196,7 @@ components:
         total_pages: { type: integer }
     AdminUserDetail:
       type: object
-      required: [id, email, is_instance_admin, orphaned, created_at, updated_at, password_changed_at, last_login_at, owned_clubs, players, api_tokens, passkeys]
+      required: [id, email, is_instance_admin, orphaned, created_at, updated_at, password_changed_at, last_login_at, disabled_at, sessions_valid_after, owned_clubs, players, api_tokens, passkeys]
       properties:
         id: { type: string, format: uuid }
         email: { type: string, format: email }
@@ -2026,6 +2206,8 @@ components:
         updated_at: { type: string, format: date-time }
         password_changed_at: { type: string, format: date-time, nullable: true }
         last_login_at: { type: string, format: date-time, nullable: true }
+        disabled_at: { type: string, format: date-time, nullable: true, description: Gesperrt seit (null = aktiv) }
+        sessions_valid_after: { type: string, format: date-time, nullable: true, description: Browser-Sessions davor wurden widerrufen }
         owned_clubs:
           type: array
           items:

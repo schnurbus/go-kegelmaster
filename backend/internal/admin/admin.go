@@ -42,6 +42,7 @@ type UserStats struct {
 	New30d         int64 `json:"new_30d"`
 	Active30d      int64 `json:"active_30d"`
 	InstanceAdmins int64 `json:"instance_admins"`
+	Disabled       int64 `json:"disabled"`
 }
 
 type ClubStats struct {
@@ -91,6 +92,8 @@ type UserListItem struct {
 	Orphaned        bool       `json:"orphaned"`
 	CreatedAt       time.Time  `json:"created_at"`
 	LastLoginAt     *time.Time `json:"last_login_at"`
+	// DisabledAt is set while the account is disabled.
+	DisabledAt      *time.Time `json:"disabled_at"`
 	OwnedClubCount  int64      `json:"owned_club_count"`
 	PlayerClubCount int64      `json:"player_club_count"`
 	PasskeyCount    int64      `json:"passkey_count"`
@@ -99,18 +102,21 @@ type UserListItem struct {
 
 // UserDetail is the account with its clubs, player links, tokens and passkeys.
 type UserDetail struct {
-	ID                string           `json:"id"`
-	Email             string           `json:"email"`
-	IsInstanceAdmin   bool             `json:"is_instance_admin"`
-	Orphaned          bool             `json:"orphaned"`
-	CreatedAt         time.Time        `json:"created_at"`
-	UpdatedAt         time.Time        `json:"updated_at"`
-	PasswordChangedAt *time.Time       `json:"password_changed_at"`
-	LastLoginAt       *time.Time       `json:"last_login_at"`
-	OwnedClubs        []OwnedClub      `json:"owned_clubs"`
-	Players           []UserPlayerLink `json:"players"`
-	APITokens         []APITokenInfo   `json:"api_tokens"`
-	Passkeys          []PasskeyInfo    `json:"passkeys"`
+	ID                string     `json:"id"`
+	Email             string     `json:"email"`
+	IsInstanceAdmin   bool       `json:"is_instance_admin"`
+	Orphaned          bool       `json:"orphaned"`
+	CreatedAt         time.Time  `json:"created_at"`
+	UpdatedAt         time.Time  `json:"updated_at"`
+	PasswordChangedAt *time.Time `json:"password_changed_at"`
+	LastLoginAt       *time.Time `json:"last_login_at"`
+	DisabledAt        *time.Time `json:"disabled_at"`
+	// SessionsValidAfter: browser sessions issued before this were revoked.
+	SessionsValidAfter *time.Time       `json:"sessions_valid_after"`
+	OwnedClubs         []OwnedClub      `json:"owned_clubs"`
+	Players            []UserPlayerLink `json:"players"`
+	APITokens          []APITokenInfo   `json:"api_tokens"`
+	Passkeys           []PasskeyInfo    `json:"passkeys"`
 }
 
 type OwnedClub struct {

@@ -34,7 +34,7 @@ Die Rollen und Berechtigungen müssen dynamisch pro Klub konfigurierbar sein. Zu
 - Rolle "Kassenwart" darf Spielabende und Strafen eintragen
 - Rolle "Kassenwart" darf nicht Grundgebühr des Klubs ändern
 
-Getrennt davon gibt es die Rolle **Instanz-Admin** (Betreiber, `users.is_instance_admin`). Sie gilt nicht für einen Klub, sondern für die Instanz, und gibt nur Lesezugriff auf die Betreiber-Übersicht (`/api/admin`). Ein Instanz-Admin wird dadurch weder Owner noch Mitglied eines Klubs und sieht keine Fachdaten der Klubs.
+Getrennt davon gibt es die Rolle **Instanz-Admin** (Betreiber, `users.is_instance_admin`). Sie gilt nicht für einen Klub, sondern für die Instanz, und gibt Zugriff auf die Betreiber-Übersicht (`/api/admin`) sowie auf gezielte Eingriffe (Benutzer sperren, Sessions/API-Tokens widerrufen, Klub-Owner übertragen, Benutzer/Klubs löschen). Ein Instanz-Admin wird dadurch weder Owner noch Mitglied eines Klubs und sieht keine Fachdaten der Klubs.
 
 ---
 
@@ -301,7 +301,8 @@ Weitere Entitäten kommen mit der Zeit dazu
 - Rate Limiting
 - CSRF-Schutz (Double-Submit Token) & CORS-Konfiguration
 - Persönliche API-Tokens: 256 Bit Zufall, nur Hash in der DB, optionaler Ablauf, Widerruf bei Passwort-Reset
-- Instanz-Admin-Bereich `/api/admin`: nur Browser-Session (kein API-Token, kein MCP); alle anderen erhalten 404; Vergabe der Rolle nur per CLI bzw. `INSTANCE_ADMIN_EMAILS`; jeder Zugriff wird mit `admin=true` und Client-IP über `slog` auditiert
+- Instanz-Admin-Bereich `/api/admin`: nur Browser-Session (kein API-Token, kein MCP); alle anderen erhalten 404; Vergabe der Rolle nur per CLI bzw. `INSTANCE_ADMIN_EMAILS`; jeder Zugriff wird mit `admin=true` und Client-IP über `slog` auditiert; Eingriffe zusätzlich mit CSRF-Schutz und Bestätigungsdialog
+- Gesperrte Konten (`users.disabled_at`): Login (Passwort/Passkey), Browser-Session und API-Tokens werden abgelehnt; Sessions lassen sich per `users.sessions_valid_after` widerrufen
 - Passkeys: Hinzufügen nur mit aktuellem Passwort und Browser-Session; Challenges einmalig und 5 Minuten gültig; Signaturzähler-Prüfung gegen geklonte Authenticators; alle Passkeys werden beim Zurücksetzen des Passworts („Passwort vergessen“) gelöscht, beim normalen Passwortwechsel bleiben sie erhalten
 
 ### Performance
@@ -368,6 +369,7 @@ Weitere Entitäten kommen mit der Zeit dazu
 - ✅ Shadcn UI Komponenten-Integration
 - ✅ Passwortfelder mit Augen-Symbol zum Anzeigen/Verbergen der Eingabe (`components/ui/password-input.tsx`, in allen Passwortfeldern)
 - ✅ Administrationsbereich für Betreiber `/admin` (Dashboard, Benutzer, Klubs, CSV-Export; nur für Instanz-Admins)
+- ✅ Admin-Eingriffe: Benutzer sperren/entsperren, Sessions und API-Tokens widerrufen, Klub-Owner übertragen, Benutzer/Klubs löschen
 
 ### In Arbeit ⏳
 - ⏳ Player Entity & CRUD
@@ -602,3 +604,18 @@ Phase 1 (Frontend) der Betreiber-Übersicht (KEG-8, Konzept `docs/konzept-betrei
 - **Navigation:** Menüeintrag „Administration“ in der Sidebar nur bei `is_instance_admin` aus `/api/auth/me`, unabhängig vom ausgewählten Klub; der Bereich liest den `ClubContext` nicht. Nicht-Admins sehen auf `/admin*` die Fehlerseite „Seite nicht gefunden“ (ohne Admin-Request), unbekannte IDs ebenso (API 404).
 - **Komponenten:** Shadcn `Table`, `Badge` (Admin, verwaist, Owner, verknüpft / nicht verknüpft, inaktiv), `Card`, `Select`; gemeinsame Bausteine in `components/admin/admin-ui.tsx`, Daten-Hook `useAdminFetch` und URL-Listenzustand `useAdminListParams` in `lib/admin.ts`, Typen in `types/admin.ts`. Mobil: Listen als Kartenliste statt Tabelle, Detailtabellen horizontal scrollbar.
 - **Tests:** Playwright `frontend/e2e/admin.spec.ts`: Admin (Rolle per CLI `go run ./cmd/api admin grant`) sieht Benutzer und Klubs inkl. Querverweisen und CSV; normaler Benutzer sieht keinen Menüeintrag und bekommt auf `/admin` die Fehlerseite.
+
+## Letzte Implementierung: Admin-Eingriffe (19. November 2026)
+
+Phase 3 der Betreiber-Übersicht (KEG-10, Konzept `docs/konzept-betreiber-uebersicht.md` §7). Baut auf Instanz-Admin, Admin-API und Admin-UI auf.
+
+- **Datenmodell:** Migration `000031_admin_actions`: `users.disabled_at` (gesperrt seit, NULL = aktiv) und `users.sessions_valid_after` (Browser-Sessions, die davor ausgestellt wurden, sind ungültig). In Produktion läuft die Migration über `AUTO_MIGRATE`.
+- **Sperren:** `POST /api/admin/users/:id/disable|enable`. Gesperrte Konten: Passwort- und Passkey-Login → 403 „Dieses Konto ist gesperrt …“ (erst nach korrektem Passwort, damit gesperrte Konten nicht ausgekundschaftet werden können), `UserFromCookie` und `userFromAPIToken` lehnen ab (401); damit verliert auch ein gesperrter Instanz-Admin sofort den Admin-Zugriff. Beim Sperren werden die Browser-Sessions mit widerrufen, damit ein späteres Entsperren sie nicht wiederbelebt; API-Tokens gelten nach dem Entsperren wieder.
+- **Sessions widerrufen:** `POST /api/admin/users/:id/revoke-sessions` setzt `sessions_valid_after`; `User.SessionValid` prüft es zusätzlich zu `password_changed_at`. API-Tokens sind davon nicht betroffen und werden einzeln widerrufen: `DELETE /api/admin/users/:id/tokens/:tokenId`.
+- **Owner übertragen:** `POST /api/admin/clubs/:id/transfer-owner` (`new_owner_email`), gleiche Logik wie `HandleTransferClubOwner` (gemeinsame Funktion `transferClubOwner`), aber ohne Owner- und Passwortprüfung. Gesperrte Konten können nicht (mehr) Owner werden – auch nicht bei der normalen Übertragung durch den Owner. Der Admin wird nicht Mitglied des Klubs.
+- **Löschen:** `DELETE /api/admin/users/:id` mit `confirm_email`, `DELETE /api/admin/clubs/:id` mit `confirm_name` (exakter Klubname). Ein Benutzer, der noch Owner ist, wird mit 409 abgelehnt (atomar in der Delete-Query geprüft), sonst würde die Kaskade seine Klubs löschen. Verknüpfte Spieler bleiben in ihren Klubs (`players.user_id` → NULL), Salden und Buchungen ändern sich nicht. Beim Klub-Löschen kaskadieren alle Fachdaten des Klubs.
+- **Schutzregeln:** Das eigene Konto kann nicht gesperrt, gelöscht oder per Sessions-Widerruf abgemeldet werden (400). Andere Instanz-Admins können über die Weboberfläche weder gesperrt noch gelöscht werden (409): wie die Vergabe bleibt das Entziehen der Rolle der CLI vorbehalten (`kegelmaster admin revoke`). So kann ein kompromittiertes Admin-Konto keine anderen Admins aussperren, und der letzte Admin kann nie über die Weboberfläche entfernt werden.
+- **Audit:** `admin_user_disabled`, `admin_user_enabled`, `admin_sessions_revoked`, `admin_token_revoked`, `admin_club_owner_transferred`, `admin_user_deleted`, `admin_club_deleted` mit `admin=true`; abgelehnte Logins gesperrter Konten als `user_login_rejected`.
+- **Übersicht:** Benutzerliste mit Filter „Gesperrt“ und Badge „gesperrt“, Dashboard zählt gesperrte Konten (`users.disabled` in `/api/admin/stats`), Benutzer-Detail zeigt „Gesperrt seit“ und „Sessions widerrufen“.
+- **Frontend:** Karte „Eingriffe“ auf `/admin/users/:id` (Sperren/Entsperren, Sessions widerrufen, Benutzer löschen mit Eingabe der E-Mail; Löschen erst, wenn keine eigenen Klubs mehr bestehen) und `/admin/clubs/:id` (Owner übertragen, Klub löschen mit Eingabe des Namens); „Widerrufen“ je API-Token. Alle Eingriffe mit Bestätigungsdialog (`components/admin/admin-action-dialog.tsx`), Requests über `adminMutation` (CSRF-Header) in `lib/admin.ts`.
+- **Tests:** `internal/server/admin_actions_handler_test.go` (gesperrter Benutzer: Login 403, Cookie-Session und API-Token 401; widerrufene Session 401; gesperrter Admin → 404; alle Eingriffe: Nicht-Admin/Bearer → 404, ohne CSRF → 403, Erfolg, eigenes Konto, anderer Admin, falsche Bestätigung, Owner muss erst übertragen, gesperrter neuer Owner), `internal/user` (`SessionValid` mit `sessions_valid_after`), Playwright `frontend/e2e/admin.spec.ts` (Sperren: Session ungültig, Login mit Hinweis abgelehnt; Entsperren: Login wieder möglich).

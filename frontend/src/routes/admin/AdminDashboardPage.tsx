@@ -67,7 +67,7 @@ function AdminDashboardPage() {
         <StatTile
           label="Benutzer"
           value={stats.users.total}
-          hint={`${stats.users.instance_admins} Admin${stats.users.instance_admins === 1 ? "" : "s"}`}
+          hint={`${stats.users.instance_admins} Admin${stats.users.instance_admins === 1 ? "" : "s"} · ${stats.users.disabled} gesperrt`}
         />
         <StatTile label="Neu (7 Tage)" value={stats.users.new_7d} hint={`${stats.users.new_30d} in 30 Tagen`} />
         <StatTile label="Aktiv (30 Tage)" value={stats.users.active_30d} hint="Login in den letzten 30 Tagen" />

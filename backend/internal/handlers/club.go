@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -16,9 +17,9 @@ import (
 type createClubRequest struct {
 	Name               string `json:"name"`
 	Balance            int    `json:"balance"`
-	StartBalance      int    `json:"start_balance"`
-	BaseFee           int    `json:"base_fee"`
-	AutoTipEnabled    *bool  `json:"auto_tip_enabled,omitempty"`    // Optional, defaults to true
+	StartBalance       int    `json:"start_balance"`
+	BaseFee            int    `json:"base_fee"`
+	AutoTipEnabled     *bool  `json:"auto_tip_enabled,omitempty"`     // Optional, defaults to true
 	CouplesModeEnabled *bool  `json:"couples_mode_enabled,omitempty"` // Optional, defaults to false
 }
 
@@ -352,31 +353,46 @@ func (h *Handler) HandleTransferClubOwner(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusUnauthorized, "Ungültiges Passwort")
 	}
 
-	newOwnerEmail := strings.ToLower(strings.TrimSpace(req.NewOwnerEmail))
-	newOwner, err := h.UserRepo.GetByEmail(ctx, newOwnerEmail)
+	updatedClub, newOwner, err := h.transferClubOwner(ctx, clubID, existingClub.UserID, req.NewOwnerEmail)
 	if err != nil {
-		if errors.Is(err, user.ErrNotFound) {
-			return fiber.NewError(fiber.StatusBadRequest, "User mit dieser E-Mail existiert nicht")
-		}
-		slog.Error("get user by email", "error", err)
-		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+		return err
 	}
 
-	if newOwner.ID == u.ID {
-		return fiber.NewError(fiber.StatusBadRequest, "Der neue Eigentümer muss ein anderer User sein")
+	audit.LogAudit(c, u.ID, audit.ActionClubOwnerTransferred, "club_id", clubID, "new_owner_id", newOwner.ID)
+	return c.JSON(ClubResponseFromEntity(updatedClub))
+}
+
+// transferClubOwner makes the account with newOwnerEmail the owner of the
+// club. It does no permission check: HandleTransferClubOwner (current owner)
+// and HandleAdminTransferClubOwner (instance admin) authorize beforehand.
+// Errors are *fiber.Error and can be returned as is.
+func (h *Handler) transferClubOwner(ctx context.Context, clubID, currentOwnerID, newOwnerEmail string) (club.Club, user.User, error) {
+	email := strings.ToLower(strings.TrimSpace(newOwnerEmail))
+	newOwner, err := h.UserRepo.GetByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, user.ErrNotFound) {
+			return club.Club{}, user.User{}, fiber.NewError(fiber.StatusBadRequest, "User mit dieser E-Mail existiert nicht")
+		}
+		slog.Error("get user by email", "error", err)
+		return club.Club{}, user.User{}, fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+
+	if newOwner.ID == currentOwnerID {
+		return club.Club{}, user.User{}, fiber.NewError(fiber.StatusBadRequest, "Der neue Eigentümer muss ein anderer User sein")
+	}
+	if newOwner.Disabled() {
+		return club.Club{}, user.User{}, fiber.NewError(fiber.StatusBadRequest, "Der neue Eigentümer ist gesperrt")
 	}
 
 	updatedClub, err := h.ClubRepo.UpdateOwner(ctx, clubID, newOwner.ID)
 	if err != nil {
 		if errors.Is(err, club.ErrNotFound) {
-			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
+			return club.Club{}, user.User{}, fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
 		}
 		slog.Error("update club owner", "error", err)
-		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+		return club.Club{}, user.User{}, fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
-
-	audit.LogAudit(c, u.ID, audit.ActionClubOwnerTransferred, "club_id", clubID, "new_owner_id", newOwner.ID)
-	return c.JSON(ClubResponseFromEntity(updatedClub))
+	return updatedClub, newOwner, nil
 }
 
 // HandleRecalculateClubBalance recalculates club balance from start_balance + SUM(amount) of all transactions. Only club owner may call.

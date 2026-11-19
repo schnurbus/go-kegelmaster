@@ -49,6 +49,11 @@ type Querier interface {
 	CreateWebAuthnSession(ctx context.Context, arg CreateWebAuthnSessionParams) error
 	DeleteAPIToken(ctx context.Context, arg DeleteAPITokenParams) (int64, error)
 	DeleteAPITokensByUserID(ctx context.Context, userID string) error
+	// Löscht das Konto nur, wenn es keinen Klub (mehr) besitzt: clubs.user_id
+	// kaskadiert, ein Owner würde sonst seine Klubs samt Fachdaten mitlöschen.
+	// Spieler bleiben erhalten (players.user_id ON DELETE SET NULL), Salden und
+	// Buchungen der Klubs sind davon nicht betroffen.
+	DeleteAdminUserWithoutClubs(ctx context.Context, id string) (int64, error)
 	DeleteAllCompetitionValuesByParticipant(ctx context.Context, gameDayParticipantID string) error
 	DeleteAllFeesByParticipant(ctx context.Context, gameDayParticipantID string) error
 	DeleteAllParticipantsByGameDay(ctx context.Context, gameDayID string) error
@@ -69,6 +74,12 @@ type Querier interface {
 	DeleteTransaction(ctx context.Context, id string) error
 	DeleteWebAuthnCredential(ctx context.Context, arg DeleteWebAuthnCredentialParams) (int64, error)
 	DeleteWebAuthnCredentialsByUserID(ctx context.Context, userID string) error
+	// Admin-Eingriffe (Phase 3, KEG-10). Zugriffsschutz und Audit im Handler.
+	// Sperrt das Konto. sessions_valid_after wird mitgesetzt, damit ein späteres
+	// Entsperren alte Browser-Sessions nicht wiederbelebt. Ein bereits gesperrtes
+	// Konto behält seinen ursprünglichen Sperrzeitpunkt.
+	DisableAdminUser(ctx context.Context, arg DisableAdminUserParams) (int64, error)
+	EnableAdminUser(ctx context.Context, arg EnableAdminUserParams) (int64, error)
 	GetAPITokenByHash(ctx context.Context, tokenHash string) (ApiToken, error)
 	GetAdminClub(ctx context.Context, id string) (GetAdminClubRow, error)
 	// Instanz-Administration (read-only Betreiber-Übersicht, KEG-7).
@@ -160,6 +171,9 @@ type Querier interface {
 	MarkPlayerInvitationAccepted(ctx context.Context, arg MarkPlayerInvitationAcceptedParams) (int64, error)
 	RemoveRolePermission(ctx context.Context, arg RemoveRolePermissionParams) error
 	RenameWebAuthnCredential(ctx context.Context, arg RenameWebAuthnCredentialParams) (WebauthnCredential, error)
+	// Browser-Sessions, die vor at ausgestellt wurden, werden abgelehnt.
+	// Kein updated_at: das Konto selbst ändert sich nicht.
+	RevokeAdminUserSessions(ctx context.Context, arg RevokeAdminUserSessionsParams) (int64, error)
 	SetGameDayParticipantAttended(ctx context.Context, arg SetGameDayParticipantAttendedParams) (GameDayParticipant, error)
 	// Für CLI und INSTANCE_ADMIN_EMAILS. Liefert keine Zeile, wenn das Konto fehlt.
 	SetInstanceAdminByEmail(ctx context.Context, arg SetInstanceAdminByEmailParams) (SetInstanceAdminByEmailRow, error)

@@ -185,6 +185,8 @@ type User struct {
 	NotifyGamedaySettled bool         `json:"notify_gameday_settled"`
 	IsInstanceAdmin      bool         `json:"is_instance_admin"`
 	LastLoginAt          sql.NullTime `json:"last_login_at"`
+	DisabledAt           sql.NullTime `json:"disabled_at"`
+	SessionsValidAfter   sql.NullTime `json:"sessions_valid_after"`
 }
 
 type WebauthnCredential struct {

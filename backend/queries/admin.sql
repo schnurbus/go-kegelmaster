@@ -16,6 +16,7 @@ SELECT
     (SELECT COUNT(*) FROM users u WHERE u.created_at >= now() - interval '30 days')::bigint AS users_new_30d,
     (SELECT COUNT(*) FROM users u WHERE u.last_login_at >= now() - interval '30 days')::bigint AS users_active_30d,
     (SELECT COUNT(*) FROM users u WHERE u.is_instance_admin)::bigint AS users_instance_admins,
+    (SELECT COUNT(*) FROM users u WHERE u.disabled_at IS NOT NULL)::bigint AS users_disabled,
     (SELECT COUNT(*) FROM users u
         WHERE u.created_at < now() - interval '30 days'
           AND NOT EXISTS (SELECT 1 FROM clubs c WHERE c.user_id = u.id)
@@ -56,6 +57,7 @@ SELECT
     u.is_instance_admin,
     u.created_at,
     u.last_login_at,
+    u.disabled_at,
     (SELECT COUNT(*) FROM clubs c WHERE c.user_id = u.id)::bigint AS owned_club_count,
     (SELECT COUNT(DISTINCT p.club_id) FROM players p WHERE p.user_id = u.id)::bigint AS player_club_count,
     (SELECT COUNT(*) FROM webauthn_credentials w WHERE w.user_id = u.id)::bigint AS passkey_count,
@@ -66,6 +68,7 @@ SELECT
 FROM users u
 WHERE (sqlc.arg(search)::text = '' OR u.email ILIKE '%' || sqlc.arg(search)::text || '%')
   AND (NOT sqlc.arg(only_admins)::boolean OR u.is_instance_admin)
+  AND (NOT sqlc.arg(only_disabled)::boolean OR u.disabled_at IS NOT NULL)
   AND (NOT sqlc.arg(only_orphaned)::boolean OR (
         u.created_at < now() - interval '30 days'
         AND NOT EXISTS (SELECT 1 FROM clubs c WHERE c.user_id = u.id)
@@ -85,6 +88,7 @@ SELECT COUNT(*)::bigint
 FROM users u
 WHERE (sqlc.arg(search)::text = '' OR u.email ILIKE '%' || sqlc.arg(search)::text || '%')
   AND (NOT sqlc.arg(only_admins)::boolean OR u.is_instance_admin)
+  AND (NOT sqlc.arg(only_disabled)::boolean OR u.disabled_at IS NOT NULL)
   AND (NOT sqlc.arg(only_orphaned)::boolean OR (
         u.created_at < now() - interval '30 days'
         AND NOT EXISTS (SELECT 1 FROM clubs c WHERE c.user_id = u.id)
@@ -99,6 +103,8 @@ SELECT
     u.updated_at,
     u.password_changed_at,
     u.last_login_at,
+    u.disabled_at,
+    u.sessions_valid_after,
     (u.created_at < now() - interval '30 days'
         AND NOT EXISTS (SELECT 1 FROM clubs c WHERE c.user_id = u.id)
         AND NOT EXISTS (SELECT 1 FROM players p WHERE p.user_id = u.id))::boolean AS orphaned
@@ -301,3 +307,37 @@ SELECT id, email, created_at, last_login_at
 FROM users
 WHERE is_instance_admin
 ORDER BY email;
+
+-- Admin-Eingriffe (Phase 3, KEG-10). Zugriffsschutz und Audit im Handler.
+
+-- name: DisableAdminUser :execrows
+-- Sperrt das Konto. sessions_valid_after wird mitgesetzt, damit ein späteres
+-- Entsperren alte Browser-Sessions nicht wiederbelebt. Ein bereits gesperrtes
+-- Konto behält seinen ursprünglichen Sperrzeitpunkt.
+UPDATE users
+SET disabled_at = COALESCE(disabled_at, sqlc.arg(at)::timestamptz),
+    sessions_valid_after = sqlc.arg(at)::timestamptz,
+    updated_at = sqlc.arg(at)::timestamptz
+WHERE id = sqlc.arg(id);
+
+-- name: EnableAdminUser :execrows
+UPDATE users
+SET disabled_at = NULL,
+    updated_at = sqlc.arg(at)::timestamptz
+WHERE id = sqlc.arg(id);
+
+-- name: RevokeAdminUserSessions :execrows
+-- Browser-Sessions, die vor at ausgestellt wurden, werden abgelehnt.
+-- Kein updated_at: das Konto selbst ändert sich nicht.
+UPDATE users
+SET sessions_valid_after = sqlc.arg(at)::timestamptz
+WHERE id = sqlc.arg(id);
+
+-- name: DeleteAdminUserWithoutClubs :execrows
+-- Löscht das Konto nur, wenn es keinen Klub (mehr) besitzt: clubs.user_id
+-- kaskadiert, ein Owner würde sonst seine Klubs samt Fachdaten mitlöschen.
+-- Spieler bleiben erhalten (players.user_id ON DELETE SET NULL), Salden und
+-- Buchungen der Klubs sind davon nicht betroffen.
+DELETE FROM users u
+WHERE u.id = sqlc.arg(id)
+  AND NOT EXISTS (SELECT 1 FROM clubs c WHERE c.user_id = u.id);

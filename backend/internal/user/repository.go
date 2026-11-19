@@ -129,6 +129,14 @@ func dbUserToUser(dbUser db.User) User {
 		changedAt := dbUser.PasswordChangedAt.Time
 		u.PasswordChangedAt = &changedAt
 	}
+	if dbUser.DisabledAt.Valid {
+		disabledAt := dbUser.DisabledAt.Time
+		u.DisabledAt = &disabledAt
+	}
+	if dbUser.SessionsValidAfter.Valid {
+		validAfter := dbUser.SessionsValidAfter.Time
+		u.SessionsValidAfter = &validAfter
+	}
 	return u
 }
 

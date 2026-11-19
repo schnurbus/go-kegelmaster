@@ -31,7 +31,7 @@ func expectSessionUser(mock sqlmock.Sqlmock, userID string, isAdmin bool) {
 	mock.ExpectQuery(`SELECT id, email, password_hash`).
 		WithArgs(userID).
 		WillReturnRows(sqlmock.NewRows(userColumns).
-			AddRow(userID, "op@example.com", "hash", now, now, nil, false, isAdmin, nil))
+			AddRow(userID, "op@example.com", "hash", now, now, nil, false, isAdmin, nil, nil, nil))
 }
 
 func adminRequest(t *testing.T, token, path string) *http.Request {
@@ -120,10 +120,10 @@ func TestAdmin_Stats(t *testing.T) {
 
 	mock.ExpectQuery(`SELECT\s+\(SELECT COUNT\(\*\) FROM users\)::bigint AS users_total`).
 		WillReturnRows(sqlmock.NewRows([]string{
-			"users_total", "users_new_7d", "users_new_30d", "users_active_30d", "users_instance_admins", "users_orphaned",
+			"users_total", "users_new_7d", "users_new_30d", "users_active_30d", "users_instance_admins", "users_disabled", "users_orphaned",
 			"clubs_total", "clubs_active_90d", "clubs_inactive_180d", "players_total", "players_linked",
 			"invitations_open", "api_tokens_active", "api_tokens_without_expiry", "api_tokens_unused_90d", "passkeys_total",
-		}).AddRow(42, 3, 9, 20, 1, 4, 7, 5, 2, 80, 35, 6, 11, 8, 3, 13))
+		}).AddRow(42, 3, 9, 20, 1, 2, 4, 7, 5, 2, 80, 35, 6, 11, 8, 3, 13))
 	mock.ExpectQuery(`FROM users u\s+WHERE u.created_at >= now\(\) - interval '30 days'\s+GROUP BY day`).
 		WithArgs(int64(admin.RegistrationSpikeThreshold)).
 		WillReturnRows(sqlmock.NewRows([]string{"day", "registrations"}).
@@ -141,7 +141,7 @@ func TestAdmin_Stats(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&stats); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if stats.Users.Total != 42 || stats.Clubs.Active90d != 5 || stats.Players.Linked != 35 ||
+	if stats.Users.Total != 42 || stats.Users.Disabled != 2 || stats.Clubs.Active90d != 5 || stats.Players.Linked != 35 ||
 		stats.OpenInvitations != 6 || stats.APITokens.Active != 11 || stats.Passkeys != 13 {
 		t.Errorf("unexpected stats: %+v", stats)
 	}
@@ -164,14 +164,14 @@ func TestAdmin_ListUsers(t *testing.T) {
 
 	// The search is escaped for ILIKE; filter=orphaned sets only_orphaned.
 	mock.ExpectQuery(`SELECT COUNT\(\*\)::bigint\s+FROM users u`).
-		WithArgs(`a\_b`, false, true).
+		WithArgs(`a\_b`, false, false, true).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(30))
 	mock.ExpectQuery(`FROM users u\s+WHERE .*ORDER BY`).
-		WithArgs(`a\_b`, false, true, "email_asc", int32(10), int32(10)).
+		WithArgs(`a\_b`, false, false, true, "email_asc", int32(10), int32(10)).
 		WillReturnRows(sqlmock.NewRows([]string{
-			"id", "email", "is_instance_admin", "created_at", "last_login_at",
+			"id", "email", "is_instance_admin", "created_at", "last_login_at", "disabled_at",
 			"owned_club_count", "player_club_count", "passkey_count", "api_token_count", "orphaned",
-		}).AddRow(userID, "a_b@example.com", false, created, nil, 0, 0, 0, 1, true))
+		}).AddRow(userID, "a_b@example.com", false, created, nil, nil, 0, 0, 0, 1, true))
 
 	resp := doRequest(t, srv, adminRequest(t, token, "/api/admin/users?search=a_b&filter=orphaned&sort=email&page=2&limit=10"))
 	defer resp.Body.Close()
@@ -216,8 +216,8 @@ func TestAdmin_GetUser(t *testing.T) {
 
 	mock.ExpectQuery(`FROM users u\s+WHERE u.id = \$1`).
 		WithArgs(userID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "is_instance_admin", "created_at", "updated_at", "password_changed_at", "last_login_at", "orphaned"}).
-			AddRow(userID, "member@example.com", false, now, now, nil, now, false))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "is_instance_admin", "created_at", "updated_at", "password_changed_at", "last_login_at", "disabled_at", "sessions_valid_after", "orphaned"}).
+			AddRow(userID, "member@example.com", false, now, now, nil, now, now, nil, false))
 	mock.ExpectQuery(`FROM clubs c\s+WHERE c.user_id = \$1`).
 		WithArgs(userID).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "created_at", "player_count"}).
@@ -245,6 +245,9 @@ func TestAdmin_GetUser(t *testing.T) {
 	}
 	if raw["email"] != "member@example.com" {
 		t.Errorf("email: got %v", raw["email"])
+	}
+	if raw["disabled_at"] == nil || raw["sessions_valid_after"] != nil {
+		t.Errorf("disabled_at/sessions_valid_after: got %v / %v", raw["disabled_at"], raw["sessions_valid_after"])
 	}
 	if pk, ok := raw["passkeys"].([]any); !ok || len(pk) != 0 {
 		t.Errorf("passkeys must be an empty array, got %v", raw["passkeys"])

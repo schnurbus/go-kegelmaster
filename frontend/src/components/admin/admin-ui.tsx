@@ -131,6 +131,10 @@ export function OrphanedBadge() {
   return <Badge variant="destructive">verwaist</Badge>;
 }
 
+export function DisabledBadge() {
+  return <Badge variant="destructive">gesperrt</Badge>;
+}
+
 export function OwnerBadge() {
   return <Badge variant="secondary">Owner</Badge>;
 }

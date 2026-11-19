@@ -7,10 +7,12 @@ import {
   AdminFacts,
   AdminLoadError,
   AdminLoading,
+  DisabledBadge,
   InactiveBadge,
   OrphanedBadge,
   OwnerBadge,
 } from "@/components/admin/admin-ui";
+import { AdminRevokeTokenButton, AdminUserActions } from "@/components/admin/admin-user-actions";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -24,7 +26,7 @@ function isExpired(expiresAt: string | null): boolean {
 
 function AdminUserDetailPage() {
   const { id = "" } = useParams();
-  const { data: user, error, loading } = useAdminFetch<AdminUserDetail>(
+  const { data: user, error, loading, reload } = useAdminFetch<AdminUserDetail>(
     `/api/admin/users/${encodeURIComponent(id)}`,
   );
   const { setTitle } = usePageTitle();
@@ -44,6 +46,7 @@ function AdminUserDetailPage() {
             {user.email}
             {user.is_instance_admin && <AdminBadge />}
             {user.orphaned && <OrphanedBadge />}
+            {user.disabled_at && <DisabledBadge />}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -52,10 +55,16 @@ function AdminUserDetailPage() {
               { label: "Registriert am", value: formatAdminDateTime(user.created_at) },
               { label: "Letzter Login", value: formatAdminDateTime(user.last_login_at) },
               { label: "Passwort geändert", value: formatAdminDateTime(user.password_changed_at) },
+              ...(user.disabled_at ? [{ label: "Gesperrt seit", value: formatAdminDateTime(user.disabled_at) }] : []),
+              ...(user.sessions_valid_after
+                ? [{ label: "Sessions widerrufen", value: formatAdminDateTime(user.sessions_valid_after) }]
+                : []),
             ]}
           />
         </CardContent>
       </Card>
+
+      <AdminUserActions user={user} onChanged={reload} />
 
       <Card>
         <CardHeader>
@@ -147,6 +156,9 @@ function AdminUserDetailPage() {
                   <TableHead>Erstellt</TableHead>
                   <TableHead>Läuft ab</TableHead>
                   <TableHead>Zuletzt benutzt</TableHead>
+                  <TableHead className="text-right">
+                    <span className="sr-only">Aktionen</span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -167,6 +179,9 @@ function AdminUserDetailPage() {
                       )}
                     </TableCell>
                     <TableCell>{formatAdminDateTime(t.last_used_at)}</TableCell>
+                    <TableCell className="text-right">
+                      <AdminRevokeTokenButton userId={user.id} token={t} onChanged={reload} />
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

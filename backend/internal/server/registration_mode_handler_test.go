@@ -38,8 +38,8 @@ func expectUserInsert(mock sqlmock.Sqlmock, email string) {
 	now := time.Now().UTC()
 	mock.ExpectQuery(`INSERT INTO users`).
 		WithArgs(sqlmock.AnyArg(), email, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at", "password_changed_at", "notify_gameday_settled", "is_instance_admin", "last_login_at"}).
-			AddRow(uuid.NewString(), email, "hash", now, now, nil, false, false, nil))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at", "password_changed_at", "notify_gameday_settled", "is_instance_admin", "last_login_at", "disabled_at", "sessions_valid_after"}).
+			AddRow(uuid.NewString(), email, "hash", now, now, nil, false, false, nil, nil, nil))
 }
 
 func expectInvitationByToken(mock sqlmock.Sqlmock, token, email string, expiresAt time.Time, acceptedAt *time.Time) {
