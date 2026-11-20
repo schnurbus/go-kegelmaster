@@ -93,6 +93,52 @@ type GameDayParticipant struct {
 	Attended  bool      `json:"attended"`
 }
 
+type OauthAuthorizationCode struct {
+	ID            string       `json:"id"`
+	CodeHash      string       `json:"code_hash"`
+	ClientID      string       `json:"client_id"`
+	UserID        string       `json:"user_id"`
+	RedirectUri   string       `json:"redirect_uri"`
+	CodeChallenge string       `json:"code_challenge"`
+	Scope         string       `json:"scope"`
+	Resource      string       `json:"resource"`
+	ExpiresAt     time.Time    `json:"expires_at"`
+	UsedAt        sql.NullTime `json:"used_at"`
+	GrantID       *string      `json:"grant_id"`
+	CreatedAt     time.Time    `json:"created_at"`
+	UpdatedAt     time.Time    `json:"updated_at"`
+}
+
+type OauthClient struct {
+	ID           string    `json:"id"`
+	ClientName   string    `json:"client_name"`
+	RedirectUris []string  `json:"redirect_uris"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+type OauthGrant struct {
+	ID         string       `json:"id"`
+	ClientID   string       `json:"client_id"`
+	UserID     string       `json:"user_id"`
+	Scope      string       `json:"scope"`
+	Resource   string       `json:"resource"`
+	LastUsedAt sql.NullTime `json:"last_used_at"`
+	CreatedAt  time.Time    `json:"created_at"`
+	UpdatedAt  time.Time    `json:"updated_at"`
+}
+
+type OauthToken struct {
+	ID        string       `json:"id"`
+	GrantID   string       `json:"grant_id"`
+	TokenType string       `json:"token_type"`
+	TokenHash string       `json:"token_hash"`
+	ExpiresAt time.Time    `json:"expires_at"`
+	UsedAt    sql.NullTime `json:"used_at"`
+	CreatedAt time.Time    `json:"created_at"`
+	UpdatedAt time.Time    `json:"updated_at"`
+}
+
 type PasswordResetToken struct {
 	ID        string    `json:"id"`
 	UserID    string    `json:"user_id"`

@@ -22,6 +22,7 @@ import (
 	"github.com/schnurbus/go-kegelmaster/backend/internal/gameday"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/invitation"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/notification"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/oauth"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/passkey"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/passwordreset"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/penaltytype"
@@ -136,6 +137,7 @@ func main() {
 		PasskeyService:    passkeySvc,
 		GameDayNotifier:   gameDayNotifier,
 		AdminRepo:         admin.NewRepository(db),
+		OAuthRepo:         oauth.NewRepository(db),
 	})
 
 	errCh := make(chan error, 1)

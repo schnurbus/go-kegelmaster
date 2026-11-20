@@ -12,6 +12,7 @@ import (
 	"github.com/schnurbus/go-kegelmaster/backend/internal/email"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/gameday"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/invitation"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/oauth"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/passkey"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/passwordreset"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/penaltytype"
@@ -46,6 +47,8 @@ type Handler struct {
 	GameDayNotifier GameDayNotifier
 	// AdminRepo backs the operator area; nil disables it (404).
 	AdminRepo *admin.Repository
+	// OAuthRepo backs the OAuth authorization server for MCP clients; nil disables it.
+	OAuthRepo *oauth.Repository
 }
 
 // GameDayNotifier is called after a game day changed from draft to published
@@ -76,6 +79,7 @@ func NewHandler(cfg config.Config, deps Dependencies) *Handler {
 		PasskeySvc:        deps.PasskeyService,
 		GameDayNotifier:   deps.GameDayNotifier,
 		AdminRepo:         deps.AdminRepo,
+		OAuthRepo:         deps.OAuthRepo,
 	}
 }
 
@@ -99,4 +103,5 @@ type Dependencies struct {
 	PasskeyService    *passkey.Service
 	GameDayNotifier   GameDayNotifier
 	AdminRepo         *admin.Repository
+	OAuthRepo         *oauth.Repository
 }

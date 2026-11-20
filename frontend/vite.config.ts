@@ -17,6 +17,11 @@ export default defineConfig({
         target: backendTarget,
         changeOrigin: true,
       },
+      // MCP server and OAuth authorization server (KEG-12). /oauth/consent is
+      // a frontend route, so only the backend endpoints are proxied.
+      "/mcp": { target: backendTarget, changeOrigin: true },
+      "/.well-known": { target: backendTarget, changeOrigin: true },
+      "^/oauth/(authorize|token|register|revoke)": { target: backendTarget, changeOrigin: true },
     },
   },
 });

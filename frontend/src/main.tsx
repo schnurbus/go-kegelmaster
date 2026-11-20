@@ -19,6 +19,7 @@ import StatisticsPage from "./routes/StatisticsPage.tsx";
 import ClubEditPage from "./routes/ClubEditPage.tsx";
 import HelpPage from "./routes/HelpPage.tsx";
 import ApiTokensPage from "./routes/ApiTokensPage.tsx";
+import OAuthConsentPage from "./routes/OAuthConsentPage.tsx";
 import AccountPage from "./routes/AccountPage.tsx";
 import InvitationPage from "./routes/InvitationPage.tsx";
 import ForgotPasswordPage from "./routes/ForgotPasswordPage.tsx";
@@ -54,6 +55,8 @@ const router = createBrowserRouter([
       {
         element: <RequireAuth />,
         children: [
+          // OAuth consent for MCP clients (public layout, login required).
+          { path: "/oauth/consent", element: <OAuthConsentPage /> },
           {
             path: "/app",
             element: <DashboardLayout />,

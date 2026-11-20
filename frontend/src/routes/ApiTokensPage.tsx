@@ -2,6 +2,7 @@ import * as React from "react";
 import { CopyIcon, KeyRoundIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 
+import { ConnectedAppsCard } from "@/components/account/ConnectedAppsCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -315,7 +316,16 @@ function ApiTokensPage() {
             </div>
           </div>
           <p className="text-muted-foreground">
-            Im KI-Client als HTTP-Server eintragen und den Header{" "}
+            <strong className="text-foreground">Mit Anmeldung (OAuth):</strong> Für
+            KI-Assistenten im Internet (z. B. Claude oder ChatGPT als
+            „Connector“) genügt die Server-Adresse. Beim Verbinden öffnet sich
+            Kegelmaster; nach Anmeldung und Ihrer Zustimmung erhält die
+            Anwendung Zugriff. Verbundene Anwendungen sehen Sie unten und können
+            sie dort widerrufen.
+          </p>
+          <p className="text-muted-foreground">
+            <strong className="text-foreground">Mit API-Token:</strong> Im
+            KI-Client als HTTP-Server eintragen und den Header{" "}
             <code className="rounded bg-muted px-1 py-0.5 text-xs">Authorization: Bearer &lt;token&gt;</code>{" "}
             setzen. Für Claude Code:
           </p>
@@ -324,6 +334,8 @@ function ApiTokensPage() {
           </pre>
         </CardContent>
       </Card>
+
+      <ConnectedAppsCard />
 
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent>
