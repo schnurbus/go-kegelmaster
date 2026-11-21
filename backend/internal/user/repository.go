@@ -102,6 +102,24 @@ func (r *Repository) UpdateNotifyGameDaySettled(ctx context.Context, userID stri
 	return dbUserToUser(dbUser), nil
 }
 
+// MarkTourFlags sets "Rundgang gesehen" and/or "Hinweis zur Ersteinrichtung
+// gesehen" to now, keeping a timestamp that is already set.
+func (r *Repository) MarkTourFlags(ctx context.Context, userID string, tourSeen, setupHintSeen bool) (User, error) {
+	dbUser, err := r.queries.MarkUserTourFlags(ctx, db.MarkUserTourFlagsParams{
+		TourSeen:      tourSeen,
+		Now:           time.Now().UTC(),
+		SetupHintSeen: setupHintSeen,
+		ID:            userID,
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return User{}, ErrNotFound
+	}
+	if err != nil {
+		return User{}, err
+	}
+	return dbUserToUser(dbUser), nil
+}
+
 // RecordLogin stores the time of a successful login (password or passkey).
 func (r *Repository) RecordLogin(ctx context.Context, userID string, at time.Time) error {
 	return r.queries.UpdateUserLastLogin(ctx, db.UpdateUserLastLoginParams{
@@ -136,6 +154,14 @@ func dbUserToUser(dbUser db.User) User {
 	if dbUser.SessionsValidAfter.Valid {
 		validAfter := dbUser.SessionsValidAfter.Time
 		u.SessionsValidAfter = &validAfter
+	}
+	if dbUser.TourSeenAt.Valid {
+		seen := dbUser.TourSeenAt.Time
+		u.TourSeenAt = &seen
+	}
+	if dbUser.SetupHintSeenAt.Valid {
+		seen := dbUser.SetupHintSeenAt.Time
+		u.SetupHintSeenAt = &seen
 	}
 	return u
 }

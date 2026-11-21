@@ -20,13 +20,61 @@ var (
 )
 
 type Repository struct {
-	queries *db.Queries
+	database *sql.DB
+	queries  *db.Queries
 }
 
 func NewRepository(dbConn *sql.DB) *Repository {
 	return &Repository{
-		queries: db.New(dbConn),
+		database: dbConn,
+		queries:  db.New(dbConn),
 	}
+}
+
+// CreateFromTemplates creates the given roles with their permissions in one
+// database transaction: either all of them exist afterwards or none.
+func (r *Repository) CreateFromTemplates(ctx context.Context, clubID string, templates []Template) ([]RoleWithPermissions, error) {
+	tx, err := r.database.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	q := r.queries.WithTx(tx)
+
+	now := time.Now().UTC()
+	out := make([]RoleWithPermissions, 0, len(templates))
+	for _, t := range templates {
+		dbRole, err := q.CreateRole(ctx, db.CreateRoleParams{
+			ID:          uuid.NewString(),
+			ClubID:      clubID,
+			Name:        t.Name,
+			PaysBaseFee: t.PaysBaseFee,
+			CreatedAt:   now,
+			UpdatedAt:   now,
+		})
+		if err != nil {
+			return nil, err
+		}
+		created := RoleWithPermissions{Role: dbRoleToRole(dbRole)}
+		for _, p := range t.Permissions {
+			dbPerm, err := q.AddRolePermission(ctx, db.AddRolePermissionParams{
+				ID:             uuid.NewString(),
+				RoleID:         dbRole.ID,
+				EntityType:     string(p.EntityType),
+				PermissionType: string(p.PermissionType),
+				CreatedAt:      now,
+			})
+			if err != nil {
+				return nil, err
+			}
+			created.Permissions = append(created.Permissions, dbRolePermissionToRolePermission(dbPerm))
+		}
+		out = append(out, created)
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 type CreateRoleParams struct {

@@ -23,16 +23,17 @@ type ApiToken struct {
 }
 
 type Club struct {
-	ID                 string    `json:"id"`
-	Name               string    `json:"name"`
-	Balance            int32     `json:"balance"`
-	StartBalance       int32     `json:"start_balance"`
-	BaseFee            int32     `json:"base_fee"`
-	AutoTipEnabled     bool      `json:"auto_tip_enabled"`
-	CouplesModeEnabled bool      `json:"couples_mode_enabled"`
-	UserID             string    `json:"user_id"`
-	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at"`
+	ID                 string       `json:"id"`
+	Name               string       `json:"name"`
+	Balance            int32        `json:"balance"`
+	StartBalance       int32        `json:"start_balance"`
+	BaseFee            int32        `json:"base_fee"`
+	AutoTipEnabled     bool         `json:"auto_tip_enabled"`
+	CouplesModeEnabled bool         `json:"couples_mode_enabled"`
+	UserID             string       `json:"user_id"`
+	CreatedAt          time.Time    `json:"created_at"`
+	UpdatedAt          time.Time    `json:"updated_at"`
+	SetupDismissedAt   sql.NullTime `json:"setup_dismissed_at"`
 }
 
 type Competition struct {
@@ -233,6 +234,8 @@ type User struct {
 	LastLoginAt          sql.NullTime `json:"last_login_at"`
 	DisabledAt           sql.NullTime `json:"disabled_at"`
 	SessionsValidAfter   sql.NullTime `json:"sessions_valid_after"`
+	TourSeenAt           sql.NullTime `json:"tour_seen_at"`
+	SetupHintSeenAt      sql.NullTime `json:"setup_hint_seen_at"`
 }
 
 type WebauthnCredential struct {

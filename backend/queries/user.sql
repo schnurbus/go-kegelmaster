@@ -34,6 +34,15 @@ WHERE id = $1
 RETURNING *;
 
 
+-- name: MarkUserTourFlags :one
+-- Sets "Rundgang gesehen" / "Hinweis zur Ersteinrichtung gesehen" once; an
+-- existing timestamp is kept.
+UPDATE users
+SET tour_seen_at = CASE WHEN sqlc.arg(tour_seen)::bool THEN COALESCE(tour_seen_at, sqlc.arg(now)::timestamptz) ELSE tour_seen_at END,
+    setup_hint_seen_at = CASE WHEN sqlc.arg(setup_hint_seen)::bool THEN COALESCE(setup_hint_seen_at, sqlc.arg(now)::timestamptz) ELSE setup_hint_seen_at END
+WHERE id = sqlc.arg(id)
+RETURNING *;
+
 -- name: UpdateUserLastLogin :exec
 -- Does not touch updated_at: a login is no change to the account itself.
 UPDATE users

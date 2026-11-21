@@ -549,3 +549,58 @@ func roleInUseMessage(players int64) string {
 	}
 	return fmt.Sprintf("Die Rolle hat noch %d Spieler. Ordnen Sie diese zuerst einer anderen Rolle zu.", players)
 }
+
+// HandleApplyRoleSuggestion creates the suggested roles (Präsident,
+// Kassenwart, Mitglied, Gast) for a club that has no roles yet.
+func (h *Handler) HandleApplyRoleSuggestion(c fiber.Ctx) error {
+	if err := h.ValidateCSRF(c); err != nil {
+		return err
+	}
+
+	ctx, cancel := h.RequestContext()
+	defer cancel()
+
+	u, err := h.UserFromCookie(ctx, c)
+	if err != nil {
+		return fiber.NewError(fiber.StatusUnauthorized, "Nicht angemeldet")
+	}
+
+	clubID := c.Params("clubId")
+	if clubID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "Club-ID ist erforderlich")
+	}
+
+	hasPermission, err := h.PermissionChecker.HasPermission(ctx, u.ID, clubID, role.EntityTypeRoles, role.PermissionTypeCreate)
+	if err != nil {
+		if errors.Is(err, club.ErrNotFound) {
+			return fiber.NewError(fiber.StatusNotFound, "Club nicht gefunden")
+		}
+		slog.Error("check roles create permission", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+	if !hasPermission {
+		return fiber.NewError(fiber.StatusForbidden, "Keine Berechtigung, Rollen zu erstellen")
+	}
+
+	existing, err := h.RoleRepo.GetByClubID(ctx, clubID)
+	if err != nil {
+		slog.Error("get roles", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+	if len(existing) > 0 {
+		return fiber.NewError(fiber.StatusConflict, "Der Club hat bereits Rollen. Der Vorschlag lässt sich nur für einen Club ohne Rollen übernehmen.")
+	}
+
+	created, err := h.RoleRepo.CreateFromTemplates(ctx, clubID, role.SuggestedRoles())
+	if err != nil {
+		slog.Error("apply role suggestion", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+
+	out := make([]RoleResponse, 0, len(created))
+	for _, r := range created {
+		out = append(out, RoleResponseFromEntity(r.Role, r.Permissions, 0))
+	}
+	audit.LogAudit(c, u.ID, audit.ActionRoleSuggestion, "club_id", clubID, "roles", len(created))
+	return c.Status(fiber.StatusCreated).JSON(out)
+}

@@ -31,7 +31,7 @@ func expectSessionUser(mock sqlmock.Sqlmock, userID string, isAdmin bool) {
 	mock.ExpectQuery(`SELECT id, email, password_hash`).
 		WithArgs(userID).
 		WillReturnRows(sqlmock.NewRows(userColumns).
-			AddRow(userID, "op@example.com", "hash", now, now, nil, false, isAdmin, nil, nil, nil))
+			AddRow(userID, "op@example.com", "hash", now, now, nil, false, isAdmin, nil, nil, nil, nil, nil))
 }
 
 func adminRequest(t *testing.T, token, path string) *http.Request {

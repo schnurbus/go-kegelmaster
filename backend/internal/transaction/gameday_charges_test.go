@@ -294,8 +294,8 @@ func TestSaveGameDayWithCharges_MissingRoleRollsBack(t *testing.T) {
 func expectClub(mock sqlmock.Sqlmock, clubID string, baseFee int, now time.Time) {
 	mock.ExpectQuery("GetClubByID").
 		WithArgs(clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID, "Club", 1000, 0, baseFee, false, false, uuid.NewString(), now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at", "setup_dismissed_at"}).
+			AddRow(clubID, "Club", 1000, 0, baseFee, false, false, uuid.NewString(), now, now, nil))
 }
 
 func expectBaseFeeInsert(mock sqlmock.Sqlmock, clubID, playerID, gameDayID string, amount, before, after, clubBalance int) {

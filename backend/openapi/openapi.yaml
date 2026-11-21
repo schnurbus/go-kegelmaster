@@ -456,6 +456,12 @@ paths:
                 notify_gameday_settled:
                   type: boolean
                   description: E-Mail-Benachrichtigung, sobald ein Spieltag eines eigenen Clubs abgerechnet wurde.
+                tour_seen:
+                  type: boolean
+                  description: true merkt den Rundgang als gesehen (beendet oder übersprungen). Ein gesetzter Zeitpunkt bleibt erhalten; false ändert nichts.
+                setup_hint_seen:
+                  type: boolean
+                  description: true merkt die Sprechblase zur Ersteinrichtung-Karte als gesehen. Ein gesetzter Zeitpunkt bleibt erhalten; false ändert nichts.
       responses:
         "200":
           description: Aktualisiertes User-Objekt
@@ -1092,6 +1098,70 @@ paths:
           description: Übertragen
         "403":
           description: Kein Owner
+  /api/clubs/{id}/setup:
+    get:
+      summary: Stand der Ersteinrichtung
+      description: |
+        Schritte bis zum benutzbaren Club, bei jeder Abfrage aus den Daten berechnet. Pflichtschritte in dieser
+        Reihenfolge: club (immer erledigt), penalty_types, roles, players, first_game_day (nur veröffentlichte
+        Spieltage zählen). Optional: own_player (Spieler des Besitzers), invitations (mindestens eine verschickte
+        Einladung), competitions. Nur für den Besitzer.
+      tags: [Clubs]
+      security: [cookieAuth: [], bearerAuth: []]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Stand der Ersteinrichtung
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ClubSetup" }
+        "403":
+          description: Nicht der Besitzer
+        "404":
+          description: Club nicht gefunden
+  /api/clubs/{id}/setup/dismiss:
+    post:
+      summary: Ersteinrichtung ausblenden
+      description: Blendet die Ersteinrichtung-Karte für diesen Club aus. Gilt nach einer Übertragung des Besitzes weiter. Nur für den Besitzer.
+      tags: [Clubs]
+      security: [cookieAuth: [], bearerAuth: []]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204":
+          description: Ausgeblendet
+        "403":
+          description: Nicht der Besitzer
+        "404":
+          description: Club nicht gefunden
+  /api/clubs/{clubId}/roles/suggestion:
+    post:
+      summary: Rollen-Vorschlag übernehmen
+      description: |
+        Legt die Rollen Präsident (alle Rechte), Kassenwart (Spieltage, Transaktionen, Spieler, Strafentypen und
+        Wettbewerbe auflisten/ansehen/anlegen/ändern; Rollen nur lesen), Mitglied (nur lesen, ohne Rollen) und Gast
+        (wie Mitglied, ohne Grundgebühr) in einem Rutsch an. Nur für einen Club ohne Rollen.
+      tags: [Rollen]
+      security: [cookieAuth: [], bearerAuth: []]
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "201":
+          description: Die vier angelegten Rollen mit ihren Rechten
+        "403":
+          description: Keine Berechtigung, Rollen anzulegen
+        "409":
+          description: Der Club hat bereits Rollen
   /api/clubs/{clubId}/permissions/me:
     get:
       summary: Eigene Berechtigungen im Club
@@ -1280,9 +1350,14 @@ paths:
                 role_id: { type: string, format: uuid }
                 gender: { type: string }
                 inactive: { type: boolean }
+                link_me:
+                  type: boolean
+                  description: „Das bin ich“ – verknüpft den neuen Spieler mit dem aufrufenden User (hat Vorrang vor user_id).
       responses:
         "201":
           description: Spieler erstellt
+        "409":
+          description: link_me, aber der User hat in diesem Club bereits einen Spieler
   /api/clubs/{clubId}/players/me:
     get:
       summary: Eigenen Spieler-Datensatz (verknüpfter User)
@@ -1483,7 +1558,7 @@ paths:
                 password: { type: string }
       responses:
         "200":
-          description: Account erstellt und eingeloggt
+          description: Einladung angenommen; liefert player_id und club_id (Club des Spielers)
         "400":
           description: Ungültig oder abgelaufen
         "409":
@@ -2583,6 +2658,33 @@ components:
           description: |
             true, wenn der User Instanz-Admin (Betreiber) ist und den Bereich `/api/admin` nutzen darf.
             Wird nur per CLI (`kegelmaster admin grant`) oder `INSTANCE_ADMIN_EMAILS` vergeben.
+        tour_seen_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Rundgang gesehen (beendet oder übersprungen); null = startet automatisch.
+        setup_hint_seen_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Sprechblase zur Ersteinrichtung-Karte gesehen; null = noch nicht.
+    ClubSetup:
+      type: object
+      required: [dismissed, complete, steps]
+      properties:
+        dismissed: { type: boolean, description: Ersteinrichtung-Karte ausgeblendet }
+        complete: { type: boolean, description: Alle Pflichtschritte erledigt }
+        steps:
+          type: array
+          items:
+            type: object
+            required: [id, required, done]
+            properties:
+              id:
+                type: string
+                enum: [club, penalty_types, roles, players, first_game_day, own_player, invitations, competitions]
+              required: { type: boolean }
+              done: { type: boolean }
     AdminStats:
       type: object
       required: [users, clubs, players, open_invitations, api_tokens, passkeys, anomalies]

@@ -301,7 +301,8 @@ func (h *Handler) HandleAcceptInvitation(c fiber.Ctx) error {
 	slog.Debug("accepting invitation", "invitation_id", inv.ID, "user_id", u.ID, "player_id", inv.PlayerID)
 
 	// Accept invitation (this will update the player's user_id)
-	if err := h.InvitationRepo.Accept(ctx, inv.ID, u.ID); err != nil {
+	clubID, err := h.InvitationRepo.Accept(ctx, inv.ID, u.ID)
+	if err != nil {
 		switch {
 		case errors.Is(err, invitation.ErrExpired):
 			return fiber.NewError(fiber.StatusGone, "Einladung ist abgelaufen")
@@ -329,6 +330,7 @@ func (h *Handler) HandleAcceptInvitation(c fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{
 		"player_id": inv.PlayerID,
+		"club_id":   clubID,
 		"message":   "Einladung erfolgreich akzeptiert",
 	})
 }

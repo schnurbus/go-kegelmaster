@@ -27,8 +27,12 @@ type User struct {
 	// SessionsValidAfter is set when an instance admin revoked the sessions.
 	// Sessions issued before this point are rejected (like PasswordChangedAt).
 	SessionsValidAfter *time.Time
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
+	// TourSeenAt is set once the user finished or skipped the Rundgang.
+	TourSeenAt *time.Time
+	// SetupHintSeenAt is set once the user saw the hint at the Ersteinrichtung card.
+	SetupHintSeenAt *time.Time
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 // Disabled reports whether an instance admin disabled the account.

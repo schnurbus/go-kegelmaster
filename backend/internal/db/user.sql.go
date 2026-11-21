@@ -25,7 +25,7 @@ INSERT INTO users (
     $4,
     $5
 )
-RETURNING id, email, password_hash, created_at, updated_at, password_changed_at, notify_gameday_settled, is_instance_admin, last_login_at, disabled_at, sessions_valid_after
+RETURNING id, email, password_hash, created_at, updated_at, password_changed_at, notify_gameday_settled, is_instance_admin, last_login_at, disabled_at, sessions_valid_after, tour_seen_at, setup_hint_seen_at
 `
 
 type CreateUserParams struct {
@@ -57,12 +57,14 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.LastLoginAt,
 		&i.DisabledAt,
 		&i.SessionsValidAfter,
+		&i.TourSeenAt,
+		&i.SetupHintSeenAt,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, password_hash, created_at, updated_at, password_changed_at, notify_gameday_settled, is_instance_admin, last_login_at, disabled_at, sessions_valid_after FROM users
+SELECT id, email, password_hash, created_at, updated_at, password_changed_at, notify_gameday_settled, is_instance_admin, last_login_at, disabled_at, sessions_valid_after, tour_seen_at, setup_hint_seen_at FROM users
 WHERE email = $1
 `
 
@@ -81,12 +83,14 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.LastLoginAt,
 		&i.DisabledAt,
 		&i.SessionsValidAfter,
+		&i.TourSeenAt,
+		&i.SetupHintSeenAt,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, password_hash, created_at, updated_at, password_changed_at, notify_gameday_settled, is_instance_admin, last_login_at, disabled_at, sessions_valid_after FROM users
+SELECT id, email, password_hash, created_at, updated_at, password_changed_at, notify_gameday_settled, is_instance_admin, last_login_at, disabled_at, sessions_valid_after, tour_seen_at, setup_hint_seen_at FROM users
 WHERE id = $1
 `
 
@@ -105,6 +109,51 @@ func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
 		&i.LastLoginAt,
 		&i.DisabledAt,
 		&i.SessionsValidAfter,
+		&i.TourSeenAt,
+		&i.SetupHintSeenAt,
+	)
+	return i, err
+}
+
+const markUserTourFlags = `-- name: MarkUserTourFlags :one
+UPDATE users
+SET tour_seen_at = CASE WHEN $1::bool THEN COALESCE(tour_seen_at, $2::timestamptz) ELSE tour_seen_at END,
+    setup_hint_seen_at = CASE WHEN $3::bool THEN COALESCE(setup_hint_seen_at, $2::timestamptz) ELSE setup_hint_seen_at END
+WHERE id = $4
+RETURNING id, email, password_hash, created_at, updated_at, password_changed_at, notify_gameday_settled, is_instance_admin, last_login_at, disabled_at, sessions_valid_after, tour_seen_at, setup_hint_seen_at
+`
+
+type MarkUserTourFlagsParams struct {
+	TourSeen      bool      `json:"tour_seen"`
+	Now           time.Time `json:"now"`
+	SetupHintSeen bool      `json:"setup_hint_seen"`
+	ID            string    `json:"id"`
+}
+
+// Sets "Rundgang gesehen" / "Hinweis zur Ersteinrichtung gesehen" once; an
+// existing timestamp is kept.
+func (q *Queries) MarkUserTourFlags(ctx context.Context, arg MarkUserTourFlagsParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, markUserTourFlags,
+		arg.TourSeen,
+		arg.Now,
+		arg.SetupHintSeen,
+		arg.ID,
+	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PasswordChangedAt,
+		&i.NotifyGamedaySettled,
+		&i.IsInstanceAdmin,
+		&i.LastLoginAt,
+		&i.DisabledAt,
+		&i.SessionsValidAfter,
+		&i.TourSeenAt,
+		&i.SetupHintSeenAt,
 	)
 	return i, err
 }
@@ -130,7 +179,7 @@ const updateUserNotifyGameDaySettled = `-- name: UpdateUserNotifyGameDaySettled 
 UPDATE users
 SET notify_gameday_settled = $2, updated_at = $3
 WHERE id = $1
-RETURNING id, email, password_hash, created_at, updated_at, password_changed_at, notify_gameday_settled, is_instance_admin, last_login_at, disabled_at, sessions_valid_after
+RETURNING id, email, password_hash, created_at, updated_at, password_changed_at, notify_gameday_settled, is_instance_admin, last_login_at, disabled_at, sessions_valid_after, tour_seen_at, setup_hint_seen_at
 `
 
 type UpdateUserNotifyGameDaySettledParams struct {
@@ -154,6 +203,8 @@ func (q *Queries) UpdateUserNotifyGameDaySettled(ctx context.Context, arg Update
 		&i.LastLoginAt,
 		&i.DisabledAt,
 		&i.SessionsValidAfter,
+		&i.TourSeenAt,
+		&i.SetupHintSeenAt,
 	)
 	return i, err
 }

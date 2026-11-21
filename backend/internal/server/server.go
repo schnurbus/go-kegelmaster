@@ -303,6 +303,8 @@ func (s *Server) registerRoutes() {
 	clubsGroup.Post("/:id/recalculate-balance", s.handlers.HandleRecalculateClubBalance)
 	clubsGroup.Post("/:id/transfer-owner", s.handlers.HandleTransferClubOwner)
 	clubsGroup.Delete("/:id", s.handlers.HandleDeleteClub)
+	clubsGroup.Get("/:id/setup", s.handlers.HandleGetClubSetup)
+	clubsGroup.Post("/:id/setup/dismiss", s.handlers.HandleDismissClubSetup)
 
 	// My permissions for a club (must be before :id to avoid matching)
 	clubsGroup.Get("/:clubId/permissions/me", s.handlers.HandleGetMyPermissions)
@@ -311,6 +313,7 @@ func (s *Server) registerRoutes() {
 	clubsGroup.Get("/:clubId/roles", s.handlers.HandleGetRoles)
 	clubsGroup.Get("/:clubId/roles/:id", s.handlers.HandleGetRole)
 	clubsGroup.Post("/:clubId/roles", s.handlers.HandleCreateRole)
+	clubsGroup.Post("/:clubId/roles/suggestion", s.handlers.HandleApplyRoleSuggestion)
 	clubsGroup.Put("/:clubId/roles/:id", s.handlers.HandleUpdateRole)
 	clubsGroup.Delete("/:clubId/roles/:id", s.handlers.HandleDeleteRole)
 	clubsGroup.Post("/:clubId/roles/:id/permissions", s.handlers.HandleAddPermission)

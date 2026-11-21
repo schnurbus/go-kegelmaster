@@ -24,6 +24,9 @@ type createPlayerRequest struct {
 	RoleID       *string `json:"role_id"`
 	Gender       *string `json:"gender"`   // male, female, or nil
 	Inactive     *bool   `json:"inactive"` // optional, default false
+	// LinkMe ("Das bin ich") links the new player to the calling user. Takes
+	// precedence over UserID.
+	LinkMe bool `json:"link_me"`
 }
 
 func (r createPlayerRequest) validate() error {
@@ -81,6 +84,20 @@ func (h *Handler) HandleCreatePlayer(c fiber.Ctx) error {
 		return err
 	}
 
+	userID := req.UserID
+	if req.LinkMe {
+		// Same rule as accepting an invitation: one player per user and club.
+		_, err := h.PlayerRepo.GetByUserIDAndClubID(ctx, u.ID, clubID)
+		switch {
+		case err == nil:
+			return fiber.NewError(fiber.StatusConflict, "Sie haben in diesem Club bereits einen Spieler")
+		case !errors.Is(err, player.ErrNotFound):
+			slog.Error("get own player", "error", err)
+			return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+		}
+		userID = &u.ID
+	}
+
 	inactive := false
 	if req.Inactive != nil {
 		inactive = *req.Inactive
@@ -90,7 +107,7 @@ func (h *Handler) HandleCreatePlayer(c fiber.Ctx) error {
 		Name:         strings.TrimSpace(req.Name),
 		Balance:      req.Balance,
 		StartBalance: req.StartBalance,
-		UserID:       req.UserID,
+		UserID:       userID,
 		RoleID:       *req.RoleID,
 		Gender:       req.Gender,
 		Inactive:     inactive,

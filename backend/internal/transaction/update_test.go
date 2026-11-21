@@ -155,8 +155,8 @@ func TestUpdate_TipToDepositKeepsClubCash(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectQuery("GetClubByID").
 		WithArgs(clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID, "Club", 2000, 0, 0, true, false, uuid.NewString(), now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at", "setup_dismissed_at"}).
+			AddRow(clubID, "Club", 2000, 0, 0, true, false, uuid.NewString(), now, now, nil))
 	mock.ExpectQuery("UpdateTransaction").
 		WithArgs(txID, playerID, "deposit", 200, nil, -500, -300, 1800, 2000, txDate, sqlmock.AnyArg()).
 		WillReturnRows(storedTxRow(txID, clubID, playerID, "deposit", 200, nil, txDate, now))

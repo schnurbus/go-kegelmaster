@@ -15,12 +15,12 @@ import (
 func expectOwnerWithGameDay(mock sqlmock.Sqlmock, userID, clubID, gameDayID string, now time.Time) {
 	mock.ExpectQuery(`SELECT id, email, password_hash`).
 		WithArgs(userID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at", "password_changed_at", "notify_gameday_settled", "is_instance_admin", "last_login_at", "disabled_at", "sessions_valid_after"}).
-			AddRow(userID, "user@example.com", "hash", now, now, nil, false, false, nil, nil, nil))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at", "password_changed_at", "notify_gameday_settled", "is_instance_admin", "last_login_at", "disabled_at", "sessions_valid_after", "tour_seen_at", "setup_hint_seen_at"}).
+			AddRow(userID, "user@example.com", "hash", now, now, nil, false, false, nil, nil, nil, nil, nil))
 	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
 		WithArgs(clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID, "Test Club", 0, 0, 0, true, false, userID, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at", "setup_dismissed_at"}).
+			AddRow(clubID, "Test Club", 0, 0, 0, true, false, userID, now, now, nil))
 	mock.ExpectQuery(`SELECT id, club_id, date, notes, is_draft, created_at, updated_at FROM game_days WHERE id`).
 		WithArgs(gameDayID).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "date", "notes", "is_draft", "created_at", "updated_at"}).
@@ -111,12 +111,12 @@ func TestHandleSetParticipantAttendance_MissingFieldRejected(t *testing.T) {
 
 	mock.ExpectQuery(`SELECT id, email, password_hash`).
 		WithArgs(userID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at", "password_changed_at", "notify_gameday_settled", "is_instance_admin", "last_login_at", "disabled_at", "sessions_valid_after"}).
-			AddRow(userID, "user@example.com", "hash", now, now, nil, false, false, nil, nil, nil))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at", "password_changed_at", "notify_gameday_settled", "is_instance_admin", "last_login_at", "disabled_at", "sessions_valid_after", "tour_seen_at", "setup_hint_seen_at"}).
+			AddRow(userID, "user@example.com", "hash", now, now, nil, false, false, nil, nil, nil, nil, nil))
 	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
 		WithArgs(clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID, "Test Club", 0, 0, 0, true, false, userID, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at", "setup_dismissed_at"}).
+			AddRow(clubID, "Test Club", 0, 0, 0, true, false, userID, now, now, nil))
 
 	req := mustJSONRequest(t, http.MethodPatch, "/api/clubs/"+clubID+"/gamedays/"+gameDayID+"/participants/"+playerID, `{}`)
 	req.AddCookie(&http.Cookie{Name: authCookieName, Value: token})
