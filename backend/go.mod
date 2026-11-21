@@ -9,7 +9,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/google/uuid v1.6.0
-	github.com/jackc/pgx/v5 v5.7.6
+	github.com/jackc/pgx/v5 v5.9.2
 	github.com/lib/pq v1.11.2
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/resend/resend-go/v3 v3.1.0
