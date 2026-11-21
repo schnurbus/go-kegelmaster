@@ -105,7 +105,8 @@ export function runTour({ steps, ctx, isMobile, setSidebarOpen, onEnd }: RunTour
     nextBtnText: "Weiter",
     prevBtnText: "Zurück",
     doneBtnText: "Fertig",
-    showButtons: steps.length > 1 ? ["next", "previous"] : ["next"],
+    // Every bubble has Weiter, Zurück and Überspringen (Zurück is disabled on the first one).
+    showButtons: ["next", "previous"],
     popoverClass: "kegelmaster-tour",
     // Highlighted elements are not clickable: the tour only explains.
     disableActiveInteraction: true,
@@ -116,7 +117,7 @@ export function runTour({ steps, ctx, isMobile, setSidebarOpen, onEnd }: RunTour
       popover.wrapper.setAttribute("aria-modal", "false");
       popover.wrapper.setAttribute("aria-labelledby", "driver-popover-title");
       popover.wrapper.setAttribute("aria-describedby", "driver-popover-description");
-      if (steps.length > 1) {
+      {
         const skip = document.createElement("button");
         skip.type = "button";
         skip.className = "kegelmaster-tour-skip";

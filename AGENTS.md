@@ -134,7 +134,7 @@ type Entity struct {
 - Use SQLc for type-safe SQL queries
 - All tables have UUID primary keys
 - Include `created_at` and `updated_at` timestamps
-- Use foreign key constraints with `ON DELETE CASCADE`
+- Use foreign key constraints with `ON DELETE CASCADE` (exception: `players.role_id` is `ON DELETE RESTRICT`, every player keeps exactly one role)
 - User-owned resources reference `users(id)`
 
 ## Testing Guidelines

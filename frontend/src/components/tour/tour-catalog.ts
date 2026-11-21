@@ -125,9 +125,9 @@ export const TOUR_STEPS: TourStep[] = [
     target: "nav-user",
     inSidebar: true,
     side: "right",
-    title: "Ihr Account",
+    title: "Ihr Benutzerkonto",
     description:
-      "Im Benutzermenü finden Sie Ihren Account. Dort können Sie eine E-Mail bei abgerechneten Spieltagen einschalten – sie ist anfangs aus. Hier starten Sie auch den Rundgang erneut.",
+      "Im Benutzermenü finden Sie unter „Account“ Ihre Kontoeinstellungen. Dort können Sie eine E-Mail bei abgerechneten Spieltagen einschalten – sie ist anfangs aus. Hier starten Sie auch den Rundgang erneut.",
   },
 ];
 

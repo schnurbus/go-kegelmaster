@@ -1352,7 +1352,7 @@ paths:
                 inactive: { type: boolean }
                 link_me:
                   type: boolean
-                  description: „Das bin ich“ – verknüpft den neuen Spieler mit dem aufrufenden User (hat Vorrang vor user_id).
+                  description: „Das bin ich“ – verknüpft den neuen Spieler mit dem aufrufenden Benutzer (hat Vorrang vor user_id).
       responses:
         "201":
           description: Spieler erstellt

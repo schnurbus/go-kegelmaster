@@ -59,7 +59,7 @@ test.describe("Neuer Besitzer", () => {
     expect(titles[0]).toBe("Willkommen im Kegelmaster");
     expect(titles).toContain("Ersteinrichtung");
     expect(titles).toContain("Rollen");
-    expect(titles[titles.length - 1]).toBe("Ihr Account");
+    expect(titles[titles.length - 1]).toBe("Ihr Benutzerkonto");
     await expect.poll(async () => (await tourFlags(page)).tour).not.toBeNull();
 
     const card = page.locator('[data-tour="setup-card"]');
@@ -206,7 +206,7 @@ test.describe("Mobil", () => {
     await expect(page.locator('[data-tour="club-switcher"].driver-active-element')).toBeVisible();
 
     const titles = await walkTour(page);
-    expect(titles[titles.length - 1]).toBe("Ihr Account");
+    expect(titles[titles.length - 1]).toBe("Ihr Benutzerkonto");
     await expect(page.locator('[data-mobile="true"][data-sidebar="sidebar"]')).toHaveCount(0);
   });
 });
@@ -226,7 +226,7 @@ test.describe("Eingeladener Benutzer", () => {
     expect(titles[0]).toBe("Willkommen im Kegelmaster");
     expect(titles).not.toContain("Rollen");
     expect(titles).not.toContain("Ersteinrichtung");
-    expect(titles).toContain("Ihr Account");
+    expect(titles).toContain("Ihr Benutzerkonto");
     await expect(page.locator('[data-tour="club-switcher"]')).toContainText(SEED_CLUB);
 
     await page.reload();

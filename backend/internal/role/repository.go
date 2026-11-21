@@ -12,6 +12,9 @@ import (
 	"github.com/schnurbus/go-kegelmaster/backend/internal/db"
 )
 
+// pgForeignKeyViolation is the PostgreSQL error code for a violated foreign key.
+const pgForeignKeyViolation = "23503"
+
 var (
 	ErrNotFound        = errors.New("role not found")
 	ErrPermissionExist = errors.New("permission already exists")
@@ -168,7 +171,7 @@ func (r *Repository) Delete(ctx context.Context, id string) error {
 	err = r.queries.DeleteRole(ctx, id)
 	if err != nil {
 		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23503" {
+		if errors.As(err, &pgErr) && pgErr.Code == pgForeignKeyViolation {
 			return ErrInUse
 		}
 		return err

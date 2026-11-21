@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 
@@ -12,14 +13,14 @@ import (
 
 // Kennungen der Schritte der Ersteinrichtung, in der angezeigten Reihenfolge.
 const (
-	SetupStepClub         = "club"
-	SetupStepPenaltyTypes = "penalty_types"
-	SetupStepRoles        = "roles"
-	SetupStepPlayers      = "players"
-	SetupStepFirstGameDay = "first_game_day"
-	SetupStepOwnPlayer    = "own_player"
-	SetupStepInvitations  = "invitations"
-	SetupStepCompetitions = "competitions"
+	setupStepClub         = "club"
+	setupStepPenaltyTypes = "penalty_types"
+	setupStepRoles        = "roles"
+	setupStepPlayers      = "players"
+	setupStepFirstGameDay = "first_game_day"
+	setupStepOwnPlayer    = "own_player"
+	setupStepInvitations  = "invitations"
+	setupStepCompetitions = "competitions"
 )
 
 type SetupStepResponse struct {
@@ -40,15 +41,15 @@ type ClubSetupResponse struct {
 
 func clubSetupFromCounts(cl club.Club, n club.SetupCounts) ClubSetupResponse {
 	steps := []SetupStepResponse{
-		{ID: SetupStepClub, Required: true, Done: true},
-		{ID: SetupStepPenaltyTypes, Required: true, Done: n.PenaltyTypes > 0},
-		{ID: SetupStepRoles, Required: true, Done: n.Roles > 0},
-		{ID: SetupStepPlayers, Required: true, Done: n.Players > 0},
+		{ID: setupStepClub, Required: true, Done: true},
+		{ID: setupStepPenaltyTypes, Required: true, Done: n.PenaltyTypes > 0},
+		{ID: setupStepRoles, Required: true, Done: n.Roles > 0},
+		{ID: setupStepPlayers, Required: true, Done: n.Players > 0},
 		// Only a published game day books anything; drafts do not count.
-		{ID: SetupStepFirstGameDay, Required: true, Done: n.PublishedGameDays > 0},
-		{ID: SetupStepOwnPlayer, Required: false, Done: n.OwnPlayers > 0},
-		{ID: SetupStepInvitations, Required: false, Done: n.Invitations > 0},
-		{ID: SetupStepCompetitions, Required: false, Done: n.Competitions > 0},
+		{ID: setupStepFirstGameDay, Required: true, Done: n.PublishedGameDays > 0},
+		{ID: setupStepOwnPlayer, Required: false, Done: n.OwnPlayers > 0},
+		{ID: setupStepInvitations, Required: false, Done: n.Invitations > 0},
+		{ID: setupStepCompetitions, Required: false, Done: n.Competitions > 0},
 	}
 	complete := true
 	for _, s := range steps {
@@ -59,12 +60,10 @@ func clubSetupFromCounts(cl club.Club, n club.SetupCounts) ClubSetupResponse {
 	return ClubSetupResponse{Dismissed: cl.SetupDismissedAt != nil, Complete: complete, Steps: steps}
 }
 
-// ownedClub loads the club from the :id parameter and checks that the
-// signed-in user is its owner (Besitzer). Errors are *fiber.Error.
-func (h *Handler) ownedClub(c fiber.Ctx, userID string) (club.Club, error) {
-	ctx, cancel := h.RequestContext()
-	defer cancel()
-
+// clubForSetupOwner loads the club from the :id parameter and checks that the
+// signed-in user is its owner (Besitzer), the only one who sees the
+// Ersteinrichtung. Errors are *fiber.Error.
+func (h *Handler) clubForSetupOwner(ctx context.Context, c fiber.Ctx, userID string) (club.Club, error) {
 	clubID := c.Params("id")
 	if clubID == "" {
 		return club.Club{}, fiber.NewError(fiber.StatusBadRequest, "Club-ID ist erforderlich")
@@ -92,7 +91,7 @@ func (h *Handler) HandleGetClubSetup(c fiber.Ctx) error {
 	if err != nil {
 		return fiber.NewError(fiber.StatusUnauthorized, "Nicht angemeldet")
 	}
-	cl, err := h.ownedClub(c, u.ID)
+	cl, err := h.clubForSetupOwner(ctx, c, u.ID)
 	if err != nil {
 		return err
 	}
@@ -117,7 +116,7 @@ func (h *Handler) HandleDismissClubSetup(c fiber.Ctx) error {
 	if err != nil {
 		return fiber.NewError(fiber.StatusUnauthorized, "Nicht angemeldet")
 	}
-	cl, err := h.ownedClub(c, u.ID)
+	cl, err := h.clubForSetupOwner(ctx, c, u.ID)
 	if err != nil {
 		return err
 	}

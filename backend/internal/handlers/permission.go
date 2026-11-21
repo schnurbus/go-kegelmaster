@@ -71,10 +71,6 @@ func (h *Handler) HandleGetMyPermissions(c fiber.Ctx) error {
 		slog.Error("get my player", "error", err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
 	}
-	if playerEntity.RoleID == "" {
-		return c.JSON(MyPermissionsResponse{IsOwner: false, Permissions: []PermissionEntry{}})
-	}
-
 	// One query for the role's permissions instead of a HasPermission call
 	// (three queries each) for every entity/permission combination.
 	rolePerms, err := h.RoleRepo.GetPermissions(ctx, playerEntity.RoleID)
