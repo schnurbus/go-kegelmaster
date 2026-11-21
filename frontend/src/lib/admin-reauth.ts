@@ -5,6 +5,7 @@
 // password or a passkey and then lets the admin pages load again.
 
 import { getPasskeyAssertion } from "@/lib/passkey";
+import { csrfTokenFromCookie } from "@/lib/csrf";
 
 export const REAUTH_REQUIRED = "reauth_required";
 
@@ -31,10 +32,7 @@ export function onAdminReauthRequired(callback: () => void): () => void {
 }
 
 async function csrfToken(): Promise<string> {
-  const fromCookie = document.cookie
-    .split("; ")
-    .find((row) => row.startsWith("csrf_token="))
-    ?.split("=")[1];
+  const fromCookie = csrfTokenFromCookie();
   if (fromCookie) return fromCookie;
   const resp = await fetch("/api/auth/csrf-token", { credentials: "include" });
   if (!resp.ok) throw new Error("CSRF-Token konnte nicht geladen werden");

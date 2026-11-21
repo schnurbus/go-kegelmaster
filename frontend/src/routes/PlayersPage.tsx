@@ -38,6 +38,10 @@ function PlayersPage() {
   // „Das bin ich“ nur, solange der Benutzer im Club noch keinen Spieler hat.
   const [hasOwnPlayer, setHasOwnPlayer] = React.useState(true);
   const [linkMePreset, setLinkMePreset] = React.useState(false);
+  // ?einladen=1 ohne nicht verknüpften Spieler: nach dem Anlegen gleich dessen
+  // Dialog mit dem Einladen öffnen.
+  const [inviteAfterCreate, setInviteAfterCreate] = React.useState(false);
+  const [playerToInvite, setPlayerToInvite] = React.useState<Player | null>(null);
 
   const fetchPlayers = React.useCallback(async () => {
     if (!activeClub) return;
@@ -129,6 +133,8 @@ function PlayersPage() {
       if (uninvited) {
         handleEdit(uninvited);
       } else {
+        toast.info("Legen Sie zuerst den Spieler an, den Sie einladen möchten. Danach können Sie ihn einladen.");
+        setInviteAfterCreate(true);
         handleCreate();
       }
     },
@@ -149,10 +155,23 @@ function PlayersPage() {
     setIsDeleteDialogOpen(true);
   };
 
-  const handleSuccess = () => {
+  const handleSuccess = (created?: Player) => {
     fetchPlayers();
     fetchOwnPlayer();
+    if (inviteAfterCreate && created && !created.user_id) {
+      setPlayerToInvite(created);
+    }
+    setInviteAfterCreate(false);
   };
+
+  // Opens the edit dialog (with the invitation) once the create dialog closed.
+  React.useEffect(() => {
+    if (playerToInvite && !isDialogOpen) {
+      setSelectedPlayer(playerToInvite);
+      setPlayerToInvite(null);
+      setIsDialogOpen(true);
+    }
+  }, [playerToInvite, isDialogOpen]);
 
   if (!activeClub) {
     return (
@@ -216,7 +235,10 @@ function PlayersPage() {
 
       <PlayerDialog
         open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
+        onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) setInviteAfterCreate(false);
+        }}
         player={selectedPlayer}
         clubId={activeClub.id}
         roles={roles}

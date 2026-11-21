@@ -368,7 +368,8 @@ func (h *Handler) HandleDeleteRole(c fiber.Ctx) error {
 			return fiber.NewError(fiber.StatusNotFound, "Rolle nicht gefunden")
 		}
 		if errors.Is(err, role.ErrInUse) {
-			return fiber.NewError(fiber.StatusConflict, "Die Rolle hat noch Spieler. Ordnen Sie diese zuerst einer anderen Rolle zu.")
+			// A player was assigned between the count and the delete.
+			return fiber.NewError(fiber.StatusConflict, roleInUseMessage(0))
 		}
 		slog.Error("delete role", "error", err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
@@ -543,7 +544,12 @@ func (h *Handler) HandleRemovePermission(c fiber.Ctx) error {
 
 
 // roleInUseMessage explains why a role with players cannot be deleted.
+// roleInUseMessage explains why a role cannot be deleted; players <= 0 means
+// the number is unknown.
 func roleInUseMessage(players int64) string {
+	if players <= 0 {
+		return "Die Rolle hat noch Spieler. Ordnen Sie diese zuerst einer anderen Rolle zu."
+	}
 	if players == 1 {
 		return "Die Rolle hat noch 1 Spieler. Ordnen Sie ihn zuerst einer anderen Rolle zu."
 	}

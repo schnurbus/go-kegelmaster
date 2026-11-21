@@ -9,6 +9,7 @@ import {
 } from "react";
 
 import { getPasskeyAssertion } from "@/lib/passkey";
+import { csrfTokenFromCookie } from "@/lib/csrf";
 
 type AuthUser = {
   id: string;
@@ -313,10 +314,7 @@ export function useAuth() {
 }
 
 function readCsrfCookie(): string | null {
-  const value = document.cookie
-    .split("; ")
-    .find((row) => row.startsWith("csrf_token="))
-    ?.split("=")[1];
+  const value = csrfTokenFromCookie();
   return value ? value : null;
 }
 

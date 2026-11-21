@@ -670,3 +670,16 @@ KEG-12: Den MCP-Server auch in KI-Agenten im Internet einbinden (z. B. Claude od
 - **Claude Code:** `claude mcp add --transport http kegelmaster https://<host>/mcp`, danach in Claude Code `/mcp` → „Authenticate“.
 - **ChatGPT und andere OAuth-fähige Clients:** nur die Server-Adresse `https://<host>/mcp` eintragen; Authentifizierung „OAuth“.
 
+## Letzte Implementierung: Rundgang, Ersteinrichtung und Rollen-Pflicht (21. November 2026)
+
+Bug #90 und PRD #91 mit den Teil-Tickets #93–#100.
+
+- **Rolle ist Pflicht (#90):** Migration `000033` macht `players.role_id` zu `NOT NULL` mit `ON DELETE RESTRICT` und bricht mit klarer Meldung ab, wenn es Spieler ohne Rolle gibt (vor dem Deploy prüfen: `SELECT id, name, club_id FROM players WHERE role_id IS NULL;`). Eine Rolle mit Spielern (auch inaktiven) lässt sich nicht löschen: 409 mit Anzahl, im Frontend ist der Löschknopf deaktiviert.
+- **Merker:** `users.tour_seen_at` und `users.setup_hint_seen_at` (Migration `000034`, für bestehende Konten gesetzt), über `GET/PATCH /api/auth/me`; `clubs.setup_dismissed_at` für „Ausblenden“ (für bestehende Clubs gesetzt).
+- **Ersteinrichtung:** `GET /api/clubs/{id}/setup` (nur Besitzer) berechnet die Schritte bei jeder Abfrage aus den Club-Daten. Pflicht: Club, Strafentypen, Rollen, Spieler, erster veröffentlichter Spieltag (Entwürfe zählen nicht). Optional: eigener Spieler, Einladungen, Wettbewerbe. `POST …/setup/dismiss` blendet die Karte aus (Audit `club_setup_dismissed`). Die Karte springt mit `?neu=1`, `?neu=ich` bzw. `?einladen=1` in die Anlege-Dialoge; gibt es keinen Spieler zum Einladen, wird erst einer angelegt und danach direkt sein Dialog mit dem Einladen geöffnet.
+- **Rollen-Vorschlag:** `POST /api/clubs/{clubId}/roles/suggestion` legt Präsident, Kassenwart, Mitglied und Gast in einer Transaktion an (409, wenn der Club schon Rollen hat).
+- **„Das bin ich“:** `link_me` beim Anlegen eines Spielers verknüpft ihn mit dem eigenen Konto (409, wenn es im Club schon einen eigenen Spieler gibt).
+- **Rundgang (Frontend):** driver.js, Katalog in `components/tour/tour-catalog.ts` mit `data-tour`-Zielen und Sichtbarkeitsbedingungen; Abläufe „voll“, „nur Ersteinrichtung“ und „Hinweis am Club-Switcher“ nach Einladung (`TourAutoStart.tsx`). Mobil öffnet der Rundgang die Sidebar; fehlt ein Ziel, erscheint die Sprechblase mittig. Neustart über Hilfe und Benutzermenü. Nach angenommener Einladung landet der Benutzer auf dem Dashboard des eingeladenen Clubs (`lib/invitation.ts`, `hooks/use-enter-invited-club.ts`).
+- **Seed:** Demo-Konten mit gesehenem Rundgang, Gast ohne Rollenrechte, offene Einladungen `e2e-einladung-kc-alle-neune` und `e2e-einladung-rundgang-bekannt` für die E2E-Tests (nur einmal annehmbar, `make dev-fresh`).
+- **Tests:** Server-Tests für alle neuen Endpunkte (u. a. `club_setup_handler_test.go`, `role_suggestion_handler_test.go`, `player_link_me_handler_test.go`, `role_delete_handler_test.go`, `tour_flags_handler_test.go`), Playwright `frontend/e2e/onboarding.spec.ts`.
+- **Bekannte Lücke:** Rollen-Vorschlag und „Das bin ich“ prüfen die 409-Regel nicht atomar; bei gleichzeitigen Aufrufen sind Duplikate möglich (Folge-PR: Sperre in der Transaktion bzw. Unique-Index auf `players(club_id, user_id)`).

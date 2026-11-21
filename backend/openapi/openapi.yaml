@@ -1146,8 +1146,8 @@ paths:
       summary: Rollen-Vorschlag übernehmen
       description: |
         Legt die Rollen Präsident (alle Rechte), Kassenwart (Spieltage, Transaktionen, Spieler, Strafentypen und
-        Wettbewerbe auflisten/ansehen/anlegen/ändern; Rollen nur lesen), Mitglied (nur lesen, ohne Rollen) und Gast
-        (wie Mitglied, ohne Grundgebühr) in einem Rutsch an. Nur für einen Club ohne Rollen.
+        Wettbewerbe auflisten/ansehen/anlegen/ändern; Rollen nur lesen), Mitglied (alles nur lesen, auch Rollen) und Gast
+        (nur lesen, ohne Rollen und ohne Grundgebühr) in einem Rutsch an. Nur für einen Club ohne Rollen.
       tags: [Rollen]
       security: [cookieAuth: [], bearerAuth: []]
       parameters:

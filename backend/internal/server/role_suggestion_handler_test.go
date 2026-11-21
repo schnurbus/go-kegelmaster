@@ -137,7 +137,9 @@ func TestRoleSuggestion_CreatesFourRoles(t *testing.T) {
 		{"Kassenwart", "roles", "create", false},
 		{"Mitglied", "game_days", "view", true},
 		{"Mitglied", "game_days", "create", false},
-		{"Mitglied", "roles", "list", false},
+		{"Mitglied", "roles", "list", true},
+		{"Mitglied", "roles", "update", false},
+		{"Gast", "roles", "list", false},
 		{"Gast", "transactions", "list", true},
 		{"Gast", "players", "update", false},
 	}

@@ -47,9 +47,15 @@ const (
 // inviteEmail/inviteToken: open invitation for the player "Frank" (role Gast),
 // so E2E tests can accept an invitation via /invite/<token>. It can be accepted
 // once; reset the dev database (make dev-fresh) to get it back.
+//
+// knownTourEmail/knownTourInviteToken: an account without club that has
+// already seen the Rundgang, invited for the player "Gabi". Accepting it shows
+// only the hint at the club switcher (E2E test). Also accepted only once.
 const (
-	inviteEmail = "eingeladen@kegelmaster.local"
-	inviteToken = "e2e-einladung-kc-alle-neune"
+	inviteEmail          = "eingeladen@kegelmaster.local"
+	inviteToken          = "e2e-einladung-kc-alle-neune"
+	knownTourEmail       = "rundgang-bekannt@kegelmaster.local"
+	knownTourInviteToken = "e2e-einladung-rundgang-bekannt"
 )
 
 type repos struct {
@@ -121,6 +127,7 @@ func main() {
 	fmt.Printf("  Owner:       %s / %s\n", ownerEmail, seedPassword)
 	fmt.Printf("  Mitglied:    %s / %s (eingeschränkte Rechte)\n", memberEmail, seedPassword)
 	fmt.Printf("  Einladung:   /invite/%s (für %s, Rolle Gast)\n", inviteToken, inviteEmail)
+	fmt.Printf("  Einladung:   /invite/%s (für %s / %s, Rundgang schon gesehen)\n", knownTourInviteToken, knownTourEmail, seedPassword)
 	fmt.Println()
 }
 
@@ -137,9 +144,13 @@ func seed(ctx context.Context, r repos) error {
 	if err != nil {
 		return fmt.Errorf("Mitglied-User anlegen: %w", err)
 	}
+	knownTour, err := r.users.Create(ctx, user.CreateUserParams{Email: knownTourEmail, PasswordHash: string(hash)})
+	if err != nil {
+		return fmt.Errorf("User mit bekanntem Rundgang anlegen: %w", err)
+	}
 	// The demo accounts stand for existing users: no automatic Rundgang.
-	for _, u := range []user.User{owner, member} {
-		if _, err := r.users.MarkTourFlags(ctx, u.ID, true, true); err != nil {
+	for _, u := range []user.User{owner, member, knownTour} {
+		if _, err := r.users.MarkTourFlags(ctx, u.ID, user.TourFlags{TourSeen: true, SetupHintSeen: true}); err != nil {
 			return fmt.Errorf("Rundgang-Merker setzen: %w", err)
 		}
 	}
@@ -215,15 +226,20 @@ func seed(ctx context.Context, r repos) error {
 	}
 
 	now := time.Now().UTC()
-	if _, err := r.queries.CreatePlayerInvitation(ctx, db.CreatePlayerInvitationParams{
-		ID:        uuid.NewString(),
-		PlayerID:  playerIDs["Frank"],
-		Email:     inviteEmail,
-		Token:     inviteToken,
-		ExpiresAt: now.AddDate(1, 0, 0),
-		CreatedAt: now,
-	}); err != nil {
-		return fmt.Errorf("Einladung anlegen: %w", err)
+	for _, inv := range []struct{ player, email, token string }{
+		{"Frank", inviteEmail, inviteToken},
+		{"Gabi", knownTourEmail, knownTourInviteToken},
+	} {
+		if _, err := r.queries.CreatePlayerInvitation(ctx, db.CreatePlayerInvitationParams{
+			ID:        uuid.NewString(),
+			PlayerID:  playerIDs[inv.player],
+			Email:     inv.email,
+			Token:     inv.token,
+			ExpiresAt: now.AddDate(1, 0, 0),
+			CreatedAt: now,
+		}); err != nil {
+			return fmt.Errorf("Einladung für %s anlegen: %w", inv.player, err)
+		}
 	}
 
 	penalties := []penaltytype.CreatePenaltyTypeParams{

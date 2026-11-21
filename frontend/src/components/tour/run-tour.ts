@@ -40,16 +40,17 @@ function wait(ms: number) {
   return new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 }
 
-/**
- * Startet einen Rundgang mit driver.js: Sprechblasen mit Weiter, Zurück und
- * Überspringen, bedienbar per Tastatur (Pfeiltasten, Esc = Überspringen).
- * Fehlt ein Ziel, erscheint die Sprechblase mittig ohne Pfeil.
- */
+/** Steuert einen laufenden Rundgang von außen. */
 export type TourHandle = {
   /** Beendet den Rundgang ohne onEnd (z. B. wenn das Dashboard verlassen wird). */
   cancel: () => void;
 };
 
+/**
+ * Startet einen Rundgang mit driver.js: Sprechblasen mit Weiter, Zurück und
+ * Überspringen, bedienbar per Tastatur (Pfeiltasten, Esc = Überspringen).
+ * Fehlt ein Ziel, erscheint die Sprechblase mittig ohne Pfeil.
+ */
 export function runTour({ steps, ctx, isMobile, setSidebarOpen, onEnd }: RunTourOptions): TourHandle {
   if (steps.length === 0) {
     onEnd();
@@ -98,6 +99,8 @@ export function runTour({ steps, ctx, isMobile, setSidebarOpen, onEnd }: RunTour
   const tour = driver({
     steps: driveSteps,
     animate: true,
+    // Esc and a click outside end the tour like Überspringen. (driver.js'
+    // "nextStep" would bypass onNextClick and with it the mobile sidebar.)
     allowClose: true,
     allowKeyboardControl: true,
     showProgress: steps.length > 1,
@@ -117,17 +120,15 @@ export function runTour({ steps, ctx, isMobile, setSidebarOpen, onEnd }: RunTour
       popover.wrapper.setAttribute("aria-modal", "false");
       popover.wrapper.setAttribute("aria-labelledby", "driver-popover-title");
       popover.wrapper.setAttribute("aria-describedby", "driver-popover-description");
-      {
-        const skip = document.createElement("button");
-        skip.type = "button";
-        skip.className = "kegelmaster-tour-skip";
-        skip.textContent = "Überspringen";
-        skip.addEventListener("click", () => {
-          finish();
-          d.destroy();
-        });
-        popover.footer.insertBefore(skip, popover.footer.firstChild);
-      }
+      const skip = document.createElement("button");
+      skip.type = "button";
+      skip.className = "kegelmaster-tour-skip";
+      skip.textContent = "Überspringen";
+      skip.addEventListener("click", () => {
+        finish();
+        d.destroy();
+      });
+      popover.footer.insertBefore(skip, popover.footer.firstChild);
       popover.nextButton.focus();
     },
     onNextClick: (_el, _step, { driver: d }) => {

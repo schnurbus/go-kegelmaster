@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -39,7 +40,7 @@ func NewRepository(dbConn *sql.DB) *Repository {
 func (r *Repository) CreateFromTemplates(ctx context.Context, clubID string, templates []Template) ([]RoleWithPermissions, error) {
 	tx, err := r.database.BeginTx(ctx, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("begin transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
 	q := r.queries.WithTx(tx)
@@ -56,7 +57,7 @@ func (r *Repository) CreateFromTemplates(ctx context.Context, clubID string, tem
 			UpdatedAt:   now,
 		})
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("create role %q: %w", t.Name, err)
 		}
 		created := RoleWithPermissions{Role: dbRoleToRole(dbRole)}
 		for _, p := range t.Permissions {
@@ -68,14 +69,14 @@ func (r *Repository) CreateFromTemplates(ctx context.Context, clubID string, tem
 				CreatedAt:      now,
 			})
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("add permission %s/%s to role %q: %w", p.EntityType, p.PermissionType, t.Name, err)
 			}
 			created.Permissions = append(created.Permissions, dbRolePermissionToRolePermission(dbPerm))
 		}
 		out = append(out, created)
 	}
 	if err := tx.Commit(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("commit transaction: %w", err)
 	}
 	return out, nil
 }

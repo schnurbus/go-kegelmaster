@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import type { Role } from "@/types/role";
+import { csrfTokenFromCookie } from "@/lib/csrf";
 
 type DeleteRoleDialogProps = {
   open: boolean;
@@ -46,10 +47,7 @@ export function DeleteRoleDialog({
         {
           method: "DELETE",
           headers: {
-            "X-CSRF-Token": document.cookie
-              .split("; ")
-              .find((row) => row.startsWith("csrf_token="))
-              ?.split("=")[1] || "",
+            "X-CSRF-Token": csrfTokenFromCookie(),
           },
           credentials: "include",
         }

@@ -35,7 +35,9 @@ _Avoid_: Club-Einladung, Beitrittsanfrage
 **Rundgang**:
 Eine Folge von Sprechblasen, die einem Benutzer zeigt, was er an welcher Stelle der Oberfläche findet; er erklärt nur und verlangt keine Eingaben.
 _Avoid_: Tour, Tutorial, Onboarding
+_Im Code_: `tour` (englische Bezeichner wie bei `user` für Benutzer; „Avoid“ gilt für deutsche Texte und Gespräche)
 
 **Ersteinrichtung**:
 Die Liste der Schritte, die der Besitzer erledigen muss, bis sein Club benutzbar ist; ein Schritt gilt als erledigt, sobald die zugehörigen Daten im Club vorhanden sind.
 _Avoid_: Setup-Wizard, Onboarding, Checkliste
+_Im Code_: `setup`; Frontend-Modul für beides: `lib/onboarding.ts`

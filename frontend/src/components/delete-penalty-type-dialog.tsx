@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import type { PenaltyType } from "@/types/penalty-type";
+import { csrfTokenFromCookie } from "@/lib/csrf";
 
 type DeletePenaltyTypeDialogProps = {
   open: boolean;
@@ -42,10 +43,7 @@ export function DeletePenaltyTypeDialog({
         {
           method: "DELETE",
           headers: {
-            "X-CSRF-Token": document.cookie
-              .split("; ")
-              .find((row) => row.startsWith("csrf_token="))
-              ?.split("=")[1] || "",
+            "X-CSRF-Token": csrfTokenFromCookie(),
           },
           credentials: "include",
         }

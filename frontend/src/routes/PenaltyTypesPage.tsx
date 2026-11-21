@@ -7,6 +7,7 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { useOpenFromQuery } from "@/hooks/use-open-from-query";
 import type { PenaltyType } from "@/types/penalty-type";
 import { toast } from "sonner";
+import { csrfTokenFromCookie } from "@/lib/csrf";
 
 function PenaltyTypesPage() {
   const { activeClub } = useClub();
@@ -92,10 +93,7 @@ function PenaltyTypesPage() {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            "X-CSRF-Token": document.cookie
-              .split("; ")
-              .find((row) => row.startsWith("csrf_token="))
-              ?.split("=")[1] || "",
+            "X-CSRF-Token": csrfTokenFromCookie(),
           },
           credentials: "include",
           body: JSON.stringify({ display_order: newOrder }),

@@ -9,11 +9,18 @@ import type { ClubSetup, SetupStep, SetupStepId } from "@/hooks/use-club-setup";
 import { csrfTokenFromCookie } from "@/lib/csrf";
 import { cn } from "@/lib/utils";
 
-type StepText = { title: string; hint?: string; to: string };
+type StepText = {
+  title: string;
+  hint?: string;
+  /** Zielseite; ohne Ziel ist der Schritt nicht anklickbar. */
+  to?: string;
+  /** Zeigt „Vorschlag übernehmen“, solange der Schritt offen ist. */
+  offersRoleSuggestion?: boolean;
+};
 
 /** Texte und Zielseiten der Schritte; ?neu=… öffnet dort den Dialog zum Anlegen. */
 const STEP_TEXT: Record<SetupStepId, StepText> = {
-  club: { title: "Club anlegen", to: "/app" },
+  club: { title: "Club anlegen" },
   penalty_types: {
     title: "Strafentypen anlegen",
     hint: "Zum Beispiel Pudel oder Kranz, jeweils mit Preis.",
@@ -23,6 +30,7 @@ const STEP_TEXT: Record<SetupStepId, StepText> = {
     title: "Rollen anlegen",
     hint: "Spieler brauchen eine Rolle. Sie legt Rechte und die Grundgebühr fest.",
     to: "/app/roles?neu=1",
+    offersRoleSuggestion: true,
   },
   players: { title: "Spieler anlegen", hint: "Alle, die mitkegeln.", to: "/app/players?neu=1" },
   first_game_day: {
@@ -85,16 +93,16 @@ export function SetupCard({ clubId, setup, onChanged }: SetupCardProps) {
 
   const renderStep = (step: SetupStep) => {
     const text = STEP_TEXT[step.id];
-    const clickable = step.id !== "club";
+    const target = text.to;
     return (
       <li key={step.id} className="flex flex-col gap-1">
         <button
           type="button"
-          disabled={!clickable}
-          onClick={() => navigate(text.to)}
+          disabled={!target}
+          onClick={() => target && navigate(target)}
           className={cn(
             "flex flex-1 items-start gap-3 rounded-md p-2 text-left transition-colors",
-            clickable && "hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            target && "hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           )}
           aria-label={`${text.title}: ${step.done ? "erledigt" : "offen"}`}
         >
@@ -109,9 +117,9 @@ export function SetupCard({ clubId, setup, onChanged }: SetupCardProps) {
             </span>
             {text.hint && !step.done && <span className="block text-sm text-muted-foreground">{text.hint}</span>}
           </span>
-          {clickable && <ChevronRightIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />}
+          {target && <ChevronRightIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />}
         </button>
-        {step.id === "roles" && !step.done && (
+        {text.offersRoleSuggestion && !step.done && (
           <Button
             variant="outline"
             size="sm"

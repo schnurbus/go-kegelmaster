@@ -29,6 +29,7 @@ import type {
   UpdatePlayerRequest,
 } from "@/types/player";
 import { euroToCents, formatMoneyInput } from "@/types/player";
+import { csrfTokenFromCookie } from "@/lib/csrf";
 
 type PlayerDialogProps = {
   open: boolean;
@@ -41,7 +42,8 @@ type PlayerDialogProps = {
   offerLinkMe?: boolean;
   /** „Das bin ich“ beim Öffnen vorauswählen. */
   initialLinkMe?: boolean;
-  onSuccess: () => void;
+  /** Nach dem Speichern; beim Anlegen mit dem neuen Spieler. */
+  onSuccess: (created?: Player) => void;
 };
 
 export function PlayerDialog({
@@ -151,10 +153,7 @@ export function PlayerDialog({
         method: isEdit ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-CSRF-Token": document.cookie
-            .split("; ")
-            .find((row) => row.startsWith("csrf_token="))
-            ?.split("=")[1] || "",
+          "X-CSRF-Token": csrfTokenFromCookie(),
         },
         credentials: "include",
         body: JSON.stringify(body),
@@ -165,10 +164,11 @@ export function PlayerDialog({
         throw new Error(errorData.message || "Fehler beim Speichern");
       }
 
+      const saved = isEdit ? undefined : ((await response.json().catch(() => undefined)) as Player | undefined);
       toast.success(
         isEdit ? "Player erfolgreich aktualisiert" : "Player erfolgreich erstellt"
       );
-      onSuccess();
+      onSuccess(saved);
       onOpenChange(false);
       // Reset form
       setName("");
@@ -213,10 +213,7 @@ export function PlayerDialog({
     try {
       toast.loading("Einladung wird vorbereitet...", { id: "invite-loading" });
 
-      const csrfToken = document.cookie
-        .split("; ")
-        .find((row) => row.startsWith("csrf_token="))
-        ?.split("=")[1] || "";
+      const csrfToken = csrfTokenFromCookie();
 
       if (!csrfToken) {
         throw new Error("CSRF-Token fehlt. Bitte Seite neu laden.");

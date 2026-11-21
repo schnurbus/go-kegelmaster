@@ -245,10 +245,12 @@ func (h *Handler) HandleUpdateCurrentUser(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusUnauthorized, "Nicht angemeldet")
 	}
 
-	markTour := req.TourSeen && u.TourSeenAt == nil
-	markHint := req.SetupHintSeen && u.SetupHintSeenAt == nil
-	if markTour || markHint {
-		u, err = h.UserRepo.MarkTourFlags(ctx, u.ID, markTour, markHint)
+	flags := user.TourFlags{
+		TourSeen:      req.TourSeen && u.TourSeenAt == nil,
+		SetupHintSeen: req.SetupHintSeen && u.SetupHintSeenAt == nil,
+	}
+	if flags.Any() {
+		u, err = h.UserRepo.MarkTourFlags(ctx, u.ID, flags)
 		if err != nil {
 			if errors.Is(err, user.ErrNotFound) {
 				return fiber.NewError(fiber.StatusUnauthorized, "Nicht angemeldet")

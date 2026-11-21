@@ -1,3 +1,5 @@
+import { csrfTokenFromCookie } from "@/lib/csrf";
+
 /** Parameters of an OAuth authorization request that the consent page passes back to the backend. */
 export const AUTHORIZE_PARAMS = [
   "client_id",
@@ -10,18 +12,9 @@ export const AUTHORIZE_PARAMS = [
   "resource",
 ] as const;
 
-function readCsrfCookie(): string {
-  return (
-    document.cookie
-      .split("; ")
-      .find((row) => row.startsWith("csrf_token="))
-      ?.split("=")[1] ?? ""
-  );
-}
-
 /** Returns the CSRF token, fetching a fresh one when the cookie expired. */
 export async function oauthCsrfToken(): Promise<string> {
-  const token = readCsrfCookie();
+  const token = csrfTokenFromCookie();
   if (token) return token;
   const resp = await fetch("/api/auth/csrf-token", { credentials: "include" });
   if (!resp.ok) throw new Error("CSRF-Token konnte nicht geladen werden");

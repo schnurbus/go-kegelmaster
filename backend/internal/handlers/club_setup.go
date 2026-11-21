@@ -11,22 +11,26 @@ import (
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
 )
 
+// SetupStepID identifies a step of the Ersteinrichtung. The values are part of
+// the API (see openapi.yaml) and mirrored by SetupStepId in the frontend.
+type SetupStepID string
+
 // Kennungen der Schritte der Ersteinrichtung, in der angezeigten Reihenfolge.
 const (
-	setupStepClub         = "club"
-	setupStepPenaltyTypes = "penalty_types"
-	setupStepRoles        = "roles"
-	setupStepPlayers      = "players"
-	setupStepFirstGameDay = "first_game_day"
-	setupStepOwnPlayer    = "own_player"
-	setupStepInvitations  = "invitations"
-	setupStepCompetitions = "competitions"
+	setupStepClub         SetupStepID = "club"
+	setupStepPenaltyTypes             = "penalty_types"
+	setupStepRoles                    = "roles"
+	setupStepPlayers                  = "players"
+	setupStepFirstGameDay             = "first_game_day"
+	setupStepOwnPlayer                = "own_player"
+	setupStepInvitations              = "invitations"
+	setupStepCompetitions             = "competitions"
 )
 
 type SetupStepResponse struct {
-	ID       string `json:"id"`
-	Required bool   `json:"required"`
-	Done     bool   `json:"done"`
+	ID       SetupStepID `json:"id"`
+	Required bool        `json:"required"`
+	Done     bool        `json:"done"`
 }
 
 // ClubSetupResponse is the state of the Ersteinrichtung of a club. It is

@@ -35,8 +35,9 @@ func grant(entities []EntityType, perms ...PermissionType) []TemplatePermission 
 
 // SuggestedRoles is the role suggestion for a new club: Präsident may do
 // everything; Kassenwart manages game days, transactions, players, penalty
-// types and competitions and may only read roles; Mitglied and Gast only read
-// (Gast pays no base fee). Owners can change everything afterwards.
+// types and competitions and may only read roles; Mitglied only reads,
+// including the roles; Gast only reads, does not see the roles and pays no base
+// fee. Owners can change everything afterwards.
 func SuggestedRoles() []Template {
 	all := append([]EntityType{EntityTypeRoles}, clubEntityTypes...)
 	read := []PermissionType{PermissionTypeList, PermissionTypeView}
@@ -46,7 +47,7 @@ func SuggestedRoles() []Template {
 			grant(clubEntityTypes, PermissionTypeList, PermissionTypeView, PermissionTypeCreate, PermissionTypeUpdate),
 			grant([]EntityType{EntityTypeRoles}, read...)...,
 		)},
-		{Name: "Mitglied", PaysBaseFee: true, Permissions: grant(clubEntityTypes, read...)},
+		{Name: "Mitglied", PaysBaseFee: true, Permissions: grant(all, read...)},
 		{Name: "Gast", PaysBaseFee: false, Permissions: grant(clubEntityTypes, read...)},
 	}
 }

@@ -7,6 +7,10 @@ import { test, expect, type Page } from "@playwright/test";
 const SEED_INVITE_TOKEN = "e2e-einladung-kc-alle-neune";
 const SEED_INVITE_EMAIL = "eingeladen@kegelmaster.local";
 const SEED_CLUB = "KC Alle Neune";
+// Konto ohne Club, das den Rundgang schon kennt, mit offener Einladung (Seed).
+const SEED_KNOWN_TOUR_TOKEN = "e2e-einladung-rundgang-bekannt";
+const SEED_KNOWN_TOUR_EMAIL = "rundgang-bekannt@kegelmaster.local";
+const SEED_PASSWORD = "kegelmaster";
 
 const tour = (page: Page) => page.locator(".driver-popover");
 const tourTitle = (page: Page) => page.locator(".driver-popover-title");
@@ -122,6 +126,26 @@ test.describe("Neuer Besitzer", () => {
     await expect(page.getByRole("dialog").getByLabel("Das bin ich")).toHaveCount(0);
   });
 
+  test("Einladen ohne freien Spieler: erst anlegen, dann direkt einladen", async ({ page }) => {
+    await register(page, `e2e-invite-${Date.now()}@example.com`);
+    await createClubFromWelcome(page, "KC Einladen");
+    await expect(tour(page)).toBeVisible({ timeout: 10000 });
+    await tour(page).getByRole("button", { name: "Überspringen" }).click();
+
+    const card = page.locator('[data-tour="setup-card"]');
+    await card.getByRole("button", { name: "Vorschlag übernehmen" }).click();
+    await card.getByRole("button", { name: /Spieler einladen/ }).click();
+    await expect(page.getByText("Legen Sie zuerst den Spieler an")).toBeVisible();
+    const createDialog = page.getByRole("dialog", { name: "Neuen Player erstellen" });
+    await createDialog.getByLabel("Name").fill("Gerd");
+    await createDialog.getByRole("button", { name: "Erstellen" }).click();
+
+    const editDialog = page.getByRole("dialog", { name: "Player bearbeiten" });
+    await expect(editDialog).toBeVisible();
+    await expect(editDialog.getByPlaceholder("user@example.com")).toBeVisible();
+    await expect(editDialog.getByRole("button", { name: "Einladen" })).toBeVisible();
+  });
+
   test("Ausblenden versteckt die Ersteinrichtung", async ({ page }) => {
     await register(page, `e2e-dismiss-${Date.now()}@example.com`);
     await createClubFromWelcome(page, "KC Ausblenden");
@@ -227,6 +251,34 @@ test.describe("Eingeladener Benutzer", () => {
     expect(titles).not.toContain("Rollen");
     expect(titles).not.toContain("Ersteinrichtung");
     expect(titles).toContain("Ihr Benutzerkonto");
+    await expect(page.locator('[data-tour="club-switcher"]')).toContainText(SEED_CLUB);
+
+    await page.reload();
+    await expect(page.locator('[data-tour="dashboard-cards"]')).toBeVisible();
+    await page.waitForTimeout(1500);
+    await expect(tour(page)).toHaveCount(0);
+
+    // #100: Der Eingeladene kennt den Rundgang jetzt und legt einen eigenen
+    // Club an: nur die Sprechblase zur Ersteinrichtung.
+    await page.locator('[data-tour="club-switcher"] button').first().click();
+    await page.getByRole("menuitem", { name: "Neuen Club erstellen" }).click();
+    await page.getByPlaceholder("Club Name").fill("KC Eingeladen");
+    await page.getByRole("button", { name: "Erstellen", exact: true }).click();
+    expect(await walkTour(page)).toEqual(["Ersteinrichtung"]);
+    await expect.poll(async () => (await tourFlags(page)).hint).not.toBeNull();
+  });
+
+  test("mit bekanntem Rundgang bekommt nur einmal den Hinweis am Club-Switcher", async ({ page, request }) => {
+    const invitation = await request.get(`/api/invitations/${SEED_KNOWN_TOUR_TOKEN}`);
+    test.skip(!invitation.ok(), "Seed-Einladung schon angenommen – Dev-Datenbank neu aufsetzen (make dev-fresh)");
+
+    await page.goto(`/login?invite_token=${SEED_KNOWN_TOUR_TOKEN}`);
+    await page.getByLabel("E-Mail").fill(SEED_KNOWN_TOUR_EMAIL);
+    await page.getByLabel("Passwort").fill(SEED_PASSWORD);
+    await page.getByRole("button", { name: "Login" }).click();
+    await expect(page).toHaveURL(/\/app$/, { timeout: 10000 });
+
+    expect(await walkTour(page)).toEqual(["Neuer Club"]);
     await expect(page.locator('[data-tour="club-switcher"]')).toContainText(SEED_CLUB);
 
     await page.reload();

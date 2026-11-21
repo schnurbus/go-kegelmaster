@@ -17,6 +17,7 @@ import {
   getEntityTypeLabel,
   getPermissionTypeLabel,
 } from "@/types/role";
+import { csrfTokenFromCookie } from "@/lib/csrf";
 
 type PermissionsTableProps = {
   role: Role;
@@ -75,10 +76,7 @@ export function PermissionsTable({
         method,
         headers: {
           "Content-Type": "application/json",
-          "X-CSRF-Token": document.cookie
-            .split("; ")
-            .find((row) => row.startsWith("csrf_token="))
-            ?.split("=")[1] || "",
+          "X-CSRF-Token": csrfTokenFromCookie(),
         },
         credentials: "include",
         body: JSON.stringify({

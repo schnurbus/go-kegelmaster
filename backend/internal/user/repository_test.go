@@ -25,7 +25,7 @@ func TestRepository_MarkTourFlags(t *testing.T) {
 	mock.ExpectQuery(`COALESCE\(tour_seen_at`).WithArgs(true, sqlmock.AnyArg(), false, userID).
 		WillReturnRows(sqlmock.NewRows(userRowCols).AddRow(userID, "a@example.com", "hash", now, now, nil, false, false, nil, nil, nil, now, nil))
 
-	u, err := NewRepository(db).MarkTourFlags(context.Background(), userID, true, false)
+	u, err := NewRepository(db).MarkTourFlags(context.Background(), userID, TourFlags{TourSeen: true})
 	if err != nil {
 		t.Fatalf("mark: %v", err)
 	}
@@ -45,7 +45,7 @@ func TestRepository_MarkTourFlags_NotFound(t *testing.T) {
 	defer db.Close()
 	mock.ExpectQuery(`UPDATE users`).WillReturnError(sql.ErrNoRows)
 
-	if _, err := NewRepository(db).MarkTourFlags(context.Background(), uuid.NewString(), true, true); !errors.Is(err, ErrNotFound) {
+	if _, err := NewRepository(db).MarkTourFlags(context.Background(), uuid.NewString(), TourFlags{TourSeen: true, SetupHintSeen: true}); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("expected ErrNotFound, got %v", err)
 	}
 }

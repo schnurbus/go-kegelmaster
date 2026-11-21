@@ -23,6 +23,3 @@ export function takeTourTrigger(): TourTrigger | null {
     return null;
   }
 }
-
-/** Antwort von `POST /api/invitations/{token}/accept`. */
-export type AcceptedInvitation = { player_id: string; club_id: string };

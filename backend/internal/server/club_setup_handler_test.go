@@ -122,6 +122,31 @@ func TestClubSetup_PartlySetUp(t *testing.T) {
 	}
 }
 
+// A club whose only game day is a draft has not done the step "erster
+// Spieltag": the counts query only counts published game days.
+func TestClubSetup_DraftGameDayDoesNotCount(t *testing.T) {
+	srv, mock, authSvc := newTestServer(t)
+	userID, clubID := uuid.NewString(), uuid.NewString()
+	now := time.Now().UTC()
+	token, _ := authSvc.GenerateToken(userID, true)
+
+	expectClubOwnedBy(mock, userID, clubID, userID, nil, now)
+	mock.ExpectQuery(`NOT g\.is_draft`).WithArgs(clubID, userID).
+		WillReturnRows(sqlmock.NewRows(setupCountCols).AddRow(1, 1, 3, 0, 0, 0, 1))
+
+	resp, status := getSetupStatus(t, srv, token, clubID)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", resp.StatusCode)
+	}
+	steps := stepsByID(status.Steps)
+	if steps["first_game_day"].Done || status.Complete {
+		t.Fatalf("a draft must not complete first_game_day: %+v", status)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
 func TestClubSetup_CompleteWithoutOwnPlayer(t *testing.T) {
 	srv, mock, authSvc := newTestServer(t)
 	userID, clubID := uuid.NewString(), uuid.NewString()
