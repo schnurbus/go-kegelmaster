@@ -59,12 +59,12 @@ func (c *Checker) HasPermission(ctx context.Context, userID, clubID string, enti
 	}
 
 	// If player has no role, no permissions
-	if playerEntity.RoleID == nil {
+	if playerEntity.RoleID == "" {
 		return false, nil
 	}
 
 	// Check if the role has the requested permission
-	return c.roleRepo.HasPermission(ctx, *playerEntity.RoleID, entityType, permissionType)
+	return c.roleRepo.HasPermission(ctx, playerEntity.RoleID, entityType, permissionType)
 }
 
 // HasAnyPermission checks if a user has any of the specified permissions for a club.
@@ -80,4 +80,3 @@ func (c *Checker) HasAnyPermission(ctx context.Context, userID, clubID string, e
 	}
 	return false, nil
 }
-

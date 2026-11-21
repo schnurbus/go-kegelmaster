@@ -407,7 +407,7 @@ func TestSyncParticipantFees_RejectsPlayerOfOtherClub(t *testing.T) {
 
 func playerRow(playerID, clubID string, balance int, now time.Time) *sqlmock.Rows {
 	return sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "partner_id", "created_at", "updated_at"}).
-		AddRow(playerID, clubID, nil, nil, "Spieler", balance, 0, nil, false, nil, now, now)
+		AddRow(playerID, clubID, nil, "00000000-0000-0000-0000-0000000000f1", "Spieler", balance, 0, nil, false, nil, now, now)
 }
 
 func feeRows() *sqlmock.Rows {

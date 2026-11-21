@@ -165,7 +165,7 @@ type Player struct {
 	ID           string         `json:"id"`
 	ClubID       string         `json:"club_id"`
 	UserID       *string        `json:"user_id"`
-	RoleID       *string        `json:"role_id"`
+	RoleID       string         `json:"role_id"`
 	Name         string         `json:"name"`
 	Balance      int32          `json:"balance"`
 	StartBalance int32          `json:"start_balance"`

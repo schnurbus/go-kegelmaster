@@ -91,7 +91,7 @@ func (h *Handler) HandleCreatePlayer(c fiber.Ctx) error {
 		Balance:      req.Balance,
 		StartBalance: req.StartBalance,
 		UserID:       req.UserID,
-		RoleID:       req.RoleID,
+		RoleID:       *req.RoleID,
 		Gender:       req.Gender,
 		Inactive:     inactive,
 	})
@@ -411,11 +411,12 @@ func (h *Handler) HandleUpdatePlayer(c fiber.Ctx) error {
 	if userID == nil {
 		userID = existingPlayer.UserID
 	}
-	roleID := req.RoleID
-	if roleID == nil || *roleID == "" {
-		roleID = existingPlayer.RoleID
-	} else if err := h.requireRoleInClub(ctx, roleID, clubID); err != nil {
-		return err
+	roleID := existingPlayer.RoleID
+	if req.RoleID != nil && *req.RoleID != "" {
+		if err := h.requireRoleInClub(ctx, req.RoleID, clubID); err != nil {
+			return err
+		}
+		roleID = *req.RoleID
 	}
 	inactive := existingPlayer.Inactive
 	if req.Inactive != nil {

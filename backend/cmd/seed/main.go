@@ -175,7 +175,7 @@ func seed(ctx context.Context, r repos) error {
 		p, err := r.players.Create(ctx, player.CreatePlayerParams{
 			ClubID: clubEntity.ID,
 			UserID: sp.userID,
-			RoleID: &roleID,
+			RoleID: roleID,
 			Name:   sp.name,
 			Gender: &gender,
 		})

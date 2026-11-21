@@ -49,7 +49,7 @@ func TestHandleUpdateTransaction_OwnerUpdatesDeposit(t *testing.T) {
 	mock.ExpectQuery(`GetPlayerByIDForUpdate`).
 		WithArgs(playerID).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "partner_id", "created_at", "updated_at"}).
-			AddRow(playerID, clubID, nil, nil, "Anna", 0, 0, nil, false, nil, now, now))
+			AddRow(playerID, clubID, nil, "00000000-0000-0000-0000-0000000000f1", "Anna", 0, 0, nil, false, nil, now, now))
 	mock.ExpectExec(`UpdatePlayerBalance`).
 		WithArgs(-200, sqlmock.AnyArg(), playerID).
 		WillReturnResult(sqlmock.NewResult(0, 1))

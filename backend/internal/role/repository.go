@@ -15,6 +15,8 @@ import (
 var (
 	ErrNotFound        = errors.New("role not found")
 	ErrPermissionExist = errors.New("permission already exists")
+	// ErrInUse is returned when a role still has players and therefore cannot be deleted.
+	ErrInUse = errors.New("role still has players")
 )
 
 type Repository struct {
@@ -113,9 +115,14 @@ func (r *Repository) Delete(ctx context.Context, id string) error {
 		return err
 	}
 
-	// Delete the role
+	// Delete the role. players.role_id is ON DELETE RESTRICT, so a role that
+	// still has players fails with a foreign key violation.
 	err = r.queries.DeleteRole(ctx, id)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23503" {
+			return ErrInUse
+		}
 		return err
 	}
 

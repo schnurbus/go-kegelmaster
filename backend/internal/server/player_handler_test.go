@@ -293,8 +293,8 @@ func TestHandleGetPlayers_Success(t *testing.T) {
 	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, partner_id, created_at, updated_at`).
 		WithArgs(clubID).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "partner_id", "created_at", "updated_at"}).
-			AddRow(playerID1, clubID, nil, nil, "Player 1", 1000, 500, nil, false, nil, now, now).
-			AddRow(playerID2, clubID, nil, nil, "Player 2", 2000, 1000, nil, false, nil, now, now))
+			AddRow(playerID1, clubID, nil, "00000000-0000-0000-0000-0000000000f1", "Player 1", 1000, 500, nil, false, nil, now, now).
+			AddRow(playerID2, clubID, nil, "00000000-0000-0000-0000-0000000000f1", "Player 2", 2000, 1000, nil, false, nil, now, now))
 
 	req := mustJSONRequest(t, http.MethodGet, "/api/clubs/"+clubID+"/players", "")
 	req.AddCookie(&http.Cookie{Name: authCookieName, Value: token})
@@ -388,7 +388,7 @@ func TestHandleGetPlayer_Success(t *testing.T) {
 	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, partner_id, created_at, updated_at`).
 		WithArgs(playerID).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "partner_id", "created_at", "updated_at"}).
-			AddRow(playerID, clubID, nil, nil, "Test Player", 1000, 500, nil, false, nil, now, now))
+			AddRow(playerID, clubID, nil, "00000000-0000-0000-0000-0000000000f1", "Test Player", 1000, 500, nil, false, nil, now, now))
 
 	// Permission check: club lookup (user is owner, so has permission)
 	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
@@ -444,7 +444,7 @@ func TestHandleGetPlayer_NotOwnerNoPermission(t *testing.T) {
 	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, partner_id, created_at, updated_at`).
 		WithArgs(playerID).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "partner_id", "created_at", "updated_at"}).
-			AddRow(playerID, clubID, nil, nil, "Other Player", 1000, 500, nil, false, nil, now, now))
+			AddRow(playerID, clubID, nil, "00000000-0000-0000-0000-0000000000f1", "Other Player", 1000, 500, nil, false, nil, now, now))
 
 	// Permission check: club lookup (user is not owner)
 	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
@@ -496,7 +496,7 @@ func TestHandleGetPlayer_WrongClub(t *testing.T) {
 	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, partner_id, created_at, updated_at`).
 		WithArgs(playerID).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "partner_id", "created_at", "updated_at"}).
-			AddRow(playerID, wrongClubID, nil, nil, "Test Player", 1000, 500, nil, false, nil, now, now))
+			AddRow(playerID, wrongClubID, nil, "00000000-0000-0000-0000-0000000000f1", "Test Player", 1000, 500, nil, false, nil, now, now))
 
 	req := mustJSONRequest(t, http.MethodGet, "/api/clubs/"+clubID+"/players/"+playerID, "")
 	req.AddCookie(&http.Cookie{Name: authCookieName, Value: token})
@@ -706,7 +706,7 @@ func TestHandleUpdatePlayer_WrongClub(t *testing.T) {
 	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, partner_id, created_at, updated_at`).
 		WithArgs(playerID).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "partner_id", "created_at", "updated_at"}).
-			AddRow(playerID, wrongClubID, nil, nil, "Test Player", 1000, 500, nil, false, nil, now, now))
+			AddRow(playerID, wrongClubID, nil, "00000000-0000-0000-0000-0000000000f1", "Test Player", 1000, 500, nil, false, nil, now, now))
 
 	body := `{"name":"Updated Player","balance":2000,"start_balance":1000}`
 	req := mustJSONRequest(t, http.MethodPut, "/api/clubs/"+clubID+"/players/"+playerID, body)
@@ -753,13 +753,13 @@ func TestHandleDeletePlayer_Success(t *testing.T) {
 	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, partner_id, created_at, updated_at`).
 		WithArgs(playerID).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "partner_id", "created_at", "updated_at"}).
-			AddRow(playerID, clubID, nil, nil, "Test Player", 1000, 500, nil, false, nil, now, now))
+			AddRow(playerID, clubID, nil, "00000000-0000-0000-0000-0000000000f1", "Test Player", 1000, 500, nil, false, nil, now, now))
 
 	// Additional GetByID call in Delete method
 	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, partner_id, created_at, updated_at FROM players`).
 		WithArgs(playerID).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "partner_id", "created_at", "updated_at"}).
-			AddRow(playerID, clubID, nil, nil, "Test Player", 1000, 500, nil, false, nil, now, now))
+			AddRow(playerID, clubID, nil, "00000000-0000-0000-0000-0000000000f1", "Test Player", 1000, 500, nil, false, nil, now, now))
 
 	// Mock player deletion
 	mock.ExpectExec(`DELETE FROM players`).
@@ -857,7 +857,7 @@ func TestHandleDeletePlayer_WrongClub(t *testing.T) {
 	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, partner_id, created_at, updated_at`).
 		WithArgs(playerID).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "partner_id", "created_at", "updated_at"}).
-			AddRow(playerID, wrongClubID, nil, nil, "Test Player", 1000, 500, nil, false, nil, now, now))
+			AddRow(playerID, wrongClubID, nil, "00000000-0000-0000-0000-0000000000f1", "Test Player", 1000, 500, nil, false, nil, now, now))
 
 	req := mustJSONRequest(t, http.MethodDelete, "/api/clubs/"+clubID+"/players/"+playerID, "")
 	req.AddCookie(&http.Cookie{Name: authCookieName, Value: token})

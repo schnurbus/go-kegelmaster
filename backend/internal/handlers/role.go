@@ -352,9 +352,23 @@ func (h *Handler) HandleDeleteRole(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusNotFound, "Rolle nicht gefunden")
 	}
 
+	// Every player has exactly one role: a role with players (active or not)
+	// cannot be deleted.
+	playerCountByRole, err := h.PlayerRepo.CountByClubIDGroupByRoleID(ctx, clubID)
+	if err != nil {
+		slog.Error("count players by role", "error", err)
+		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+	}
+	if n := playerCountByRole[roleID]; n > 0 {
+		return fiber.NewError(fiber.StatusConflict, roleInUseMessage(n))
+	}
+
 	if err := h.RoleRepo.Delete(ctx, roleID); err != nil {
 		if errors.Is(err, role.ErrNotFound) {
 			return fiber.NewError(fiber.StatusNotFound, "Rolle nicht gefunden")
+		}
+		if errors.Is(err, role.ErrInUse) {
+			return fiber.NewError(fiber.StatusConflict, "Die Rolle hat noch Spieler. Ordnen Sie diese zuerst einer anderen Rolle zu.")
 		}
 		slog.Error("delete role", "error", err)
 		return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
@@ -527,3 +541,11 @@ func (h *Handler) HandleRemovePermission(c fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
+
+// roleInUseMessage explains why a role with players cannot be deleted.
+func roleInUseMessage(players int64) string {
+	if players == 1 {
+		return "Die Rolle hat noch 1 Spieler. Ordnen Sie ihn zuerst einer anderen Rolle zu."
+	}
+	return fmt.Sprintf("Die Rolle hat noch %d Spieler. Ordnen Sie diese zuerst einer anderen Rolle zu.", players)
+}

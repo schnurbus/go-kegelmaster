@@ -135,7 +135,7 @@ type UserPlayerLink struct {
 	ClubName   string `json:"club_name"`
 	// IsOwner: the user also owns this club.
 	IsOwner  bool    `json:"is_owner"`
-	RoleID   *string `json:"role_id"`
+	RoleID   string  `json:"role_id"`
 	RoleName *string `json:"role_name"`
 }
 
@@ -199,7 +199,7 @@ type ClubPlayer struct {
 	CreatedAt time.Time `json:"created_at"`
 	// User is null when the player is not linked to an account.
 	User     *UserRef `json:"user"`
-	RoleID   *string  `json:"role_id"`
+	RoleID   string   `json:"role_id"`
 	RoleName *string  `json:"role_name"`
 }
 

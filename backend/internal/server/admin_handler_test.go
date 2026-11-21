@@ -336,8 +336,8 @@ func TestAdmin_GetClub(t *testing.T) {
 	mock.ExpectQuery(`FROM players p\s+LEFT JOIN users u`).
 		WithArgs(clubID).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "inactive", "created_at", "user_id", "user_email", "role_id", "role_name"}).
-			AddRow(uuid.NewString(), "Anna", false, now, linkedUserID, "anna@example.com", nil, nil).
-			AddRow(uuid.NewString(), "Bernd", true, now, nil, nil, nil, nil))
+			AddRow(uuid.NewString(), "Anna", false, now, linkedUserID, "anna@example.com", "00000000-0000-0000-0000-0000000000f1", "Mitglied").
+			AddRow(uuid.NewString(), "Bernd", true, now, nil, nil, "00000000-0000-0000-0000-0000000000f1", "Mitglied"))
 	mock.ExpectQuery(`FROM player_invitations i`).
 		WithArgs(clubID).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "player_id", "player_name", "email", "created_at", "expires_at"}))

@@ -4,7 +4,7 @@ export type Player = {
   id: string;
   club_id: string;
   user_id: string | null;
-  role_id: string | null;
+  role_id: string;
   name: string;
   balance: number; // in Cent
   start_balance: number; // in Cent

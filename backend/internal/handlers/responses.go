@@ -125,7 +125,7 @@ type PlayerResponse struct {
 	ID           string    `json:"id"`
 	ClubID       string    `json:"club_id"`
 	UserID       *string   `json:"user_id"`
-	RoleID       *string   `json:"role_id"`
+	RoleID       string    `json:"role_id"`
 	Name         string    `json:"name"`
 	Balance      int       `json:"balance"`
 	StartBalance int       `json:"start_balance"`

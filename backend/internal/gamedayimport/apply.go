@@ -132,10 +132,10 @@ func applyWrite(ctx context.Context, resolved *ResolvedInput, playerByName map[s
 					slog.Error("Spieler für Grundgebühr laden", "error", err)
 				} else {
 					for _, p := range players {
-						if p.Inactive || p.RoleID == nil {
+						if p.Inactive || p.RoleID == "" {
 							continue
 						}
-						playerRole, err := deps.RoleRepo.GetByID(ctx, *p.RoleID)
+						playerRole, err := deps.RoleRepo.GetByID(ctx, p.RoleID)
 						if err != nil || !playerRole.PaysBaseFee {
 							continue
 						}

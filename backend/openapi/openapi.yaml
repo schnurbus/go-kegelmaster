@@ -1194,6 +1194,8 @@ paths:
       responses:
         "204":
           description: Gelöscht
+        "409":
+          description: Die Rolle hat noch Spieler (auch inaktive); die Meldung nennt die Anzahl. Jeder Spieler hat genau eine Rolle.
   /api/clubs/{clubId}/roles/{id}/permissions:
     post:
       summary: Berechtigung zu Rolle hinzufügen

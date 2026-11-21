@@ -69,7 +69,7 @@ export type AdminUserDetail = {
     club_id: string;
     club_name: string;
     is_owner: boolean;
-    role_id: string | null;
+    role_id: string;
     role_name: string | null;
   }[];
   api_tokens: {
@@ -102,7 +102,7 @@ export type AdminClubDetail = AdminClubListItem & {
     inactive: boolean;
     created_at: string;
     user: AdminUserRef | null;
-    role_id: string | null;
+    role_id: string;
     role_name: string | null;
   }[];
   open_invitations: {
