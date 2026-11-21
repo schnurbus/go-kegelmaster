@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.10.0](https://github.com/schnurbus/go-kegelmaster/compare/v0.9.0...v0.10.0) (2026-11-21)
+
+
+### Features
+
+* **onboarding:** rundgang, ersteinrichtung und rollen-pflicht ([#101](https://github.com/schnurbus/go-kegelmaster/issues/101)) ([c1d08fc](https://github.com/schnurbus/go-kegelmaster/commit/c1d08fc69591da2350ccc7ebf1252919865a4139))
+
+
+### Bug Fixes
+
+* **invitations:** registrierung über einladungslink ermöglichen ([#103](https://github.com/schnurbus/go-kegelmaster/issues/103)) ([d8b0d1e](https://github.com/schnurbus/go-kegelmaster/commit/d8b0d1e0038b50e1dcace06319fbfe44cf55643d))
+
 ## [0.9.0](https://github.com/schnurbus/go-kegelmaster/compare/v0.8.0...v0.9.0) (2026-11-21)
 
 
