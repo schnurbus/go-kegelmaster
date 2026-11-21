@@ -226,13 +226,13 @@ func gameDayCharges(params SaveGameDayWithChargesParams, clubRow db.Club, player
 		})
 		description := fmt.Sprintf("Grundgebühr für %s", params.Date.UTC().Format("02.01.2006"))
 		for _, player := range ordered {
-			if player.Inactive || player.RoleID == nil {
+			if player.Inactive || player.RoleID == "" {
 				continue
 			}
 			if _, ok := baseFeePlayers[player.ID]; ok {
 				continue
 			}
-			role, ok := roleByID[*player.RoleID]
+			role, ok := roleByID[player.RoleID]
 			if !ok {
 				return nil, &ChargeError{Message: fmt.Sprintf("Für %s fehlt die Rolle. Die Gebühren wurden nicht gebucht und es wurde nichts geändert.", player.Name)}
 			}

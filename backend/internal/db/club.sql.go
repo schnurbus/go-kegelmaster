@@ -34,7 +34,7 @@ INSERT INTO clubs (
     $9,
     $10
 )
-RETURNING id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at
+RETURNING id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at, setup_dismissed_at
 `
 
 type CreateClubParams struct {
@@ -75,6 +75,7 @@ func (q *Queries) CreateClub(ctx context.Context, arg CreateClubParams) (Club, e
 		&i.UserID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SetupDismissedAt,
 	)
 	return i, err
 }
@@ -89,8 +90,25 @@ func (q *Queries) DeleteClub(ctx context.Context, id string) error {
 	return err
 }
 
+const dismissClubSetup = `-- name: DismissClubSetup :exec
+UPDATE clubs
+SET setup_dismissed_at = COALESCE(setup_dismissed_at, $1::timestamptz)
+WHERE id = $2
+`
+
+type DismissClubSetupParams struct {
+	Now time.Time `json:"now"`
+	ID  string    `json:"id"`
+}
+
+// Hides the Ersteinrichtung card; an existing timestamp is kept.
+func (q *Queries) DismissClubSetup(ctx context.Context, arg DismissClubSetupParams) error {
+	_, err := q.db.ExecContext(ctx, dismissClubSetup, arg.Now, arg.ID)
+	return err
+}
+
 const getAllClubs = `-- name: GetAllClubs :many
-SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at FROM clubs
+SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at, setup_dismissed_at FROM clubs
 ORDER BY created_at DESC
 `
 
@@ -114,6 +132,7 @@ func (q *Queries) GetAllClubs(ctx context.Context) ([]Club, error) {
 			&i.UserID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.SetupDismissedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -129,7 +148,7 @@ func (q *Queries) GetAllClubs(ctx context.Context) ([]Club, error) {
 }
 
 const getClubByID = `-- name: GetClubByID :one
-SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at FROM clubs
+SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at, setup_dismissed_at FROM clubs
 WHERE id = $1
 `
 
@@ -147,12 +166,56 @@ func (q *Queries) GetClubByID(ctx context.Context, id string) (Club, error) {
 		&i.UserID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SetupDismissedAt,
+	)
+	return i, err
+}
+
+const getClubSetupCounts = `-- name: GetClubSetupCounts :one
+SELECT
+    (SELECT COUNT(*) FROM penalty_types pt WHERE pt.club_id = $1)::bigint AS penalty_types,
+    (SELECT COUNT(*) FROM roles r WHERE r.club_id = $1)::bigint AS roles,
+    (SELECT COUNT(*) FROM players p WHERE p.club_id = $1)::bigint AS players,
+    (SELECT COUNT(*) FROM game_days g WHERE g.club_id = $1 AND NOT g.is_draft)::bigint AS published_game_days,
+    (SELECT COUNT(*) FROM player_invitations i JOIN players ip ON ip.id = i.player_id WHERE ip.club_id = $1)::bigint AS invitations,
+    (SELECT COUNT(*) FROM competitions co WHERE co.club_id = $1)::bigint AS competitions,
+    (SELECT COUNT(*) FROM players op WHERE op.club_id = $1 AND op.user_id = $2)::bigint AS own_players
+`
+
+type GetClubSetupCountsParams struct {
+	ClubID string  `json:"club_id"`
+	UserID *string `json:"user_id"`
+}
+
+type GetClubSetupCountsRow struct {
+	PenaltyTypes      int64 `json:"penalty_types"`
+	Roles             int64 `json:"roles"`
+	Players           int64 `json:"players"`
+	PublishedGameDays int64 `json:"published_game_days"`
+	Invitations       int64 `json:"invitations"`
+	Competitions      int64 `json:"competitions"`
+	OwnPlayers        int64 `json:"own_players"`
+}
+
+// Data behind the Ersteinrichtung of a club; own_players counts the players
+// linked to the given user (the owner).
+func (q *Queries) GetClubSetupCounts(ctx context.Context, arg GetClubSetupCountsParams) (GetClubSetupCountsRow, error) {
+	row := q.db.QueryRowContext(ctx, getClubSetupCounts, arg.ClubID, arg.UserID)
+	var i GetClubSetupCountsRow
+	err := row.Scan(
+		&i.PenaltyTypes,
+		&i.Roles,
+		&i.Players,
+		&i.PublishedGameDays,
+		&i.Invitations,
+		&i.Competitions,
+		&i.OwnPlayers,
 	)
 	return i, err
 }
 
 const getClubsByUserID = `-- name: GetClubsByUserID :many
-SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at FROM clubs
+SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at, setup_dismissed_at FROM clubs
 WHERE user_id = $1
 ORDER BY created_at DESC
 `
@@ -177,6 +240,7 @@ func (q *Queries) GetClubsByUserID(ctx context.Context, userID string) ([]Club, 
 			&i.UserID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.SetupDismissedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -192,7 +256,7 @@ func (q *Queries) GetClubsByUserID(ctx context.Context, userID string) ([]Club, 
 }
 
 const getClubsForUser = `-- name: GetClubsForUser :many
-SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at FROM clubs c
+SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at, setup_dismissed_at FROM clubs c
 WHERE c.user_id = $1
    OR EXISTS (
        SELECT 1 FROM players p
@@ -221,6 +285,7 @@ func (q *Queries) GetClubsForUser(ctx context.Context, userID string) ([]Club, e
 			&i.UserID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.SetupDismissedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -266,7 +331,7 @@ SET
     couples_mode_enabled = $6,
     updated_at = $7
 WHERE id = $8
-RETURNING id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at
+RETURNING id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at, setup_dismissed_at
 `
 
 type UpdateClubParams struct {
@@ -303,6 +368,7 @@ func (q *Queries) UpdateClub(ctx context.Context, arg UpdateClubParams) (Club, e
 		&i.UserID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SetupDismissedAt,
 	)
 	return i, err
 }
@@ -328,7 +394,7 @@ const updateClubOwner = `-- name: UpdateClubOwner :one
 UPDATE clubs
 SET user_id = $1, updated_at = $2
 WHERE id = $3
-RETURNING id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at
+RETURNING id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at, setup_dismissed_at
 `
 
 type UpdateClubOwnerParams struct {
@@ -351,6 +417,7 @@ func (q *Queries) UpdateClubOwner(ctx context.Context, arg UpdateClubOwnerParams
 		&i.UserID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SetupDismissedAt,
 	)
 	return i, err
 }

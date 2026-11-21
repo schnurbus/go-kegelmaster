@@ -9,6 +9,7 @@ import {
 } from "react";
 
 import { getPasskeyAssertion } from "@/lib/passkey";
+import { csrfTokenFromCookie } from "@/lib/csrf";
 
 type AuthUser = {
   id: string;
@@ -19,6 +20,10 @@ type AuthUser = {
   notify_gameday_settled: boolean;
   /** Instance admin (operator): may open the read-only admin area (/api/admin). */
   is_instance_admin: boolean;
+  /** Rundgang beendet oder übersprungen; null = startet automatisch auf dem Dashboard. */
+  tour_seen_at: string | null;
+  /** Sprechblase zur Ersteinrichtung-Karte gesehen; null = noch nicht. */
+  setup_hint_seen_at: string | null;
 };
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated";
@@ -51,6 +56,10 @@ type ChangePasswordPayload = {
 
 type UserSettingsPayload = {
   notify_gameday_settled?: boolean;
+  /** true merkt den Rundgang als gesehen. */
+  tour_seen?: boolean;
+  /** true merkt die Sprechblase zur Ersteinrichtung-Karte als gesehen. */
+  setup_hint_seen?: boolean;
 };
 
 type AuthCredentials = {
@@ -305,10 +314,7 @@ export function useAuth() {
 }
 
 function readCsrfCookie(): string | null {
-  const value = document.cookie
-    .split("; ")
-    .find((row) => row.startsWith("csrf_token="))
-    ?.split("=")[1];
+  const value = csrfTokenFromCookie();
   return value ? value : null;
 }
 

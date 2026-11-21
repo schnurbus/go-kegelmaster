@@ -27,7 +27,8 @@ type ClubContextValue = {
   clubs: Club[];
   setActiveClub: (club: Club | null) => void;
   setClubs: (clubs: Club[]) => void;
-  refreshClubs: () => Promise<void>;
+  /** Lädt die Clubs neu; preferredClubId wird danach aktiv, wenn es ihn gibt. */
+  refreshClubs: (preferredClubId?: string) => Promise<void>;
   isLoading: boolean;
 };
 
@@ -62,7 +63,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const refreshClubs = useCallback(async () => {
+  const refreshClubs = useCallback(async (preferredClubId?: string) => {
     try {
       setIsLoading(true);
       const resp = await fetch("/api/clubs", {
@@ -76,7 +77,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
 
       // Wenn kein aktiver Club gesetzt ist, setze den ersten oder den gespeicherten
       if (data.length > 0) {
-        const savedClubId = localStorage.getItem(ACTIVE_CLUB_STORAGE_KEY);
+        const savedClubId = preferredClubId ?? localStorage.getItem(ACTIVE_CLUB_STORAGE_KEY);
         const clubToSet = savedClubId
           ? data.find((c) => c.id === savedClubId) || data[0]
           : data[0];

@@ -4,6 +4,8 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useRegistrationMode } from "@/hooks/use-public-config";
 import type { InvitationResponse } from "@/types/invitation";
 import { useAuth } from "../context/AuthContext";
+import { acceptInvitation as acceptInvitationRequest } from "@/lib/invitation";
+import { useEnterInvitedClub } from "@/hooks/use-enter-invited-club";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +27,7 @@ function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { register } = useAuth();
+  const enterInvitedClub = useEnterInvitedClub();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const inviteToken = searchParams.get("invite_token");
@@ -67,43 +70,13 @@ function RegisterPage() {
     try {
       toast.loading("Einladung wird akzeptiert...", { id: "accept-invite-after-register" });
 
-      const csrfToken = document.cookie
-        .split("; ")
-        .find((row) => row.startsWith("csrf_token="))
-        ?.split("=")[1] || "";
-
-      if (!csrfToken) {
-        throw new Error("CSRF-Token fehlt. Bitte Seite neu laden.");
-      }
-
-      const response = await fetch(`/api/invitations/${token}/accept`, {
-        method: "POST",
-        headers: {
-          "X-CSRF-Token": csrfToken,
-        },
-        credentials: "include",
-      });
-
-      const responseData = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        const errorMessage = responseData.message || "Fehler beim Akzeptieren der Einladung";
-
-        if (response.status === 404) {
-          throw new Error("Einladung nicht gefunden");
-        }
-        if (response.status === 410) {
-          throw new Error("Einladung ist abgelaufen oder wurde bereits akzeptiert");
-        }
-
-        throw new Error(errorMessage);
-      }
+      const accepted = await acceptInvitationRequest(token);
 
       toast.success("Einladung erfolgreich akzeptiert!", {
         id: "accept-invite-after-register",
         duration: 4000,
       });
-      return responseData.player_id;
+      return accepted;
     } catch (error) {
       console.error("Error accepting invitation:", error);
       toast.error(
@@ -123,8 +96,9 @@ function RegisterPage() {
       toast.success("Account erstellt");
       if (inviteToken) {
         try {
-          const playerId = await acceptInvitation(inviteToken);
-          navigate(`/app/players/${playerId}`, { replace: true });
+          // Dashboard des eingeladenen Clubs, dort startet der Rundgang.
+          const accepted = await acceptInvitation(inviteToken);
+          await enterInvitedClub(accepted);
         } catch (inviteError) {
           console.error("Failed to accept invitation:", inviteError);
           toast.warning(

@@ -27,14 +27,14 @@ func TestHandleCreateRole_Success(t *testing.T) {
 	// Mock user lookup from cookie
 	mock.ExpectQuery(`SELECT id, email, password_hash`).
 		WithArgs(userID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at", "password_changed_at", "notify_gameday_settled", "is_instance_admin", "last_login_at", "disabled_at", "sessions_valid_after"}).
-			AddRow(userID, "user@example.com", "hash", now, now, nil, false, false, nil, nil, nil))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at", "password_changed_at", "notify_gameday_settled", "is_instance_admin", "last_login_at", "disabled_at", "sessions_valid_after", "tour_seen_at", "setup_hint_seen_at"}).
+			AddRow(userID, "user@example.com", "hash", now, now, nil, false, false, nil, nil, nil, nil, nil))
 
 	// Mock club lookup for owner check
 	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
 		WithArgs(clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID, "Test Club", 0, 0, 0, true, false, userID, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at", "setup_dismissed_at"}).
+			AddRow(clubID, "Test Club", 0, 0, 0, true, false, userID, now, now, nil))
 
 	// Mock role creation
 	mock.ExpectQuery(`INSERT INTO roles`).
@@ -83,14 +83,14 @@ func TestHandleCreateRole_NotOwner(t *testing.T) {
 	// Mock user lookup from cookie
 	mock.ExpectQuery(`SELECT id, email, password_hash`).
 		WithArgs(userID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at", "password_changed_at", "notify_gameday_settled", "is_instance_admin", "last_login_at", "disabled_at", "sessions_valid_after"}).
-			AddRow(userID, "user@example.com", "hash", now, now, nil, false, false, nil, nil, nil))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at", "password_changed_at", "notify_gameday_settled", "is_instance_admin", "last_login_at", "disabled_at", "sessions_valid_after", "tour_seen_at", "setup_hint_seen_at"}).
+			AddRow(userID, "user@example.com", "hash", now, now, nil, false, false, nil, nil, nil, nil, nil))
 
 	// Mock club lookup - user is not owner (HasPermission -> IsClubOwner uses GetClubByID)
 	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
 		WithArgs(clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID, "Test Club", 0, 0, 0, true, false, otherUserID, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at", "setup_dismissed_at"}).
+			AddRow(clubID, "Test Club", 0, 0, 0, true, false, otherUserID, now, now, nil))
 
 	// HasPermission then checks player; no player in club -> no permission
 	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, partner_id, created_at, updated_at FROM players`).
@@ -130,14 +130,14 @@ func TestHandleGetRoles_Success(t *testing.T) {
 	// Mock user lookup from cookie
 	mock.ExpectQuery(`SELECT id, email, password_hash`).
 		WithArgs(userID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at", "password_changed_at", "notify_gameday_settled", "is_instance_admin", "last_login_at", "disabled_at", "sessions_valid_after"}).
-			AddRow(userID, "user@example.com", "hash", now, now, nil, false, false, nil, nil, nil))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at", "password_changed_at", "notify_gameday_settled", "is_instance_admin", "last_login_at", "disabled_at", "sessions_valid_after", "tour_seen_at", "setup_hint_seen_at"}).
+			AddRow(userID, "user@example.com", "hash", now, now, nil, false, false, nil, nil, nil, nil, nil))
 
 	// Mock club lookup for owner check
 	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
 		WithArgs(clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID, "Test Club", 0, 0, 0, true, false, userID, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at", "setup_dismissed_at"}).
+			AddRow(clubID, "Test Club", 0, 0, 0, true, false, userID, now, now, nil))
 
 	// Mock roles query
 	mock.ExpectQuery(`SELECT id, club_id, name, pays_base_fee, created_at, updated_at`).
@@ -203,14 +203,14 @@ func TestHandleAddPermission_Success(t *testing.T) {
 	// Mock user lookup from cookie
 	mock.ExpectQuery(`SELECT id, email, password_hash`).
 		WithArgs(userID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at", "password_changed_at", "notify_gameday_settled", "is_instance_admin", "last_login_at", "disabled_at", "sessions_valid_after"}).
-			AddRow(userID, "user@example.com", "hash", now, now, nil, false, false, nil, nil, nil))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at", "password_changed_at", "notify_gameday_settled", "is_instance_admin", "last_login_at", "disabled_at", "sessions_valid_after", "tour_seen_at", "setup_hint_seen_at"}).
+			AddRow(userID, "user@example.com", "hash", now, now, nil, false, false, nil, nil, nil, nil, nil))
 
 	// Mock club lookup for owner check
 	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
 		WithArgs(clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID, "Test Club", 0, 0, 0, true, false, userID, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at", "setup_dismissed_at"}).
+			AddRow(clubID, "Test Club", 0, 0, 0, true, false, userID, now, now, nil))
 
 	// Mock role lookup
 	mock.ExpectQuery(`SELECT id, club_id, name, pays_base_fee, created_at, updated_at`).
@@ -265,14 +265,14 @@ func TestHandleAddPermission_InvalidEntityType(t *testing.T) {
 	// Mock user lookup from cookie
 	mock.ExpectQuery(`SELECT id, email, password_hash`).
 		WithArgs(userID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at", "password_changed_at", "notify_gameday_settled", "is_instance_admin", "last_login_at", "disabled_at", "sessions_valid_after"}).
-			AddRow(userID, "user@example.com", "hash", now, now, nil, false, false, nil, nil, nil))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at", "password_changed_at", "notify_gameday_settled", "is_instance_admin", "last_login_at", "disabled_at", "sessions_valid_after", "tour_seen_at", "setup_hint_seen_at"}).
+			AddRow(userID, "user@example.com", "hash", now, now, nil, false, false, nil, nil, nil, nil, nil))
 
 	// Mock club lookup for owner check
 	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
 		WithArgs(clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID, "Test Club", 0, 0, 0, true, false, userID, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at", "setup_dismissed_at"}).
+			AddRow(clubID, "Test Club", 0, 0, 0, true, false, userID, now, now, nil))
 
 	// Mock role lookup
 	mock.ExpectQuery(`SELECT id, club_id, name, pays_base_fee, created_at, updated_at`).

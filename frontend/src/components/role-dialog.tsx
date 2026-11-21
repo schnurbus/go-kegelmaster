@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 
 import type { Role, CreateRoleRequest, UpdateRoleRequest } from "@/types/role";
+import { csrfTokenFromCookie } from "@/lib/csrf";
 
 type RoleDialogProps = {
   open: boolean;
@@ -69,10 +70,7 @@ export function RoleDialog({
         method: isEdit ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-CSRF-Token": document.cookie
-            .split("; ")
-            .find((row) => row.startsWith("csrf_token="))
-            ?.split("=")[1] || "",
+          "X-CSRF-Token": csrfTokenFromCookie(),
         },
         credentials: "include",
         body: JSON.stringify(body),

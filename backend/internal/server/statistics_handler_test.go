@@ -15,8 +15,8 @@ var playerColumns = []string{"id", "club_id", "user_id", "role_id", "name", "bal
 func expectStatsUser(mock sqlmock.Sqlmock, userID string, now time.Time) {
 	mock.ExpectQuery(`SELECT id, email, password_hash`).
 		WithArgs(userID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at", "password_changed_at", "notify_gameday_settled", "is_instance_admin", "last_login_at", "disabled_at", "sessions_valid_after"}).
-			AddRow(userID, "user@example.com", "hash", now, now, nil, false, false, nil, nil, nil))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "created_at", "updated_at", "password_changed_at", "notify_gameday_settled", "is_instance_admin", "last_login_at", "disabled_at", "sessions_valid_after", "tour_seen_at", "setup_hint_seen_at"}).
+			AddRow(userID, "user@example.com", "hash", now, now, nil, false, false, nil, nil, nil, nil, nil))
 }
 
 func TestHandleGetMyStatistics_Unauthorized(t *testing.T) {
@@ -96,7 +96,7 @@ func TestHandleGetMyStatistics_Success(t *testing.T) {
 	mock.ExpectQuery(`SELECT .* FROM players\s+WHERE user_id = \$1 AND club_id = \$2`).
 		WithArgs(&userID, clubID).
 		WillReturnRows(sqlmock.NewRows(playerColumns).
-			AddRow(playerID, clubID, userID, nil, "Hans", 0, 1000, "male", false, nil, now, now))
+			AddRow(playerID, clubID, userID, "00000000-0000-0000-0000-0000000000f1", "Hans", 0, 1000, "male", false, nil, now, now))
 	mock.ExpectQuery(`FROM game_days gd\s+WHERE gd.club_id = \$1 AND gd.is_draft = false`).
 		WithArgs(clubID, from, to).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "date"}).AddRow("gd1", gd))

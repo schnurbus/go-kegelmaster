@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { isReauthRequired, notifyAdminReauthRequired } from "@/lib/admin-reauth";
+import { csrfTokenFromCookie } from "@/lib/csrf";
 
 /** Error of an admin API request; status 404 also means "not an instance admin". */
 export class AdminApiError extends Error {
@@ -59,17 +60,8 @@ export function useAdminFetch<T>(url: string) {
   };
 }
 
-function readCsrfCookie(): string {
-  return (
-    document.cookie
-      .split("; ")
-      .find((row) => row.startsWith("csrf_token="))
-      ?.split("=")[1] ?? ""
-  );
-}
-
 async function adminCsrfToken(): Promise<string> {
-  const token = readCsrfCookie();
+  const token = csrfTokenFromCookie();
   if (token) return token;
   const resp = await fetch("/api/auth/csrf-token", { credentials: "include" });
   if (!resp.ok) throw new AdminApiError(resp.status, "CSRF-Token konnte nicht geladen werden");

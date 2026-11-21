@@ -192,7 +192,7 @@ func (r *Repository) UpdateOwner(ctx context.Context, clubID, newUserID string) 
 
 // dbClubToClub converts a db.Club to a club.Club
 func dbClubToClub(dbClub db.Club) Club {
-	return Club{
+	c := Club{
 		ID:                 dbClub.ID,
 		Name:               dbClub.Name,
 		Balance:            int(dbClub.Balance),
@@ -204,4 +204,32 @@ func dbClubToClub(dbClub db.Club) Club {
 		CreatedAt:          dbClub.CreatedAt,
 		UpdatedAt:          dbClub.UpdatedAt,
 	}
+	if dbClub.SetupDismissedAt.Valid {
+		dismissed := dbClub.SetupDismissedAt.Time
+		c.SetupDismissedAt = &dismissed
+	}
+	return c
+}
+
+// SetupCounts counts what the Ersteinrichtung of a club needs; OwnPlayers
+// refers to the players linked to userID.
+func (r *Repository) SetupCounts(ctx context.Context, clubID, userID string) (SetupCounts, error) {
+	row, err := r.queries.GetClubSetupCounts(ctx, db.GetClubSetupCountsParams{ClubID: clubID, UserID: &userID})
+	if err != nil {
+		return SetupCounts{}, err
+	}
+	return SetupCounts{
+		PenaltyTypes:      row.PenaltyTypes,
+		Roles:             row.Roles,
+		Players:           row.Players,
+		PublishedGameDays: row.PublishedGameDays,
+		Invitations:       row.Invitations,
+		Competitions:      row.Competitions,
+		OwnPlayers:        row.OwnPlayers,
+	}, nil
+}
+
+// DismissSetup hides the Ersteinrichtung card of a club.
+func (r *Repository) DismissSetup(ctx context.Context, clubID string) error {
+	return r.queries.DismissClubSetup(ctx, db.DismissClubSetupParams{Now: time.Now().UTC(), ID: clubID})
 }

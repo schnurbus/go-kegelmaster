@@ -102,6 +102,35 @@ func (r *Repository) UpdateNotifyGameDaySettled(ctx context.Context, userID stri
 	return dbUserToUser(dbUser), nil
 }
 
+// TourFlags selects which merkers MarkTourFlags sets.
+type TourFlags struct {
+	// TourSeen: "Rundgang gesehen".
+	TourSeen bool
+	// SetupHintSeen: "Hinweis zur Ersteinrichtung gesehen".
+	SetupHintSeen bool
+}
+
+// Any reports whether at least one merker is selected.
+func (f TourFlags) Any() bool { return f.TourSeen || f.SetupHintSeen }
+
+// MarkTourFlags sets the selected merkers ("Rundgang gesehen", "Hinweis zur
+// Ersteinrichtung gesehen") to now, keeping a timestamp that is already set.
+func (r *Repository) MarkTourFlags(ctx context.Context, userID string, flags TourFlags) (User, error) {
+	dbUser, err := r.queries.MarkUserTourFlags(ctx, db.MarkUserTourFlagsParams{
+		TourSeen:      flags.TourSeen,
+		Now:           time.Now().UTC(),
+		SetupHintSeen: flags.SetupHintSeen,
+		ID:            userID,
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return User{}, ErrNotFound
+	}
+	if err != nil {
+		return User{}, err
+	}
+	return dbUserToUser(dbUser), nil
+}
+
 // RecordLogin stores the time of a successful login (password or passkey).
 func (r *Repository) RecordLogin(ctx context.Context, userID string, at time.Time) error {
 	return r.queries.UpdateUserLastLogin(ctx, db.UpdateUserLastLoginParams{
@@ -136,6 +165,14 @@ func dbUserToUser(dbUser db.User) User {
 	if dbUser.SessionsValidAfter.Valid {
 		validAfter := dbUser.SessionsValidAfter.Time
 		u.SessionsValidAfter = &validAfter
+	}
+	if dbUser.TourSeenAt.Valid {
+		seen := dbUser.TourSeenAt.Time
+		u.TourSeenAt = &seen
+	}
+	if dbUser.SetupHintSeenAt.Valid {
+		seen := dbUser.SetupHintSeenAt.Time
+		u.SetupHintSeenAt = &seen
 	}
 	return u
 }

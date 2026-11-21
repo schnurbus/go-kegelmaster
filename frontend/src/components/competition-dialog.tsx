@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 
 import type { Competition, ScoringType } from "@/types/competition";
+import { csrfTokenFromCookie } from "@/lib/csrf";
 
 const SCORING_OPTIONS: { value: ScoringType; label: string }[] = [
   { value: "winner", label: "Gewinner" },
@@ -112,10 +113,7 @@ export function CompetitionDialog({
         method,
         headers: {
           "Content-Type": "application/json",
-          "X-CSRF-Token": document.cookie
-            .split("; ")
-            .find((row) => row.startsWith("csrf_token="))
-            ?.split("=")[1] || "",
+          "X-CSRF-Token": csrfTokenFromCookie(),
         },
         credentials: "include",
         body: JSON.stringify(putBody),

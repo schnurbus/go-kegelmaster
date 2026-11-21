@@ -27,7 +27,7 @@ func NewRepository(dbConn *sql.DB) *Repository {
 type CreatePlayerParams struct {
 	ClubID       string
 	UserID       *string
-	RoleID       *string
+	RoleID       string
 	Name         string
 	Balance      int
 	StartBalance int
@@ -114,9 +114,7 @@ func (r *Repository) CountByClubIDGroupByRoleID(ctx context.Context, clubID stri
 	}
 	out := make(map[string]int64, len(rows))
 	for _, row := range rows {
-		if row.RoleID != nil {
-			out[*row.RoleID] = row.Count
-		}
+		out[row.RoleID] = row.Count
 	}
 	return out, nil
 }
@@ -152,9 +150,9 @@ type UpdatePlayerParams struct {
 	Balance      int
 	StartBalance int
 	UserID       *string
-	RoleID       *string
+	RoleID       string
 	Gender       *string
-	Inactive     *bool  // nil = do not change; non-nil = set to value
+	Inactive     *bool   // nil = do not change; non-nil = set to value
 	PartnerID    *string // optional partner (Paar-Modus)
 }
 
@@ -219,4 +217,3 @@ func (r *Repository) Delete(ctx context.Context, id string) error {
 
 	return nil
 }
-

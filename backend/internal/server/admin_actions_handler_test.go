@@ -12,7 +12,7 @@ import (
 	"github.com/google/uuid"
 )
 
-var clubColumns = []string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}
+var clubColumns = []string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at", "setup_dismissed_at"}
 
 // expectTargetUser expects the lookup of the account an admin action targets.
 func expectTargetUser(mock sqlmock.Sqlmock, userID, email string, isAdmin bool, disabledAt driver.Value) {
@@ -20,14 +20,14 @@ func expectTargetUser(mock sqlmock.Sqlmock, userID, email string, isAdmin bool, 
 	mock.ExpectQuery(`SELECT id, email, password_hash`).
 		WithArgs(userID).
 		WillReturnRows(sqlmock.NewRows(userColumns).
-			AddRow(userID, email, "hash", now, now, nil, false, isAdmin, nil, disabledAt, nil))
+			AddRow(userID, email, "hash", now, now, nil, false, isAdmin, nil, disabledAt, nil, nil, nil))
 }
 
 func expectTargetClub(mock sqlmock.Sqlmock, clubID, name, ownerID string) {
 	now := time.Now().UTC()
 	mock.ExpectQuery(`SELECT id, name, balance, start_balance, base_fee, auto_tip_enabled, couples_mode_enabled, user_id, created_at, updated_at`).
 		WithArgs(clubID).
-		WillReturnRows(sqlmock.NewRows(clubColumns).AddRow(clubID, name, 1000, 0, 500, true, false, ownerID, now, now))
+		WillReturnRows(sqlmock.NewRows(clubColumns).AddRow(clubID, name, 1000, 0, 500, true, false, ownerID, now, now, nil))
 }
 
 // adminMutation builds a CSRF-protected request with the admin's session cookie.
@@ -67,7 +67,7 @@ func TestLogin_DisabledUserIsRejected(t *testing.T) {
 	mock.ExpectQuery(`SELECT id, email, password_hash`).
 		WithArgs("blocked@example.com").
 		WillReturnRows(sqlmock.NewRows(userColumns).
-			AddRow(userID, "blocked@example.com", hash, now, now, nil, false, false, nil, now, now))
+			AddRow(userID, "blocked@example.com", hash, now, now, nil, false, false, nil, now, now, nil, nil))
 	// No last_login_at update and no cookie for a disabled account.
 
 	req := mustJSONRequest(t, http.MethodPost, "/api/auth/login", `{"email":"blocked@example.com","password":"password123"}`)
@@ -87,7 +87,7 @@ func TestLogin_DisabledUserWrongPasswordIsGeneric401(t *testing.T) {
 	mock.ExpectQuery(`SELECT id, email, password_hash`).
 		WithArgs("blocked@example.com").
 		WillReturnRows(sqlmock.NewRows(userColumns).
-			AddRow(uuid.NewString(), "blocked@example.com", hash, now, now, nil, false, false, nil, now, now))
+			AddRow(uuid.NewString(), "blocked@example.com", hash, now, now, nil, false, false, nil, now, now, nil, nil))
 
 	req := mustJSONRequest(t, http.MethodPost, "/api/auth/login", `{"email":"blocked@example.com","password":"wrong-password"}`)
 	resp := expectStatus(t, srv, req, http.StatusUnauthorized)
@@ -117,7 +117,7 @@ func TestSession_RevokedByAdminIsRejected(t *testing.T) {
 	mock.ExpectQuery(`SELECT id, email, password_hash`).
 		WithArgs(userID).
 		WillReturnRows(sqlmock.NewRows(userColumns).
-			AddRow(userID, "u@example.com", "hash", now, now, nil, false, false, nil, nil, revokedAt))
+			AddRow(userID, "u@example.com", "hash", now, now, nil, false, false, nil, nil, revokedAt, nil, nil))
 
 	req, _ := http.NewRequest(http.MethodGet, "/api/auth/me", nil)
 	req.AddCookie(&http.Cookie{Name: authCookieName, Value: token})
@@ -181,7 +181,7 @@ func TestAdminActions_DisabledAdminGets404(t *testing.T) {
 	mock.ExpectQuery(`SELECT id, email, password_hash`).
 		WithArgs(adminID).
 		WillReturnRows(sqlmock.NewRows(userColumns).
-			AddRow(adminID, "op@example.com", "hash", now, now, nil, false, true, nil, now, nil))
+			AddRow(adminID, "op@example.com", "hash", now, now, nil, false, true, nil, now, nil, nil, nil))
 
 	resp := expectStatus(t, srv, adminRequest(t, token, "/api/admin/stats"), http.StatusNotFound)
 	resp.Body.Close()
@@ -363,10 +363,10 @@ func TestAdminTransferClubOwner_Success(t *testing.T) {
 	mock.ExpectQuery(`SELECT id, email, password_hash`).
 		WithArgs("new@example.com").
 		WillReturnRows(sqlmock.NewRows(userColumns).
-			AddRow(newOwnerID, "new@example.com", "hash", now, now, nil, false, false, nil, nil, nil))
+			AddRow(newOwnerID, "new@example.com", "hash", now, now, nil, false, false, nil, nil, nil, nil, nil))
 	mock.ExpectQuery(`UPDATE clubs`).
 		WithArgs(newOwnerID, sqlmock.AnyArg(), clubID).
-		WillReturnRows(sqlmock.NewRows(clubColumns).AddRow(clubID, "KC Test", 1000, 0, 500, true, false, newOwnerID, now, now))
+		WillReturnRows(sqlmock.NewRows(clubColumns).AddRow(clubID, "KC Test", 1000, 0, 500, true, false, newOwnerID, now, now, nil))
 
 	resp := expectStatus(t, srv, adminMutation(t, token, http.MethodPost, "/api/admin/clubs/"+clubID+"/transfer-owner", `{"new_owner_email":"New@Example.com"}`), http.StatusOK)
 	defer resp.Body.Close()
@@ -394,7 +394,7 @@ func TestAdminTransferClubOwner_DisabledNewOwner(t *testing.T) {
 	mock.ExpectQuery(`SELECT id, email, password_hash`).
 		WithArgs("new@example.com").
 		WillReturnRows(sqlmock.NewRows(userColumns).
-			AddRow(uuid.NewString(), "new@example.com", "hash", now, now, nil, false, false, nil, now, nil))
+			AddRow(uuid.NewString(), "new@example.com", "hash", now, now, nil, false, false, nil, now, nil, nil, nil))
 
 	resp := expectStatus(t, srv, adminMutation(t, token, http.MethodPost, "/api/admin/clubs/"+clubID+"/transfer-owner", `{"new_owner_email":"new@example.com"}`), http.StatusBadRequest)
 	resp.Body.Close()

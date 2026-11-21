@@ -218,6 +218,11 @@ func (h *Handler) HandleCurrentUser(c fiber.Ctx) error {
 
 type updateCurrentUserRequest struct {
 	NotifyGameDaySettled *bool `json:"notify_gameday_settled"`
+	// TourSeen / SetupHintSeen: true marks the Rundgang or the hint at the
+	// Ersteinrichtung card as seen. There is no way back: a manually started
+	// Rundgang ignores the flags.
+	TourSeen      bool `json:"tour_seen"`
+	SetupHintSeen bool `json:"setup_hint_seen"`
 }
 
 // HandleUpdateCurrentUser changes the signed-in user's account settings.
@@ -238,6 +243,21 @@ func (h *Handler) HandleUpdateCurrentUser(c fiber.Ctx) error {
 	u, err := h.UserFromCookie(ctx, c)
 	if err != nil {
 		return fiber.NewError(fiber.StatusUnauthorized, "Nicht angemeldet")
+	}
+
+	flags := user.TourFlags{
+		TourSeen:      req.TourSeen && u.TourSeenAt == nil,
+		SetupHintSeen: req.SetupHintSeen && u.SetupHintSeenAt == nil,
+	}
+	if flags.Any() {
+		u, err = h.UserRepo.MarkTourFlags(ctx, u.ID, flags)
+		if err != nil {
+			if errors.Is(err, user.ErrNotFound) {
+				return fiber.NewError(fiber.StatusUnauthorized, "Nicht angemeldet")
+			}
+			slog.Error("mark tour flags", "error", err)
+			return fiber.NewError(fiber.StatusInternalServerError, "Interner Fehler")
+		}
 	}
 
 	if req.NotifyGameDaySettled == nil || *req.NotifyGameDaySettled == u.NotifyGameDaySettled {

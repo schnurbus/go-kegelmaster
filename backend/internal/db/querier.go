@@ -90,6 +90,8 @@ type Querier interface {
 	// Entsperren alte Browser-Sessions nicht wiederbelebt. Ein bereits gesperrtes
 	// Konto behält seinen ursprünglichen Sperrzeitpunkt.
 	DisableAdminUser(ctx context.Context, arg DisableAdminUserParams) (int64, error)
+	// Hides the Ersteinrichtung card; an existing timestamp is kept.
+	DismissClubSetup(ctx context.Context, arg DismissClubSetupParams) error
 	EnableAdminUser(ctx context.Context, arg EnableAdminUserParams) (int64, error)
 	GetAPITokenByHash(ctx context.Context, tokenHash string) (ApiToken, error)
 	GetAdminClub(ctx context.Context, id string) (GetAdminClubRow, error)
@@ -107,6 +109,9 @@ type Querier interface {
 	GetAdminUser(ctx context.Context, id string) (GetAdminUserRow, error)
 	GetAllClubs(ctx context.Context) ([]Club, error)
 	GetClubByID(ctx context.Context, id string) (Club, error)
+	// Data behind the Ersteinrichtung of a club; own_players counts the players
+	// linked to the given user (the owner).
+	GetClubSetupCounts(ctx context.Context, arg GetClubSetupCountsParams) (GetClubSetupCountsRow, error)
 	GetClubsByUserID(ctx context.Context, userID string) ([]Club, error)
 	GetClubsForUser(ctx context.Context, userID string) ([]Club, error)
 	GetCompetitionByID(ctx context.Context, id string) (Competition, error)
@@ -185,6 +190,9 @@ type Querier interface {
 	ListWebAuthnCredentialsByUserID(ctx context.Context, userID string) ([]WebauthnCredential, error)
 	MarkPenaltyTypeAsReplaced(ctx context.Context, arg MarkPenaltyTypeAsReplacedParams) error
 	MarkPlayerInvitationAccepted(ctx context.Context, arg MarkPlayerInvitationAcceptedParams) (int64, error)
+	// Sets "Rundgang gesehen" / "Hinweis zur Ersteinrichtung gesehen" once; an
+	// existing timestamp is kept.
+	MarkUserTourFlags(ctx context.Context, arg MarkUserTourFlagsParams) (User, error)
 	RemoveRolePermission(ctx context.Context, arg RemoveRolePermissionParams) error
 	RenameWebAuthnCredential(ctx context.Context, arg RenameWebAuthnCredentialParams) (WebauthnCredential, error)
 	// Browser-Sessions, die vor at ausgestellt wurden, werden abgelehnt.

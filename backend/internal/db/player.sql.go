@@ -14,13 +14,13 @@ import (
 const countPlayersByRoleIDForClub = `-- name: CountPlayersByRoleIDForClub :many
 SELECT role_id, COUNT(*) AS count
 FROM players
-WHERE club_id = $1 AND role_id IS NOT NULL
+WHERE club_id = $1
 GROUP BY role_id
 `
 
 type CountPlayersByRoleIDForClubRow struct {
-	RoleID *string `json:"role_id"`
-	Count  int64   `json:"count"`
+	RoleID string `json:"role_id"`
+	Count  int64  `json:"count"`
 }
 
 func (q *Queries) CountPlayersByRoleIDForClub(ctx context.Context, clubID string) ([]CountPlayersByRoleIDForClubRow, error) {
@@ -81,7 +81,7 @@ type CreatePlayerParams struct {
 	ID           string         `json:"id"`
 	ClubID       string         `json:"club_id"`
 	UserID       *string        `json:"user_id"`
-	RoleID       *string        `json:"role_id"`
+	RoleID       string         `json:"role_id"`
 	Name         string         `json:"name"`
 	Balance      int32          `json:"balance"`
 	StartBalance int32          `json:"start_balance"`
@@ -343,7 +343,7 @@ type UpdatePlayerParams struct {
 	Balance      int32          `json:"balance"`
 	StartBalance int32          `json:"start_balance"`
 	UserID       *string        `json:"user_id"`
-	RoleID       *string        `json:"role_id"`
+	RoleID       string         `json:"role_id"`
 	Gender       sql.NullString `json:"gender"`
 	Inactive     bool           `json:"inactive"`
 	PartnerID    *string        `json:"partner_id"`

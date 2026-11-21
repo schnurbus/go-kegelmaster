@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { KeyRoundIcon } from "lucide-react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { acceptInvitation as acceptInvitationRequest } from "@/lib/invitation";
+import { useEnterInvitedClub } from "@/hooks/use-enter-invited-club";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,6 +40,7 @@ function LoginPage() {
   const rememberMeRef = useRef(rememberMe);
   rememberMeRef.current = rememberMe;
   const { login, loginWithPasskey } = useAuth();
+  const enterInvitedClub = useEnterInvitedClub();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -56,43 +59,13 @@ function LoginPage() {
     try {
       toast.loading("Einladung wird akzeptiert...", { id: "accept-invite-after-login" });
 
-      const csrfToken = document.cookie
-        .split("; ")
-        .find((row) => row.startsWith("csrf_token="))
-        ?.split("=")[1] || "";
-
-      if (!csrfToken) {
-        throw new Error("CSRF-Token fehlt. Bitte Seite neu laden.");
-      }
-
-      const response = await fetch(`/api/invitations/${token}/accept`, {
-        method: "POST",
-        headers: {
-          "X-CSRF-Token": csrfToken,
-        },
-        credentials: "include",
-      });
-
-      const responseData = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        const errorMessage = responseData.message || "Fehler beim Akzeptieren der Einladung";
-
-        if (response.status === 404) {
-          throw new Error("Einladung nicht gefunden");
-        }
-        if (response.status === 410) {
-          throw new Error("Einladung ist abgelaufen oder wurde bereits akzeptiert");
-        }
-
-        throw new Error(errorMessage);
-      }
+      const accepted = await acceptInvitationRequest(token);
 
       toast.success("Einladung erfolgreich akzeptiert!", {
         id: "accept-invite-after-login",
         duration: 4000,
       });
-      return responseData.player_id;
+      return accepted;
     } catch (error) {
       console.error("Error accepting invitation:", error);
       toast.error(
@@ -107,8 +80,9 @@ function LoginPage() {
     toast.success("Anmeldung erfolgreich");
     if (inviteToken) {
       try {
-        const playerId = await acceptInvitation(inviteToken);
-        navigate(`/app/players/${playerId}`, { replace: true });
+        // Dashboard des eingeladenen Clubs, dort startet der Rundgang bzw. der Hinweis.
+        const accepted = await acceptInvitation(inviteToken);
+        await enterInvitedClub(accepted);
       } catch (inviteError) {
         console.error("Failed to accept invitation:", inviteError);
         toast.warning(

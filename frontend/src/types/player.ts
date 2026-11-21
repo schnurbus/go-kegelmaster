@@ -4,7 +4,7 @@ export type Player = {
   id: string;
   club_id: string;
   user_id: string | null;
-  role_id: string | null;
+  role_id: string;
   name: string;
   balance: number; // in Cent
   start_balance: number; // in Cent
@@ -24,6 +24,8 @@ export type CreatePlayerRequest = {
   role_id: string; // Required
   gender?: Gender | null;
   inactive?: boolean;
+  /** „Das bin ich“: verknüpft den Spieler mit dem eigenen Konto. */
+  link_me?: boolean;
 };
 
 export type UpdatePlayerRequest = {

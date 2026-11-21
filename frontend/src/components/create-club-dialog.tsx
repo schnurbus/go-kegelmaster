@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { formatMoneyInput } from "@/types/player"
+import { setTourTrigger } from "@/lib/onboarding"
 
 type Club = {
   id: string
@@ -106,7 +107,10 @@ export function CreateClubDialog({
       }
 
       const newClub: Club = await resp.json()
-      await refreshClubs()
+      // Der neue Club wird aktiv; das Dashboard zeigt danach Rundgang bzw. den
+      // Hinweis zur Ersteinrichtung.
+      setTourTrigger("club-created")
+      await refreshClubs(newClub.id)
       onClubCreated(newClub)
       setName("")
       setBalance("")

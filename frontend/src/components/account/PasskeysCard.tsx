@@ -39,17 +39,9 @@ import {
   passkeysSupported,
   suggestPasskeyName,
 } from "@/lib/passkey";
+import { csrfTokenFromCookie } from "@/lib/csrf";
 
 const MAX_NAME_LENGTH = 100;
-
-function csrfToken(): string {
-  return (
-    document.cookie
-      .split("; ")
-      .find((row) => row.startsWith("csrf_token="))
-      ?.split("=")[1] || ""
-  );
-}
 
 function formatDate(value: string | null): string {
   if (!value) return "Noch nie";
@@ -65,7 +57,7 @@ async function sendJSON(method: string, url: string, body?: unknown): Promise<Re
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      "X-CSRF-Token": csrfToken(),
+      "X-CSRF-Token": csrfTokenFromCookie(),
     },
     body: body === undefined ? undefined : JSON.stringify(body),
   });

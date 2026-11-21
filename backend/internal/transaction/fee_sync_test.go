@@ -106,8 +106,8 @@ func TestSyncParticipantFees_CreatesFeeAndTransaction(t *testing.T) {
 		WillReturnRows(feeRows().AddRow(createdFeeID, participantID, penaltyTypeID, "Pudel", nil, 100, 2, 1, now, now))
 	mock.ExpectQuery("GetClubByID").
 		WithArgs(clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID, "Club", 5000, 0, 0, false, false, uuid.NewString(), now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at", "setup_dismissed_at"}).
+			AddRow(clubID, "Club", 5000, 0, 0, false, false, uuid.NewString(), now, now, nil))
 	mock.ExpectQuery("INSERT INTO transactions").
 		WithArgs(sqlmock.AnyArg(), clubID, playerID, "fee", -200, sqlmock.AnyArg(), createdFeeID, gameDayID, 0, -200, 5000, 5000, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnRows(txRow(uuid.NewString(), clubID, playerID, createdFeeID, gameDayID, -200, "Pudel ×2", 0, -200, now))
@@ -173,8 +173,8 @@ func TestSyncParticipantFees_ReplacesFeeInOneBalanceUpdate(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectQuery("GetClubByID").
 		WithArgs(clubID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at"}).
-			AddRow(clubID, "Club", 5000, 0, 0, false, false, uuid.NewString(), now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "balance", "start_balance", "base_fee", "auto_tip_enabled", "couples_mode_enabled", "user_id", "created_at", "updated_at", "setup_dismissed_at"}).
+			AddRow(clubID, "Club", 5000, 0, 0, false, false, uuid.NewString(), now, now, nil))
 	mock.ExpectQuery("INSERT INTO transactions").
 		WithArgs(sqlmock.AnyArg(), clubID, playerID, "fee", -300, sqlmock.AnyArg(), feeID, gameDayID, 0, -300, 5000, 5000, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnRows(txRow(uuid.NewString(), clubID, playerID, feeID, gameDayID, -300, "Pudel ×3", 0, -300, now))
@@ -407,7 +407,7 @@ func TestSyncParticipantFees_RejectsPlayerOfOtherClub(t *testing.T) {
 
 func playerRow(playerID, clubID string, balance int, now time.Time) *sqlmock.Rows {
 	return sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "partner_id", "created_at", "updated_at"}).
-		AddRow(playerID, clubID, nil, nil, "Spieler", balance, 0, nil, false, nil, now, now)
+		AddRow(playerID, clubID, nil, "00000000-0000-0000-0000-0000000000f1", "Spieler", balance, 0, nil, false, nil, now, now)
 }
 
 func feeRows() *sqlmock.Rows {

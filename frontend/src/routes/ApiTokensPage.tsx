@@ -48,6 +48,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { ApiToken, CreatedApiToken } from "@/types/api-token";
+import { csrfTokenFromCookie } from "@/lib/csrf";
 
 const EXPIRY_OPTIONS = [
   { value: "30", label: "30 Tage" },
@@ -58,10 +59,7 @@ const EXPIRY_OPTIONS = [
 
 function csrfToken(): string {
   return (
-    document.cookie
-      .split("; ")
-      .find((row) => row.startsWith("csrf_token="))
-      ?.split("=")[1] || ""
+    csrfTokenFromCookie()
   );
 }
 

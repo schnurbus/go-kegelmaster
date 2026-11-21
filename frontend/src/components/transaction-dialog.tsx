@@ -26,6 +26,7 @@ import { AlertTriangleIcon, GiftIcon, InfoIcon } from "lucide-react";
 import type { CreateTransactionRequest } from "@/types/transaction";
 import type { Player } from "@/types/player";
 import { euroToCents, formatCentsToEuro, formatMoneyInput } from "@/types/player";
+import { csrfTokenFromCookie } from "@/lib/csrf";
 
 type TransactionDialogProps = {
   open: boolean;
@@ -230,10 +231,7 @@ export function TransactionDialog({
         headers: {
           "Content-Type": "application/json",
           "X-CSRF-Token":
-            document.cookie
-              .split("; ")
-              .find((row) => row.startsWith("csrf_token="))
-              ?.split("=")[1] || "",
+            csrfTokenFromCookie(),
         },
         credentials: "include",
         body: JSON.stringify(body),

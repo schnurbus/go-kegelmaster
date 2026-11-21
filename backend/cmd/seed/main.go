@@ -16,6 +16,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/schnurbus/go-kegelmaster/backend/internal/automigrate"
@@ -23,6 +24,7 @@ import (
 	"github.com/schnurbus/go-kegelmaster/backend/internal/competition"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/config"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/database"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/db"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/gameday"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/gamedayimport"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/penaltytype"
@@ -42,6 +44,20 @@ const (
 	gameDayEveryNd = 14
 )
 
+// inviteEmail/inviteToken: open invitation for the player "Frank" (role Gast),
+// so E2E tests can accept an invitation via /invite/<token>. It can be accepted
+// once; reset the dev database (make dev-fresh) to get it back.
+//
+// knownTourEmail/knownTourInviteToken: an account without club that has
+// already seen the Rundgang, invited for the player "Gabi". Accepting it shows
+// only the hint at the club switcher (E2E test). Also accepted only once.
+const (
+	inviteEmail          = "eingeladen@kegelmaster.local"
+	inviteToken          = "e2e-einladung-kc-alle-neune"
+	knownTourEmail       = "rundgang-bekannt@kegelmaster.local"
+	knownTourInviteToken = "e2e-einladung-rundgang-bekannt"
+)
+
 type repos struct {
 	users        *user.Repository
 	clubs        *club.Repository
@@ -51,6 +67,7 @@ type repos struct {
 	competitions *competition.Repository
 	gameDays     *gameday.Repository
 	transactions *transaction.Repository
+	queries      *db.Queries
 }
 
 func main() {
@@ -88,6 +105,7 @@ func main() {
 		competitions: competition.NewRepository(conn),
 		gameDays:     gameDayRepo,
 		transactions: transaction.NewRepository(conn, playerRepo, clubRepo, gameDayRepo),
+		queries:      db.New(conn),
 	}
 
 	if _, err := r.users.GetByEmail(ctx, ownerEmail); err == nil {
@@ -108,6 +126,8 @@ func main() {
 	fmt.Printf("  Club:        %s\n", clubName)
 	fmt.Printf("  Owner:       %s / %s\n", ownerEmail, seedPassword)
 	fmt.Printf("  Mitglied:    %s / %s (eingeschränkte Rechte)\n", memberEmail, seedPassword)
+	fmt.Printf("  Einladung:   /invite/%s (für %s, Rolle Gast)\n", inviteToken, inviteEmail)
+	fmt.Printf("  Einladung:   /invite/%s (für %s / %s, Rundgang schon gesehen)\n", knownTourInviteToken, knownTourEmail, seedPassword)
 	fmt.Println()
 }
 
@@ -124,6 +144,16 @@ func seed(ctx context.Context, r repos) error {
 	if err != nil {
 		return fmt.Errorf("Mitglied-User anlegen: %w", err)
 	}
+	knownTour, err := r.users.Create(ctx, user.CreateUserParams{Email: knownTourEmail, PasswordHash: string(hash)})
+	if err != nil {
+		return fmt.Errorf("User mit bekanntem Rundgang anlegen: %w", err)
+	}
+	// The demo accounts stand for existing users: no automatic Rundgang.
+	for _, u := range []user.User{owner, member, knownTour} {
+		if _, err := r.users.MarkTourFlags(ctx, u.ID, user.TourFlags{TourSeen: true, SetupHintSeen: true}); err != nil {
+			return fmt.Errorf("Rundgang-Merker setzen: %w", err)
+		}
+	}
 
 	clubEntity, err := r.clubs.Create(ctx, club.CreateClubParams{
 		Name:           clubName,
@@ -136,17 +166,25 @@ func seed(ctx context.Context, r repos) error {
 	}
 	slog.Info("Club angelegt", "club", clubEntity.Name, "id", clubEntity.ID)
 
-	// Roles: Vorstand may do everything, Mitglied may only read, Gast pays no base fee.
-	vorstand, err := createRole(ctx, r, clubEntity.ID, "Vorstand", true, role.ValidPermissionTypes())
+	// Roles: Vorstand may do everything, Mitglied may only read, Gast pays no
+	// base fee and does not see the roles.
+	allEntities := role.ValidEntityTypes()
+	vorstand, err := createRole(ctx, r, clubEntity.ID, "Vorstand", true, allEntities, role.ValidPermissionTypes())
 	if err != nil {
 		return err
 	}
-	mitglied, err := createRole(ctx, r, clubEntity.ID, "Mitglied", true,
+	mitglied, err := createRole(ctx, r, clubEntity.ID, "Mitglied", true, allEntities,
 		[]role.PermissionType{role.PermissionTypeList, role.PermissionTypeView})
 	if err != nil {
 		return err
 	}
-	gast, err := createRole(ctx, r, clubEntity.ID, "Gast", false,
+	var withoutRoles []role.EntityType
+	for _, e := range allEntities {
+		if e != role.EntityTypeRoles {
+			withoutRoles = append(withoutRoles, e)
+		}
+	}
+	gast, err := createRole(ctx, r, clubEntity.ID, "Gast", false, withoutRoles,
 		[]role.PermissionType{role.PermissionTypeList, role.PermissionTypeView})
 	if err != nil {
 		return err
@@ -167,6 +205,7 @@ func seed(ctx context.Context, r repos) error {
 		{"Monika", "female", mitglied.ID, nil},
 		{"Uwe", "male", mitglied.ID, nil},
 		{"Gabi", "female", gast.ID, nil},
+		{"Frank", "male", gast.ID, nil},
 	}
 	playerNames := make([]string, 0, len(seedPlayers))
 	playerIDs := make(map[string]string, len(seedPlayers))
@@ -175,7 +214,7 @@ func seed(ctx context.Context, r repos) error {
 		p, err := r.players.Create(ctx, player.CreatePlayerParams{
 			ClubID: clubEntity.ID,
 			UserID: sp.userID,
-			RoleID: &roleID,
+			RoleID: roleID,
 			Name:   sp.name,
 			Gender: &gender,
 		})
@@ -184,6 +223,23 @@ func seed(ctx context.Context, r repos) error {
 		}
 		playerNames = append(playerNames, sp.name)
 		playerIDs[sp.name] = p.ID
+	}
+
+	now := time.Now().UTC()
+	for _, inv := range []struct{ player, email, token string }{
+		{"Frank", inviteEmail, inviteToken},
+		{"Gabi", knownTourEmail, knownTourInviteToken},
+	} {
+		if _, err := r.queries.CreatePlayerInvitation(ctx, db.CreatePlayerInvitationParams{
+			ID:        uuid.NewString(),
+			PlayerID:  playerIDs[inv.player],
+			Email:     inv.email,
+			Token:     inv.token,
+			ExpiresAt: now.AddDate(1, 0, 0),
+			CreatedAt: now,
+		}); err != nil {
+			return fmt.Errorf("Einladung für %s anlegen: %w", inv.player, err)
+		}
 	}
 
 	penalties := []penaltytype.CreatePenaltyTypeParams{
@@ -294,12 +350,12 @@ func seed(ctx context.Context, r repos) error {
 	return nil
 }
 
-func createRole(ctx context.Context, r repos, clubID, name string, paysBaseFee bool, perms []role.PermissionType) (role.Role, error) {
+func createRole(ctx context.Context, r repos, clubID, name string, paysBaseFee bool, entities []role.EntityType, perms []role.PermissionType) (role.Role, error) {
 	created, err := r.roles.Create(ctx, role.CreateRoleParams{ClubID: clubID, Name: name, PaysBaseFee: paysBaseFee})
 	if err != nil {
 		return role.Role{}, fmt.Errorf("Rolle %s anlegen: %w", name, err)
 	}
-	for _, entity := range role.ValidEntityTypes() {
+	for _, entity := range entities {
 		for _, perm := range perms {
 			if _, err := r.roles.AddPermission(ctx, role.AddPermissionParams{
 				RoleID: created.ID, EntityType: entity, PermissionType: perm,

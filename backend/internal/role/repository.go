@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -12,19 +13,72 @@ import (
 	"github.com/schnurbus/go-kegelmaster/backend/internal/db"
 )
 
+// pgForeignKeyViolation is the PostgreSQL error code for a violated foreign key.
+const pgForeignKeyViolation = "23503"
+
 var (
 	ErrNotFound        = errors.New("role not found")
 	ErrPermissionExist = errors.New("permission already exists")
+	// ErrInUse is returned when a role still has players and therefore cannot be deleted.
+	ErrInUse = errors.New("role still has players")
 )
 
 type Repository struct {
-	queries *db.Queries
+	database *sql.DB
+	queries  *db.Queries
 }
 
 func NewRepository(dbConn *sql.DB) *Repository {
 	return &Repository{
-		queries: db.New(dbConn),
+		database: dbConn,
+		queries:  db.New(dbConn),
 	}
+}
+
+// CreateFromTemplates creates the given roles with their permissions in one
+// database transaction: either all of them exist afterwards or none.
+func (r *Repository) CreateFromTemplates(ctx context.Context, clubID string, templates []Template) ([]RoleWithPermissions, error) {
+	tx, err := r.database.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	q := r.queries.WithTx(tx)
+
+	now := time.Now().UTC()
+	out := make([]RoleWithPermissions, 0, len(templates))
+	for _, t := range templates {
+		dbRole, err := q.CreateRole(ctx, db.CreateRoleParams{
+			ID:          uuid.NewString(),
+			ClubID:      clubID,
+			Name:        t.Name,
+			PaysBaseFee: t.PaysBaseFee,
+			CreatedAt:   now,
+			UpdatedAt:   now,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("create role %q: %w", t.Name, err)
+		}
+		created := RoleWithPermissions{Role: dbRoleToRole(dbRole)}
+		for _, p := range t.Permissions {
+			dbPerm, err := q.AddRolePermission(ctx, db.AddRolePermissionParams{
+				ID:             uuid.NewString(),
+				RoleID:         dbRole.ID,
+				EntityType:     string(p.EntityType),
+				PermissionType: string(p.PermissionType),
+				CreatedAt:      now,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("add permission %s/%s to role %q: %w", p.EntityType, p.PermissionType, t.Name, err)
+			}
+			created.Permissions = append(created.Permissions, dbRolePermissionToRolePermission(dbPerm))
+		}
+		out = append(out, created)
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit transaction: %w", err)
+	}
+	return out, nil
 }
 
 type CreateRoleParams struct {
@@ -113,9 +167,14 @@ func (r *Repository) Delete(ctx context.Context, id string) error {
 		return err
 	}
 
-	// Delete the role
+	// Delete the role. players.role_id is ON DELETE RESTRICT, so a role that
+	// still has players fails with a foreign key violation.
 	err = r.queries.DeleteRole(ctx, id)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == pgForeignKeyViolation {
+			return ErrInUse
+		}
 		return err
 	}
 

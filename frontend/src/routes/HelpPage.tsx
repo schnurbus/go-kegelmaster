@@ -1,10 +1,16 @@
+import { CompassIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useTour } from "@/context/TourContext";
+
 function HelpPage() {
+  const { restartTour } = useTour();
+
   return (
     <div className="flex flex-col gap-6 px-4 py-4 md:px-6 md:py-6">
         <p className="text-muted-foreground max-w-3xl">
@@ -39,6 +45,25 @@ function HelpPage() {
               mit dem Sie arbeiten möchten. Alle folgenden Seiten (Spieler,
               Spieltage, Transaktionen usw.) beziehen sich auf diesen Club.
             </p>
+            <p>
+              <strong>Neuer Club:</strong> Ohne Club sehen Sie statt des
+              Dashboards eine Willkommensseite mit „Club anlegen“. Als Besitzer
+              eines neuen Clubs zeigt Ihnen die Karte „Ersteinrichtung“ auf dem
+              Dashboard die Schritte bis zum benutzbaren Club: Strafentypen,
+              Rollen (gern per „Vorschlag übernehmen“), Spieler und der erste
+              veröffentlichte Spieltag.
+            </p>
+            <p>
+              <strong>Rundgang:</strong> Beim ersten Öffnen zeigt Ihnen ein
+              kurzer Rundgang, wo Sie was finden. Sie können ihn jederzeit hier
+              oder im Benutzermenü über „Rundgang erneut starten“ wiederholen.
+            </p>
+            <div>
+              <Button variant="outline" size="sm" onClick={restartTour}>
+                <CompassIcon />
+                Rundgang erneut starten
+              </Button>
+            </div>
           </CardContent>
         </Card>
 

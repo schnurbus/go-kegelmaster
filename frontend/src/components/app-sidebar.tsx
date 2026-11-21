@@ -53,11 +53,13 @@ function useDashboardData() {
     },
     {
       title: "Statistiken",
+      tour: "nav-statistics",
       url: "/app/statistics",
       icon: BarChartIcon,
     },
     {
       title: "Spieltage",
+      tour: "nav-gamedays",
       url: "/app/gamedays",
       icon: CalendarIcon,
     },
@@ -68,6 +70,7 @@ function useDashboardData() {
     },
     {
       title: "Transaktionen",
+      tour: "nav-transactions",
       url: "/app/transactions",
       icon: ReceiptIcon,
     },
@@ -136,12 +139,13 @@ function useDashboardData() {
         : []),
       {
         title: "Hilfe",
+        tour: "nav-help",
         url: "/app/help",
         icon: HelpCircleIcon,
       },
     ],
     management: [
-      ...(showRoles ? [{ title: "Rollen", url: "/app/roles", icon: ShieldIcon }] : []),
+      ...(showRoles ? [{ title: "Rollen", url: "/app/roles", icon: ShieldIcon, tour: "nav-roles" }] : []),
       {
         title: "Strafentypen",
         url: "/app/penalty-types",

@@ -114,6 +114,7 @@ export function ChatBubble() {
         size="icon-lg"
         className="fixed bottom-6 right-6 z-50 size-14 rounded-full shadow-lg"
         aria-label="Hilfe-Chat öffnen"
+        data-tour="help-chat"
         onClick={() => setOpen(true)}
       >
         <MessageCircle className="size-6" />

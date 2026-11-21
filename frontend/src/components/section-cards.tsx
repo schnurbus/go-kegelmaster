@@ -60,7 +60,7 @@ export function SectionCards() {
 
   return (
     <>
-      <Card className="@container/card">
+      <Card className="@container/card" data-tour="own-balance">
         <CardHeader className="relative">
           <CardDescription>Mein Guthaben</CardDescription>
           <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">

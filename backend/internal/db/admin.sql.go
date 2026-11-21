@@ -405,7 +405,7 @@ type ListAdminClubPlayersRow struct {
 	CreatedAt time.Time      `json:"created_at"`
 	UserID    *string        `json:"user_id"`
 	UserEmail sql.NullString `json:"user_email"`
-	RoleID    *string        `json:"role_id"`
+	RoleID    string         `json:"role_id"`
 	RoleName  sql.NullString `json:"role_name"`
 }
 
@@ -844,7 +844,7 @@ type ListAdminUserPlayersRow struct {
 	ClubID   string         `json:"club_id"`
 	ClubName string         `json:"club_name"`
 	IsOwner  bool           `json:"is_owner"`
-	RoleID   *string        `json:"role_id"`
+	RoleID   string         `json:"role_id"`
 	RoleName sql.NullString `json:"role_name"`
 }
 

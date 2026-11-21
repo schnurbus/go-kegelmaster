@@ -1,4 +1,5 @@
 import {
+  CompassIcon,
   KeyRoundIcon,
   LogOutIcon,
   MoreVerticalIcon,
@@ -27,6 +28,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { useAuth } from "@/context/AuthContext"
+import { useTour } from "@/context/TourContext"
 
 export function NavUser({
   user,
@@ -39,6 +41,7 @@ export function NavUser({
 }) {
   const { isMobile } = useSidebar()
   const { logout } = useAuth()
+  const { restartTour } = useTour()
   const navigate = useNavigate()
   const initials = user.name.slice(0, 2).toUpperCase() || "?"
 
@@ -49,7 +52,7 @@ export function NavUser({
 
   return (
     <SidebarMenu>
-      <SidebarMenuItem>
+      <SidebarMenuItem data-tour="nav-user">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
@@ -98,6 +101,10 @@ export function NavUser({
               <DropdownMenuItem onClick={() => navigate("/app/api-tokens")}>
                 <KeyRoundIcon />
                 API-Tokens
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={restartTour}>
+                <CompassIcon />
+                Rundgang erneut starten
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />

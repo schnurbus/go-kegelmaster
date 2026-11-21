@@ -17,6 +17,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { useNavigate } from "react-router-dom"
 import { CreateClubDialog } from "./create-club-dialog"
 import { useClub } from "@/context/ClubContext"
 import { cn } from "@/lib/utils"
@@ -27,14 +28,16 @@ export function ClubSwitcher() {
     clubs,
     activeClub,
     setActiveClub,
-    refreshClubs,
     isLoading,
   } = useClub()
+  const navigate = useNavigate()
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
 
+  // The dialog already made the new club active; the dashboard shows the
+  // Rundgang or the hint at the Ersteinrichtung card.
   const handleClubCreated = () => {
-    refreshClubs()
     setIsDialogOpen(false)
+    navigate("/app")
   }
 
   if (isLoading) {
@@ -58,7 +61,7 @@ export function ClubSwitcher() {
     return (
       <>
         <SidebarMenu>
-          <SidebarMenuItem>
+          <SidebarMenuItem data-tour="club-switcher">
             <SidebarMenuButton
               size="lg"
               asChild={false}
@@ -86,7 +89,7 @@ export function ClubSwitcher() {
   return (
     <>
       <SidebarMenu>
-        <SidebarMenuItem>
+        <SidebarMenuItem data-tour="club-switcher">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button

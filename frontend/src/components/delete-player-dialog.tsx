@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import type { Player } from "@/types/player";
+import { csrfTokenFromCookie } from "@/lib/csrf";
 
 type DeletePlayerDialogProps = {
   open: boolean;
@@ -42,10 +43,7 @@ export function DeletePlayerDialog({
         {
           method: "DELETE",
           headers: {
-            "X-CSRF-Token": document.cookie
-              .split("; ")
-              .find((row) => row.startsWith("csrf_token="))
-              ?.split("=")[1] || "",
+            "X-CSRF-Token": csrfTokenFromCookie(),
           },
           credentials: "include",
         }

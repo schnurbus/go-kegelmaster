@@ -24,6 +24,10 @@ type UserResponse struct {
 	NotifyGameDaySettled bool `json:"notify_gameday_settled"`
 	// IsInstanceAdmin: the user may open the operator area (/api/admin).
 	IsInstanceAdmin bool `json:"is_instance_admin"`
+	// TourSeenAt: Rundgang finished or skipped; null = start it automatically.
+	TourSeenAt *time.Time `json:"tour_seen_at"`
+	// SetupHintSeenAt: hint at the Ersteinrichtung card seen; null = not yet.
+	SetupHintSeenAt *time.Time `json:"setup_hint_seen_at"`
 }
 
 func UserResponseFromEntity(u user.User) UserResponse {
@@ -35,6 +39,8 @@ func UserResponseFromEntity(u user.User) UserResponse {
 		PasswordChangedAt:    u.PasswordChangedAt,
 		NotifyGameDaySettled: u.NotifyGameDaySettled,
 		IsInstanceAdmin:      u.IsInstanceAdmin,
+		TourSeenAt:           u.TourSeenAt,
+		SetupHintSeenAt:      u.SetupHintSeenAt,
 	}
 }
 
@@ -125,7 +131,7 @@ type PlayerResponse struct {
 	ID           string    `json:"id"`
 	ClubID       string    `json:"club_id"`
 	UserID       *string   `json:"user_id"`
-	RoleID       *string   `json:"role_id"`
+	RoleID       string    `json:"role_id"`
 	Name         string    `json:"name"`
 	Balance      int       `json:"balance"`
 	StartBalance int       `json:"start_balance"`

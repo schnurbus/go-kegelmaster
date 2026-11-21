@@ -25,6 +25,7 @@ import { InfoIcon } from "lucide-react";
 import type { Transaction } from "@/types/transaction";
 import type { Player } from "@/types/player";
 import { euroToCents, formatCentsToEuro, formatMoneyInput } from "@/types/player";
+import { csrfTokenFromCookie } from "@/lib/csrf";
 
 type ManualType = "deposit" | "tip" | "expense";
 
@@ -56,10 +57,7 @@ function toDateInput(value: string | undefined): string {
 
 function csrfToken(): string {
   return (
-    document.cookie
-      .split("; ")
-      .find((row) => row.startsWith("csrf_token="))
-      ?.split("=")[1] || ""
+    csrfTokenFromCookie()
   );
 }
 

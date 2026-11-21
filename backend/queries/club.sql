@@ -80,3 +80,21 @@ UPDATE clubs
 SET balance = balance + $1, updated_at = $2
 WHERE id = $3
 RETURNING balance;
+
+-- name: GetClubSetupCounts :one
+-- Data behind the Ersteinrichtung of a club; own_players counts the players
+-- linked to the given user (the owner).
+SELECT
+    (SELECT COUNT(*) FROM penalty_types pt WHERE pt.club_id = sqlc.arg(club_id))::bigint AS penalty_types,
+    (SELECT COUNT(*) FROM roles r WHERE r.club_id = sqlc.arg(club_id))::bigint AS roles,
+    (SELECT COUNT(*) FROM players p WHERE p.club_id = sqlc.arg(club_id))::bigint AS players,
+    (SELECT COUNT(*) FROM game_days g WHERE g.club_id = sqlc.arg(club_id) AND NOT g.is_draft)::bigint AS published_game_days,
+    (SELECT COUNT(*) FROM player_invitations i JOIN players ip ON ip.id = i.player_id WHERE ip.club_id = sqlc.arg(club_id))::bigint AS invitations,
+    (SELECT COUNT(*) FROM competitions co WHERE co.club_id = sqlc.arg(club_id))::bigint AS competitions,
+    (SELECT COUNT(*) FROM players op WHERE op.club_id = sqlc.arg(club_id) AND op.user_id = sqlc.arg(user_id))::bigint AS own_players;
+
+-- name: DismissClubSetup :exec
+-- Hides the Ersteinrichtung card; an existing timestamp is kept.
+UPDATE clubs
+SET setup_dismissed_at = COALESCE(setup_dismissed_at, sqlc.arg(now)::timestamptz)
+WHERE id = sqlc.arg(id);

@@ -63,6 +63,7 @@ import {
   getTransactionTypeColor,
 } from "@/types/transaction";
 import { formatCentsToEuro } from "@/types/player";
+import { csrfTokenFromCookie } from "@/lib/csrf";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50] as const;
 const TRANSACTIONS_STORAGE_KEY_PREFIX = "kegelmaster_transactions_";
@@ -255,10 +256,7 @@ function TransactionsPage() {
           method: "DELETE",
           headers: {
             "X-CSRF-Token":
-              document.cookie
-                .split("; ")
-                .find((row) => row.startsWith("csrf_token="))
-                ?.split("=")[1] || "",
+              csrfTokenFromCookie(),
           },
           credentials: "include",
         }

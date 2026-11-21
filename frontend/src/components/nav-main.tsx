@@ -16,6 +16,8 @@ export function NavMain({
     title: string
     url: string
     icon?: LucideIcon
+    /** Ziel des Rundgangs (data-tour). */
+    tour?: string
   }[]
 }) {
   return (
@@ -23,7 +25,7 @@ export function NavMain({
       <SidebarGroupContent>
         <SidebarMenu>
           {items.map((item) => (
-            <SidebarMenuItem key={item.title}>
+            <SidebarMenuItem key={item.title} data-tour={item.tour}>
               <SidebarMenuButton tooltip={item.title} asChild>
                 <Link to={item.url}>
                   {item.icon && <item.icon />}

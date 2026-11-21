@@ -4,6 +4,7 @@ import { CompetitionDialog } from "@/components/competition-dialog";
 import { DeleteCompetitionDialog } from "@/components/delete-competition-dialog";
 import { useClub } from "@/context/ClubContext";
 import { usePermissions } from "@/hooks/use-permissions";
+import { useOpenFromQuery } from "@/hooks/use-open-from-query";
 import type { Competition } from "@/types/competition";
 import { toast } from "sonner";
 
@@ -56,6 +57,9 @@ function CompetitionsPage() {
     setSelectedCompetition(null);
     setIsDialogOpen(true);
   };
+
+  // ?neu=1 (aus der Ersteinrichtung) öffnet den Dialog zum Anlegen.
+  useOpenFromQuery("neu", handleCreate, !!activeClub);
 
   const handleEdit = (competition: Competition) => {
     setSelectedCompetition(competition);

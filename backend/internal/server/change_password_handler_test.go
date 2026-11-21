@@ -17,7 +17,7 @@ func expectUserWithHash(mock sqlmock.Sqlmock, userID, hash string, created time.
 	mock.ExpectQuery(`SELECT id, email, password_hash`).
 		WithArgs(userID).
 		WillReturnRows(sqlmock.NewRows(userColumns).
-			AddRow(userID, "me@example.com", hash, created, created, nil, false, false, nil, nil, nil))
+			AddRow(userID, "me@example.com", hash, created, created, nil, false, false, nil, nil, nil, nil, nil))
 }
 
 func changePasswordRequest(t *testing.T, token, body string) *http.Request {

@@ -34,7 +34,7 @@ func TestRepository_Create(t *testing.T) {
 	player, err := repo.Create(ctx, CreatePlayerParams{
 		ClubID:       clubID,
 		UserID:       &userID,
-		RoleID:       &roleID,
+		RoleID:       roleID,
 		Name:         "Test Player",
 		Balance:      1000,
 		StartBalance: 500,
@@ -63,7 +63,7 @@ func TestRepository_Create(t *testing.T) {
 	if player.UserID == nil || *player.UserID != userID {
 		t.Fatalf("expected user_id %s, got %v", userID, player.UserID)
 	}
-	if player.RoleID == nil || *player.RoleID != roleID {
+	if player.RoleID == "" || player.RoleID != roleID {
 		t.Fatalf("expected role_id %s, got %v", roleID, player.RoleID)
 	}
 
@@ -83,18 +83,19 @@ func TestRepository_Create_NoUser(t *testing.T) {
 
 	playerID := uuid.NewString()
 	clubID := uuid.NewString()
+	roleID := uuid.NewString()
 	now := time.Now().UTC()
 
 	mock.ExpectQuery(`INSERT INTO players`).
-		WithArgs(sqlmock.AnyArg(), clubID, nil, nil, "Test Player", 1000, 500, sqlmock.AnyArg(), false, nil, sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WithArgs(sqlmock.AnyArg(), clubID, nil, roleID, "Test Player", 1000, 500, sqlmock.AnyArg(), false, nil, sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "partner_id", "created_at", "updated_at"}).
-			AddRow(playerID, clubID, nil, nil, "Test Player", 1000, 500, nil, false, nil, now, now))
+			AddRow(playerID, clubID, nil, roleID, "Test Player", 1000, 500, nil, false, nil, now, now))
 
 	ctx := context.Background()
 	player, err := repo.Create(ctx, CreatePlayerParams{
 		ClubID:       clubID,
 		UserID:       nil,
-		RoleID:       nil,
+		RoleID:       roleID,
 		Name:         "Test Player",
 		Balance:      1000,
 		StartBalance: 500,
@@ -108,8 +109,8 @@ func TestRepository_Create_NoUser(t *testing.T) {
 	if player.UserID != nil {
 		t.Fatalf("expected nil user_id, got %v", player.UserID)
 	}
-	if player.RoleID != nil {
-		t.Fatalf("expected nil role_id, got %v", player.RoleID)
+	if player.RoleID != roleID {
+		t.Fatalf("expected role_id %s, got %v", roleID, player.RoleID)
 	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -134,7 +135,7 @@ func TestRepository_GetByID(t *testing.T) {
 	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, partner_id, created_at, updated_at`).
 		WithArgs(playerID).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "partner_id", "created_at", "updated_at"}).
-			AddRow(playerID, clubID, userID, nil, "Test Player", 1000, 500, nil, false, nil, now, now))
+			AddRow(playerID, clubID, userID, "00000000-0000-0000-0000-0000000000f1", "Test Player", 1000, 500, nil, false, nil, now, now))
 
 	ctx := context.Background()
 	player, err := repo.GetByID(ctx, playerID)
@@ -205,7 +206,7 @@ func TestRepository_GetByClubID(t *testing.T) {
 		WithArgs(clubID).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "partner_id", "created_at", "updated_at"}).
 			AddRow(playerID1, clubID, userID, roleID, "Player 1", 1000, 500, nil, false, nil, now, now).
-			AddRow(playerID2, clubID, nil, nil, "Player 2", 2000, 600, nil, false, nil, now.Add(time.Hour), now.Add(time.Hour)))
+			AddRow(playerID2, clubID, nil, "00000000-0000-0000-0000-0000000000f1", "Player 2", 2000, 600, nil, false, nil, now.Add(time.Hour), now.Add(time.Hour)))
 
 	ctx := context.Background()
 	players, err := repo.GetByClubID(ctx, clubID)
@@ -226,14 +227,11 @@ func TestRepository_GetByClubID(t *testing.T) {
 	if players[0].UserID == nil || *players[0].UserID != userID {
 		t.Fatalf("expected user_id %s for first player, got %v", userID, players[0].UserID)
 	}
-	if players[0].RoleID == nil || *players[0].RoleID != roleID {
+	if players[0].RoleID != roleID {
 		t.Fatalf("expected role_id %s for first player, got %v", roleID, players[0].RoleID)
 	}
 	if players[1].UserID != nil {
 		t.Fatalf("expected nil user_id for second player, got %v", players[1].UserID)
-	}
-	if players[1].RoleID != nil {
-		t.Fatalf("expected nil role_id for second player, got %v", players[1].RoleID)
 	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -300,7 +298,7 @@ func TestRepository_Update(t *testing.T) {
 		Balance:      2000,
 		StartBalance: 600,
 		UserID:       &userID,
-		RoleID:       &roleID,
+		RoleID:       roleID,
 		Inactive:     &inactive,
 	})
 
@@ -349,7 +347,6 @@ func TestRepository_Update_NotFound(t *testing.T) {
 		Balance:      2000,
 		StartBalance: 600,
 		UserID:       nil,
-		RoleID:       nil,
 		Inactive:     nil, // nil triggers load-existing; player not found
 	})
 
@@ -399,7 +396,7 @@ func TestRepository_Update_PreservesInactiveWhenNil(t *testing.T) {
 		Balance:      2000,
 		StartBalance: 600,
 		UserID:       &userID,
-		RoleID:       &roleID,
+		RoleID:       roleID,
 		Inactive:     nil, // do not change; existing inactive=true must be preserved
 	})
 	if err != nil {
@@ -430,7 +427,7 @@ func TestRepository_Delete(t *testing.T) {
 	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, partner_id, created_at, updated_at FROM players`).
 		WithArgs(playerID).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "partner_id", "created_at", "updated_at"}).
-			AddRow(playerID, clubID, nil, nil, "Test Player", 1000, 500, nil, false, nil, now, now))
+			AddRow(playerID, clubID, nil, "00000000-0000-0000-0000-0000000000f1", "Test Player", 1000, 500, nil, false, nil, now, now))
 
 	// Second call: DeletePlayer
 	mock.ExpectExec(`DELETE FROM players`).
@@ -492,14 +489,14 @@ func TestRepository_Create_DatabaseError(t *testing.T) {
 	clubID := uuid.NewString()
 
 	mock.ExpectQuery(`INSERT INTO players`).
-		WithArgs(sqlmock.AnyArg(), clubID, nil, nil, "Test Player", 1000, 500, sqlmock.AnyArg(), false, nil, sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WithArgs(sqlmock.AnyArg(), clubID, nil, "00000000-0000-0000-0000-0000000000f1", "Test Player", 1000, 500, sqlmock.AnyArg(), false, nil, sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnError(sql.ErrConnDone)
 
 	ctx := context.Background()
 	_, err = repo.Create(ctx, CreatePlayerParams{
 		ClubID:       clubID,
 		UserID:       nil,
-		RoleID:       nil,
+		RoleID:       "00000000-0000-0000-0000-0000000000f1",
 		Name:         "Test Player",
 		Balance:      1000,
 		StartBalance: 500,
@@ -594,7 +591,7 @@ func TestRepository_Delete_RowsAffectedError(t *testing.T) {
 	mock.ExpectQuery(`SELECT id, club_id, user_id, role_id, name, balance, start_balance, gender, inactive, partner_id, created_at, updated_at FROM players`).
 		WithArgs(playerID).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "club_id", "user_id", "role_id", "name", "balance", "start_balance", "gender", "inactive", "partner_id", "created_at", "updated_at"}).
-			AddRow(playerID, clubID, nil, nil, "Test Player", 1000, 500, nil, false, nil, now, now))
+			AddRow(playerID, clubID, nil, "00000000-0000-0000-0000-0000000000f1", "Test Player", 1000, 500, nil, false, nil, now, now))
 
 	// Second call: DeletePlayer returns an error
 	mock.ExpectExec(`DELETE FROM players`).
@@ -615,4 +612,3 @@ func TestRepository_Delete_RowsAffectedError(t *testing.T) {
 		t.Fatalf("unmet expectations: %v", err)
 	}
 }
-

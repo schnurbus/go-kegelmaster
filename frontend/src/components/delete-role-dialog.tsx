@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import type { Role } from "@/types/role";
+import { csrfTokenFromCookie } from "@/lib/csrf";
 
 type DeleteRoleDialogProps = {
   open: boolean;
@@ -30,6 +31,10 @@ export function DeleteRoleDialog({
   onSuccess,
 }: DeleteRoleDialogProps) {
   const [isDeleting, setIsDeleting] = React.useState(false);
+  // player_count is only known from the role list; the server rejects the
+  // deletion with 409 in any case.
+  const playerCount = role?.player_count ?? 0;
+  const inUse = playerCount > 0;
 
   const handleDelete = async () => {
     if (!role) return;
@@ -42,10 +47,7 @@ export function DeleteRoleDialog({
         {
           method: "DELETE",
           headers: {
-            "X-CSRF-Token": document.cookie
-              .split("; ")
-              .find((row) => row.startsWith("csrf_token="))
-              ?.split("=")[1] || "",
+            "X-CSRF-Token": csrfTokenFromCookie(),
           },
           credentials: "include",
         }
@@ -73,11 +75,13 @@ export function DeleteRoleDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Rolle wirklich löschen?</AlertDialogTitle>
+          <AlertDialogTitle>
+            {inUse ? "Rolle kann nicht gelöscht werden" : "Rolle wirklich löschen?"}
+          </AlertDialogTitle>
           <AlertDialogDescription>
-            Möchten Sie die Rolle "{role?.name}" wirklich löschen? Diese
-            Aktion kann nicht rückgängig gemacht werden. Spieler mit dieser
-            Rolle werden nicht gelöscht, verlieren aber ihre Rollenzuordnung.
+            {inUse
+              ? `Die Rolle "${role?.name}" hat noch ${playerCount} Spieler. Jeder Spieler braucht eine Rolle. Ordnen Sie ${playerCount === 1 ? "ihn" : "diese"} zuerst einer anderen Rolle zu.`
+              : `Möchten Sie die Rolle "${role?.name}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -86,7 +90,7 @@ export function DeleteRoleDialog({
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={handleDelete}
-            disabled={isDeleting}
+            disabled={isDeleting || inUse}
             className="bg-red-600 hover:bg-red-700"
           >
             {isDeleting ? "Lösche..." : "Löschen"}

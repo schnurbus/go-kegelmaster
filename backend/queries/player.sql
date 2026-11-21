@@ -79,7 +79,7 @@ WHERE user_id = $1 AND club_id = $2;
 -- name: CountPlayersByRoleIDForClub :many
 SELECT role_id, COUNT(*) AS count
 FROM players
-WHERE club_id = $1 AND role_id IS NOT NULL
+WHERE club_id = $1
 GROUP BY role_id;
 
 -- name: LinkPlayerToUser :execrows

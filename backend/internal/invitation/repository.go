@@ -109,36 +109,37 @@ func (r *Repository) GetByToken(ctx context.Context, token string) (PlayerInvita
 // Accept marks an invitation as accepted and links the player to the user.
 // Everything runs in one database transaction with conditional updates, so an
 // invitation can be used only once, a player that already has a user is never
-// re-linked, and the player's balance is not touched.
-func (r *Repository) Accept(ctx context.Context, invitationID, userID string) error {
+// re-linked, and the player's balance is not touched. It returns the ID of the
+// club the player belongs to.
+func (r *Repository) Accept(ctx context.Context, invitationID, userID string) (string, error) {
 	tx, err := r.database.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin transaction: %w", err)
+		return "", fmt.Errorf("begin transaction: %w", err)
 	}
 	defer tx.Rollback()
 	qtx := r.queries.WithTx(tx)
 
 	dbInvitation, err := qtx.GetPlayerInvitationByID(ctx, invitationID)
 	if errors.Is(err, sql.ErrNoRows) {
-		return ErrNotFound
+		return "", ErrNotFound
 	}
 	if err != nil {
-		return fmt.Errorf("get invitation: %w", err)
+		return "", fmt.Errorf("get invitation: %w", err)
 	}
 	inv := dbInvitationToInvitation(dbInvitation)
 
 	playerRow, err := qtx.GetPlayerByIDForUpdate(ctx, inv.PlayerID)
 	if err != nil {
-		return fmt.Errorf("get player: %w", err)
+		return "", fmt.Errorf("get player: %w", err)
 	}
 	if playerRow.UserID != nil {
-		return ErrPlayerAlreadyLinked
+		return "", ErrPlayerAlreadyLinked
 	}
 	uid := userID
 	if _, err := qtx.GetPlayerByUserIDAndClubID(ctx, db.GetPlayerByUserIDAndClubIDParams{UserID: &uid, ClubID: playerRow.ClubID}); err == nil {
-		return ErrUserAlreadyInClub
+		return "", ErrUserAlreadyInClub
 	} else if !errors.Is(err, sql.ErrNoRows) {
-		return fmt.Errorf("check existing player: %w", err)
+		return "", fmt.Errorf("check existing player: %w", err)
 	}
 
 	now := time.Now().UTC()
@@ -147,17 +148,17 @@ func (r *Repository) Accept(ctx context.Context, invitationID, userID string) er
 		ID:         invitationID,
 	})
 	if err != nil {
-		return fmt.Errorf("mark invitation accepted: %w", err)
+		return "", fmt.Errorf("mark invitation accepted: %w", err)
 	}
 	if n == 0 {
 		if inv.AcceptedAt != nil {
-			return ErrAlreadyAccepted
+			return "", ErrAlreadyAccepted
 		}
 		if now.After(inv.ExpiresAt) {
-			return ErrExpired
+			return "", ErrExpired
 		}
 		// Accepted concurrently by another request.
-		return ErrAlreadyAccepted
+		return "", ErrAlreadyAccepted
 	}
 
 	n, err = qtx.LinkPlayerToUser(ctx, db.LinkPlayerToUserParams{
@@ -166,20 +167,20 @@ func (r *Repository) Accept(ctx context.Context, invitationID, userID string) er
 		ID:        inv.PlayerID,
 	})
 	if err != nil {
-		return fmt.Errorf("link player: %w", err)
+		return "", fmt.Errorf("link player: %w", err)
 	}
 	if n == 0 {
-		return ErrPlayerAlreadyLinked
+		return "", ErrPlayerAlreadyLinked
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit: %w", err)
+		return "", fmt.Errorf("commit: %w", err)
 	}
 	slog.Info("invitation accepted and player linked",
 		"invitation_id", invitationID,
 		"player_id", inv.PlayerID,
 		"user_id", userID)
-	return nil
+	return playerRow.ClubID, nil
 }
 
 // GetByPlayerID retrieves all invitations for a player.

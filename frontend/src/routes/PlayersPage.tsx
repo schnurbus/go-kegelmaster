@@ -5,6 +5,7 @@ import { PlayerDialog } from "@/components/player-dialog";
 import { DeletePlayerDialog } from "@/components/delete-player-dialog";
 import { useClub } from "@/context/ClubContext";
 import { usePermissions } from "@/hooks/use-permissions";
+import { useOpenFromQuery } from "@/hooks/use-open-from-query";
 import {
   Card,
   CardContent,
@@ -34,6 +35,13 @@ function PlayersPage() {
   const [playerToDelete, setPlayerToDelete] = React.useState<Player | null>(
     null
   );
+  // „Das bin ich“ nur, solange der Benutzer im Club noch keinen Spieler hat.
+  const [hasOwnPlayer, setHasOwnPlayer] = React.useState(true);
+  const [linkMePreset, setLinkMePreset] = React.useState(false);
+  // ?einladen=1 ohne nicht verknüpften Spieler: nach dem Anlegen gleich dessen
+  // Dialog mit dem Einladen öffnen.
+  const [inviteAfterCreate, setInviteAfterCreate] = React.useState(false);
+  const [playerToInvite, setPlayerToInvite] = React.useState<Player | null>(null);
 
   const fetchPlayers = React.useCallback(async () => {
     if (!activeClub) return;
@@ -88,17 +96,50 @@ function PlayersPage() {
     }
   }, [activeClub]);
 
+  const fetchOwnPlayer = React.useCallback(async () => {
+    if (!activeClub) return;
+    try {
+      const response = await fetch(`/api/clubs/${activeClub.id}/players/me`, {
+        credentials: "include",
+      });
+      setHasOwnPlayer(response.status !== 404);
+    } catch {
+      setHasOwnPlayer(true);
+    }
+  }, [activeClub]);
+
   React.useEffect(() => {
     if (activeClub) {
       fetchPlayers();
       fetchRoles();
+      fetchOwnPlayer();
     }
-  }, [activeClub, fetchPlayers, fetchRoles]);
+  }, [activeClub, fetchPlayers, fetchRoles, fetchOwnPlayer]);
 
-  const handleCreate = () => {
+  const handleCreate = (linkMe = false) => {
     setSelectedPlayer(null);
+    setLinkMePreset(linkMe);
     setIsDialogOpen(true);
   };
+
+  // Aus der Ersteinrichtung: ?neu=1 öffnet „Spieler anlegen“, ?neu=ich mit
+  // „Das bin ich“, ?einladen=1 den ersten noch nicht verknüpften Spieler.
+  const ready = !!activeClub && !isLoading && !isRolesLoading;
+  useOpenFromQuery("neu", (value) => handleCreate(value === "ich"), ready);
+  useOpenFromQuery(
+    "einladen",
+    () => {
+      const uninvited = players.find((p) => !p.user_id);
+      if (uninvited) {
+        handleEdit(uninvited);
+      } else {
+        toast.info("Legen Sie zuerst den Spieler an, den Sie einladen möchten. Danach können Sie ihn einladen.");
+        setInviteAfterCreate(true);
+        handleCreate();
+      }
+    },
+    ready,
+  );
 
   const handleView = (player: Player) => {
     navigate(`/app/players/${player.id}`);
@@ -114,9 +155,23 @@ function PlayersPage() {
     setIsDeleteDialogOpen(true);
   };
 
-  const handleSuccess = () => {
+  const handleSuccess = (created?: Player) => {
     fetchPlayers();
+    fetchOwnPlayer();
+    if (inviteAfterCreate && created && !created.user_id) {
+      setPlayerToInvite(created);
+    }
+    setInviteAfterCreate(false);
   };
+
+  // Opens the edit dialog (with the invitation) once the create dialog closed.
+  React.useEffect(() => {
+    if (playerToInvite && !isDialogOpen) {
+      setSelectedPlayer(playerToInvite);
+      setPlayerToInvite(null);
+      setIsDialogOpen(true);
+    }
+  }, [playerToInvite, isDialogOpen]);
 
   if (!activeClub) {
     return (
@@ -145,7 +200,7 @@ function PlayersPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center">
-            <Button onClick={() => navigate("/app/roles")}>
+            <Button onClick={() => navigate("/app/roles?neu=1")}>
               Erste Rolle erstellen
             </Button>
           </CardContent>
@@ -169,7 +224,7 @@ function PlayersPage() {
             onView={handleView}
             onEdit={handleEdit}
             onDelete={handleDelete}
-            onCreate={handleCreate}
+            onCreate={() => handleCreate()}
             isLoading={isLoading}
             clubId={activeClub?.id}
             canCreate={canCreate("players")}
@@ -180,11 +235,16 @@ function PlayersPage() {
 
       <PlayerDialog
         open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
+        onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) setInviteAfterCreate(false);
+        }}
         player={selectedPlayer}
         clubId={activeClub.id}
         roles={roles}
         couplesModeEnabled={activeClub?.couples_mode_enabled ?? false}
+        offerLinkMe={!hasOwnPlayer}
+        initialLinkMe={linkMePreset}
         onSuccess={handleSuccess}
       />
 
