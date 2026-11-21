@@ -47,6 +47,11 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
+          # Shown in the footer (/api/config/public). meta's "version" is the
+          # highest-priority tag, i.e. main-<timestamp>-<sha> (raw beats sha),
+          # so the test environment shows exactly the deployed image tag.
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
