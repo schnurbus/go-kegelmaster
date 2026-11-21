@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.9.0](https://github.com/schnurbus/go-kegelmaster/compare/v0.8.0...v0.9.0) (2026-11-21)
+
+
+### Features
+
+* **admin:** add admin area UI for instance operators ([#84](https://github.com/schnurbus/go-kegelmaster/issues/84)) ([7e26fe2](https://github.com/schnurbus/go-kegelmaster/commit/7e26fe2f80ed62cf6a2d410db8edf468832e7264))
+* **admin:** add admin interventions for instance operators ([#87](https://github.com/schnurbus/go-kegelmaster/issues/87)) ([bc9bf6b](https://github.com/schnurbus/go-kegelmaster/commit/bc9bf6bf2dad8357a0a57c7a19a543bb1f8ecaed))
+* **admin:** add instance admin and read-only admin API ([#83](https://github.com/schnurbus/go-kegelmaster/issues/83)) ([4e8d9a5](https://github.com/schnurbus/go-kegelmaster/commit/4e8d9a5264789c09896febc18aefcae4d3a035e2))
+* **admin:** require recent authentication for admin area ([#88](https://github.com/schnurbus/go-kegelmaster/issues/88)) ([5bd75a8](https://github.com/schnurbus/go-kegelmaster/commit/5bd75a8d4de0cb0d2d5eb39545a35a9ac06d2224))
+* **auth:** control registration via REGISTRATION_MODE ([#85](https://github.com/schnurbus/go-kegelmaster/issues/85)) ([c64ebee](https://github.com/schnurbus/go-kegelmaster/commit/c64ebeeba7de83305fd791c6f6e8bc6da899546a))
+* **mcp:** add OAuth 2.1 authorization for MCP clients ([#89](https://github.com/schnurbus/go-kegelmaster/issues/89)) ([51502a0](https://github.com/schnurbus/go-kegelmaster/commit/51502a070f2d94e02a435704a3078001710813b5))
+* **notifications:** email users when a game day is settled ([#73](https://github.com/schnurbus/go-kegelmaster/issues/73)) ([fec6174](https://github.com/schnurbus/go-kegelmaster/commit/fec617455f0c359b117a4a7f4aa6b79f54f3b9d5))
+* **transactions:** allow editing transactions ([#70](https://github.com/schnurbus/go-kegelmaster/issues/70)) ([c6fbb4b](https://github.com/schnurbus/go-kegelmaster/commit/c6fbb4b1ac2dae7eb112ee11fa2291292b094822))
+* **transactions:** allow skipping auto-tip for a single deposit ([#69](https://github.com/schnurbus/go-kegelmaster/issues/69)) ([d1af6bd](https://github.com/schnurbus/go-kegelmaster/commit/d1af6bd3ecaaa33d9bc4eb0c461eddce70a45020))
+* **ui:** add password visibility toggle to all password fields ([#68](https://github.com/schnurbus/go-kegelmaster/issues/68)) ([c1a5b6e](https://github.com/schnurbus/go-kegelmaster/commit/c1a5b6eeb12b4062f4189e198f08139f837e4dc3))
+
+
+### Bug Fixes
+
+* **deps:** update module github.com/andybalholm/brotli to v1.2.7 [security] ([#74](https://github.com/schnurbus/go-kegelmaster/issues/74)) ([41f55b8](https://github.com/schnurbus/go-kegelmaster/commit/41f55b8c650d13c0e7d0b8db1659b84c29d6dd11))
+* **deps:** update module github.com/gofiber/fiber/v3 to v3.4.0 [security] ([#76](https://github.com/schnurbus/go-kegelmaster/issues/76)) ([dfcaf37](https://github.com/schnurbus/go-kegelmaster/commit/dfcaf372512d03ebee90f99019efecad5318dbad))
+* **deps:** update module github.com/jackc/pgx/v5 to v5.9.2 [security] ([#77](https://github.com/schnurbus/go-kegelmaster/issues/77)) ([34cd501](https://github.com/schnurbus/go-kegelmaster/commit/34cd501b215071150f137372ec070c4f253a9c90))
+* **deps:** update module github.com/klauspost/compress to v1.20.2 [security] ([#78](https://github.com/schnurbus/go-kegelmaster/issues/78)) ([cc3b91d](https://github.com/schnurbus/go-kegelmaster/commit/cc3b91da8905f69c4ec75bc576e68873b5f12821))
+* **deps:** update module golang.org/x/crypto to v0.59.0 [security] ([#80](https://github.com/schnurbus/go-kegelmaster/issues/80)) ([a055876](https://github.com/schnurbus/go-kegelmaster/commit/a055876c615a422481a5ba8486f6562a945882cd))
+
 ## [0.8.0](https://github.com/schnurbus/go-kegelmaster/compare/v0.7.0...v0.8.0) (2026-11-18)
 
 
