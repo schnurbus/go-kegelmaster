@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"net/url"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
@@ -189,7 +190,10 @@ func (h *Handler) HandleGetInvitation(c fiber.Ctx) error {
 	ctx, cancel := h.RequestContext()
 	defer cancel()
 
-	token := c.Params("token")
+	token, err := invitationToken(c)
+	if err != nil {
+		return err
+	}
 	tokenPreview := token
 	if len(token) > 8 {
 		tokenPreview = token[:8] + "..."
@@ -263,7 +267,10 @@ func (h *Handler) HandleAcceptInvitation(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusUnauthorized, "Nicht angemeldet")
 	}
 
-	token := c.Params("token")
+	token, err := invitationToken(c)
+	if err != nil {
+		return err
+	}
 	tokenPreview := token
 	if len(token) > 8 {
 		tokenPreview = token[:8] + "..."
@@ -333,4 +340,15 @@ func (h *Handler) HandleAcceptInvitation(c fiber.Ctx) error {
 		"club_id":   clubID,
 		"message":   "Einladung erfolgreich akzeptiert",
 	})
+}
+
+// invitationToken returns the decoded :token path parameter. Tokens are padded
+// URL-safe base64 ("...="); clients that escape the path segment send "%3D",
+// and Fiber does not unescape path parameters.
+func invitationToken(c fiber.Ctx) (string, error) {
+	token, err := url.PathUnescape(c.Params("token"))
+	if err != nil {
+		return "", fiber.NewError(fiber.StatusBadRequest, "Ungültiger Token")
+	}
+	return token, nil
 }

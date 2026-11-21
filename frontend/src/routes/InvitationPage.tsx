@@ -1,6 +1,5 @@
 import * as React from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -124,8 +123,8 @@ function InvitationPage() {
 
   if (isLoading) {
     return (
-      <AppLayout>
-        <div className="flex items-center justify-center min-h-screen p-4">
+      <>
+        <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
           <Card className="w-full max-w-md">
             <CardHeader>
               <Skeleton className="h-6 w-48" />
@@ -136,14 +135,14 @@ function InvitationPage() {
             </CardContent>
           </Card>
         </div>
-      </AppLayout>
+      </>
     );
   }
 
   if (!invitation) {
     return (
-      <AppLayout>
-        <div className="flex items-center justify-center min-h-screen p-4">
+      <>
+        <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
           <Card className="w-full max-w-md">
             <CardHeader>
               <CardTitle>Einladung nicht gefunden</CardTitle>
@@ -158,7 +157,7 @@ function InvitationPage() {
             </CardContent>
           </Card>
         </div>
-      </AppLayout>
+      </>
     );
   }
 
@@ -167,8 +166,8 @@ function InvitationPage() {
   const canRegister = registrationMode !== "closed";
 
   return (
-    <AppLayout>
-      <div className="flex items-center justify-center min-h-screen p-4">
+    <>
+      <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -237,7 +236,7 @@ function InvitationPage() {
           </CardContent>
         </Card>
       </div>
-    </AppLayout>
+    </>
   );
 }
 
