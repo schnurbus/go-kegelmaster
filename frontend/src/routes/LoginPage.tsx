@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { KeyRoundIcon } from "lucide-react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useClub } from "../context/ClubContext";
+import { setTourTrigger, type AcceptedInvitation } from "../lib/onboarding";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,6 +40,7 @@ function LoginPage() {
   const rememberMeRef = useRef(rememberMe);
   rememberMeRef.current = rememberMe;
   const { login, loginWithPasskey } = useAuth();
+  const { refreshClubs } = useClub();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -92,7 +95,7 @@ function LoginPage() {
         id: "accept-invite-after-login",
         duration: 4000,
       });
-      return responseData.player_id;
+      return responseData as AcceptedInvitation;
     } catch (error) {
       console.error("Error accepting invitation:", error);
       toast.error(
@@ -107,8 +110,11 @@ function LoginPage() {
     toast.success("Anmeldung erfolgreich");
     if (inviteToken) {
       try {
-        const playerId = await acceptInvitation(inviteToken);
-        navigate(`/app/players/${playerId}`, { replace: true });
+        // Dashboard des eingeladenen Clubs, dort startet der Rundgang bzw. der Hinweis.
+        const accepted = await acceptInvitation(inviteToken);
+        setTourTrigger("invitation-accepted");
+        await refreshClubs(accepted.club_id);
+        navigate("/app", { replace: true });
       } catch (inviteError) {
         console.error("Failed to accept invitation:", inviteError);
         toast.warning(

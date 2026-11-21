@@ -37,6 +37,10 @@ type PlayerDialogProps = {
   clubId: string;
   roles: Role[];
   couplesModeEnabled?: boolean;
+  /** „Das bin ich“ anbieten (nur beim Anlegen, wenn der Benutzer im Club noch keinen Spieler hat). */
+  offerLinkMe?: boolean;
+  /** „Das bin ich“ beim Öffnen vorauswählen. */
+  initialLinkMe?: boolean;
   onSuccess: () => void;
 };
 
@@ -47,6 +51,8 @@ export function PlayerDialog({
   clubId,
   roles,
   couplesModeEnabled = false,
+  offerLinkMe = false,
+  initialLinkMe = false,
   onSuccess,
 }: PlayerDialogProps) {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -60,7 +66,9 @@ export function PlayerDialog({
   const [clubPlayers, setClubPlayers] = React.useState<Player[]>([]);
   const [inviteEmail, setInviteEmail] = React.useState("");
   const [isSendingInvite, setIsSendingInvite] = React.useState(false);
+  const [linkMe, setLinkMe] = React.useState(false);
   const isEdit = !!player;
+  const showLinkMe = !isEdit && offerLinkMe;
   const canInvite = isEdit && player && !player.user_id;
   const showPartner = isEdit && couplesModeEnabled;
 
@@ -82,10 +90,11 @@ export function PlayerDialog({
       setInactive(false);
       setPartnerId(null);
       setInviteEmail("");
+      setLinkMe(offerLinkMe && initialLinkMe);
       // Pre-select first role when creating new player
       setRoleId(roles.length > 0 ? roles[0].id : null);
     }
-  }, [open, player, roles]);
+  }, [open, player, roles, offerLinkMe, initialLinkMe]);
 
   // Load club players for partner dropdown when Paar-Modus and editing
   React.useEffect(() => {
@@ -131,6 +140,7 @@ export function PlayerDialog({
         gender: gender,
         inactive,
         ...(isEdit && { partner_id: partnerId ?? null }),
+        ...(showLinkMe && linkMe && { link_me: true }),
       };
 
       const url = isEdit
@@ -381,6 +391,27 @@ export function PlayerDialog({
           <p className="text-sm text-muted-foreground -mt-2">
             Inaktive Spieler zahlen keine Basis-Strafe, können aber weiterhin an Spieltagen teilnehmen und Strafen erhalten.
           </p>
+          {showLinkMe && (
+            <>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="link_me"
+                  checked={linkMe}
+                  onCheckedChange={(checked) => setLinkMe(checked === true)}
+                />
+                <Label
+                  htmlFor="link_me"
+                  className="text-sm font-normal cursor-pointer leading-none"
+                >
+                  Das bin ich
+                </Label>
+              </div>
+              <p className="text-sm text-muted-foreground -mt-2">
+                Verknüpft den Spieler direkt mit Ihrem Konto, ohne Einladung. Dann sehen Sie Ihren Saldo und Ihre
+                Statistiken und können sich bei abgerechneten Spieltagen per E-Mail benachrichtigen lassen.
+              </p>
+            </>
+          )}
           {showPartner && (
             <div className="space-y-2">
               <Label htmlFor="partner_id">Partner (Paar-Modus)</Label>

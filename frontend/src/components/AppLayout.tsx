@@ -6,6 +6,7 @@ import {
   SidebarInset,
   SidebarProvider,
 } from "@/components/ui/sidebar";
+import { TourProvider } from "@/context/TourContext";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -14,25 +15,27 @@ interface AppLayoutProps {
 
 export function AppLayout({ children, title = "Dashboard" }: AppLayoutProps) {
   return (
-    <SidebarProvider
-      style={
-        {
-          "--sidebar-width": "calc(var(--spacing) * 72)",
-          "--header-height": "calc(var(--spacing) * 12)",
-        } as React.CSSProperties
-      }
-    >
-      <AppSidebar variant="inset" />
-      <SidebarInset>
-        <SiteHeader title={title} />
-        <div className="flex flex-1 flex-col">
-          <div className="@container/main flex flex-1 flex-col gap-2">
-            {children}
+    <TourProvider>
+      <SidebarProvider
+        style={
+          {
+            "--sidebar-width": "calc(var(--spacing) * 72)",
+            "--header-height": "calc(var(--spacing) * 12)",
+          } as React.CSSProperties
+        }
+      >
+        <AppSidebar variant="inset" />
+        <SidebarInset>
+          <SiteHeader title={title} />
+          <div className="flex flex-1 flex-col">
+            <div className="@container/main flex flex-1 flex-col gap-2">
+              {children}
+            </div>
           </div>
-        </div>
-        <AppFooter className="app-footer border-t border-border px-4 py-2 text-center text-sm text-muted-foreground" />
-      </SidebarInset>
-    </SidebarProvider>
+          <AppFooter className="app-footer border-t border-border px-4 py-2 text-center text-sm text-muted-foreground" />
+        </SidebarInset>
+      </SidebarProvider>
+    </TourProvider>
   );
 }
 

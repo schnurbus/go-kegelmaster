@@ -194,6 +194,11 @@ function Sidebar({
             } as React.CSSProperties
           }
           side={side}
+          // While a Rundgang (driver.js) runs, clicks on its popover must not
+          // close the sidebar it points into.
+          onInteractOutside={(event) => {
+            if (document.body.classList.contains("driver-active")) event.preventDefault()
+          }}
         >
           <SheetHeader className="sr-only">
             <SheetTitle>Sidebar</SheetTitle>

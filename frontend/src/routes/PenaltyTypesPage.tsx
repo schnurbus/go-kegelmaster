@@ -4,6 +4,7 @@ import { PenaltyTypeDialog } from "@/components/penalty-type-dialog";
 import { DeletePenaltyTypeDialog } from "@/components/delete-penalty-type-dialog";
 import { useClub } from "@/context/ClubContext";
 import { usePermissions } from "@/hooks/use-permissions";
+import { useOpenFromQuery } from "@/hooks/use-open-from-query";
 import type { PenaltyType } from "@/types/penalty-type";
 import { toast } from "sonner";
 
@@ -56,6 +57,9 @@ function PenaltyTypesPage() {
     setSelectedPenaltyType(null);
     setIsDialogOpen(true);
   };
+
+  // ?neu=1 (aus der Ersteinrichtung) öffnet den Dialog zum Anlegen.
+  useOpenFromQuery("neu", handleCreate, !!activeClub);
 
   const handleEdit = (penaltyType: PenaltyType) => {
     setSelectedPenaltyType(penaltyType);

@@ -5,6 +5,7 @@ import { RoleDialog } from "@/components/role-dialog";
 import { DeleteRoleDialog } from "@/components/delete-role-dialog";
 import { useClub } from "@/context/ClubContext";
 import { usePermissions } from "@/hooks/use-permissions";
+import { useOpenFromQuery } from "@/hooks/use-open-from-query";
 import type { Role } from "@/types/role";
 import { toast } from "sonner";
 
@@ -53,6 +54,9 @@ function RolesPage() {
     setSelectedRole(null);
     setIsDialogOpen(true);
   };
+
+  // ?neu=1 (aus der Ersteinrichtung) öffnet den Dialog zum Anlegen.
+  useOpenFromQuery("neu", handleCreate, !!activeClub);
 
   const handleView = (role: Role) => {
     navigate(`/app/roles/${role.id}`);

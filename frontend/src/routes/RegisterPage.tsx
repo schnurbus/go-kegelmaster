@@ -4,6 +4,8 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useRegistrationMode } from "@/hooks/use-public-config";
 import type { InvitationResponse } from "@/types/invitation";
 import { useAuth } from "../context/AuthContext";
+import { useClub } from "../context/ClubContext";
+import { setTourTrigger, type AcceptedInvitation } from "../lib/onboarding";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +27,7 @@ function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { register } = useAuth();
+  const { refreshClubs } = useClub();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const inviteToken = searchParams.get("invite_token");
@@ -103,7 +106,7 @@ function RegisterPage() {
         id: "accept-invite-after-register",
         duration: 4000,
       });
-      return responseData.player_id;
+      return responseData as AcceptedInvitation;
     } catch (error) {
       console.error("Error accepting invitation:", error);
       toast.error(
@@ -123,8 +126,11 @@ function RegisterPage() {
       toast.success("Account erstellt");
       if (inviteToken) {
         try {
-          const playerId = await acceptInvitation(inviteToken);
-          navigate(`/app/players/${playerId}`, { replace: true });
+          // Dashboard des eingeladenen Clubs, dort startet der Rundgang.
+          const accepted = await acceptInvitation(inviteToken);
+          setTourTrigger("invitation-accepted");
+          await refreshClubs(accepted.club_id);
+          navigate("/app", { replace: true });
         } catch (inviteError) {
           console.error("Failed to accept invitation:", inviteError);
           toast.warning(

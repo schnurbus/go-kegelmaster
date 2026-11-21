@@ -7,6 +7,7 @@ import {
   SidebarProvider,
 } from "@/components/ui/sidebar";
 import { PageTitleProvider, usePageTitle } from "@/context/PageTitleContext";
+import { TourProvider } from "@/context/TourContext";
 
 function DashboardLayoutContent() {
   const { title } = usePageTitle();
@@ -36,16 +37,18 @@ export function DashboardLayout() {
 
   return (
     <PageTitleProvider routeTitle={routeTitle}>
-      <SidebarProvider
-        style={
-          {
-            "--sidebar-width": "calc(var(--spacing) * 72)",
-            "--header-height": "calc(var(--spacing) * 12)",
-          } as React.CSSProperties
-        }
-      >
-        <DashboardLayoutContent />
-      </SidebarProvider>
+      <TourProvider>
+        <SidebarProvider
+          style={
+            {
+              "--sidebar-width": "calc(var(--spacing) * 72)",
+              "--header-height": "calc(var(--spacing) * 12)",
+            } as React.CSSProperties
+          }
+        >
+          <DashboardLayoutContent />
+        </SidebarProvider>
+      </TourProvider>
     </PageTitleProvider>
   );
 }

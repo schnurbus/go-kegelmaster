@@ -20,6 +20,8 @@ export function NavSecondary({
     title: string
     url: string
     icon: LucideIcon
+    /** Ziel des Rundgangs (data-tour). */
+    tour?: string
   }[]
 } & React.ComponentPropsWithoutRef<typeof SidebarGroup>) {
   return (
@@ -27,7 +29,7 @@ export function NavSecondary({
       <SidebarGroupContent>
         <SidebarMenu>
           {items.map((item) => (
-            <SidebarMenuItem key={item.title}>
+            <SidebarMenuItem key={item.title} data-tour={item.tour}>
               <SidebarMenuButton asChild>
                 {item.url.startsWith("/") ? (
                   <Link to={item.url}>

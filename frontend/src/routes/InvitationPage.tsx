@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/context/AuthContext";
+import { useClub } from "@/context/ClubContext";
+import { setTourTrigger, type AcceptedInvitation } from "@/lib/onboarding";
 import { useRegistrationMode } from "@/hooks/use-public-config";
 import { toast } from "sonner";
 import type { InvitationResponse } from "@/types/invitation";
@@ -20,6 +22,7 @@ function InvitationPage() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const { user, status } = useAuth();
+  const { refreshClubs } = useClub();
   const registrationMode = useRegistrationMode();
   const [invitation, setInvitation] = React.useState<InvitationResponse | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -127,14 +130,12 @@ function InvitationPage() {
         { id: "accept-invitation", duration: 5000 }
       );
       
-      // Small delay to show success message
-      setTimeout(() => {
-        if (invitation) {
-          navigate(`/app/players/${invitation.player_id}`);
-        } else {
-          navigate("/app/players");
-        }
-      }, 1000);
+      // Dashboard des eingeladenen Clubs (aktiv gesetzt); dort startet der
+      // Rundgang bzw. der Hinweis auf den Club-Switcher.
+      const accepted = responseData as AcceptedInvitation;
+      setTourTrigger("invitation-accepted");
+      await refreshClubs(accepted.club_id);
+      navigate("/app");
     } catch (error) {
       console.error("Error accepting invitation:", error);
       toast.error(

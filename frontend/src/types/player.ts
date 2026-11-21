@@ -24,6 +24,8 @@ export type CreatePlayerRequest = {
   role_id: string; // Required
   gender?: Gender | null;
   inactive?: boolean;
+  /** „Das bin ich“: verknüpft den Spieler mit dem eigenen Konto. */
+  link_me?: boolean;
 };
 
 export type UpdatePlayerRequest = {
