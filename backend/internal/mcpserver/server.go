@@ -1,8 +1,9 @@
 // Package mcpserver exposes the Kegelmaster API as a Model Context Protocol
 // server (Streamable HTTP, stateless) at /mcp. Clients authenticate with a
-// personal API token ("Authorization: Bearer kgm_..."); every tool forwards
-// to the REST API with that token, so permissions, validation, audit logging
-// and the balance invariants are exactly those of the web frontend.
+// personal API token ("Authorization: Bearer kgm_...") or an OAuth access
+// token ("kgo_...", see internal/oauth); every tool forwards to the REST API
+// with that token, so permissions, validation, audit logging and the balance
+// invariants are exactly those of the web frontend.
 package mcpserver
 
 import (
@@ -27,8 +28,10 @@ Vorgehen:
 
 Spieltage werden in zwei Schritten erfasst: spieltag_erfassen legt einen Entwurf an (es wird nichts gebucht). Erst spieltag_veroeffentlichen bucht Grundgebühren und Strafen. Zeige dem Nutzer vorher die Vorschau aus spieltag_details und lass dir die Veröffentlichung bestätigen.`
 
-// New returns the HTTP handler for the MCP endpoint.
-func New(api API, version string) http.Handler {
+// New returns the HTTP handler for the MCP endpoint. resourceMetadataURL is
+// announced in the WWW-Authenticate challenge of 401 responses (RFC 9728), so
+// OAuth clients can discover the authorization server; empty omits it.
+func New(api API, version, resourceMetadataURL string) http.Handler {
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "kegelmaster",
 		Title:   "Kegelmaster",
@@ -56,14 +59,16 @@ func New(api API, version string) http.Handler {
 	}
 
 	protected := auth.RequireBearerToken(verifier, &auth.RequireBearerTokenOptions{
-		// Personal API tokens may have no expiry.
+		ResourceMetadataURL: resourceMetadataURL,
+		// Personal API tokens may have no expiry; OAuth access tokens expire,
+		// which the REST API checks on every request.
 		AllowMissingExpiration: true,
 	})(streamable)
 	return withBearerChallenge(protected)
 }
 
 // withBearerChallenge adds the standard "WWW-Authenticate: Bearer" challenge
-// to 401 responses (the SDK only sets it when OAuth metadata is configured).
+// to 401 responses when the SDK did not set one (no OAuth metadata configured).
 func withBearerChallenge(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		next.ServeHTTP(&challengeWriter{ResponseWriter: w}, r)

@@ -28,6 +28,7 @@ import (
 	"github.com/schnurbus/go-kegelmaster/backend/internal/invitation"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/mcpserver"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/middleware"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/oauth"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/passkey"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/passwordreset"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/penaltytype"
@@ -61,6 +62,8 @@ type Dependencies struct {
 	GameDayNotifier   handlers.GameDayNotifier
 	// AdminRepo backs the read-only operator area /api/admin; nil disables it (404).
 	AdminRepo *admin.Repository
+	// OAuthRepo backs the OAuth authorization server for MCP clients; nil disables it.
+	OAuthRepo *oauth.Repository
 }
 
 // Server wraps the Fiber application and its dependencies.
@@ -100,9 +103,18 @@ func New(cfg config.Config, deps Dependencies) *Server {
 	app.Use(recover.New())
 	app.Use(securityHeaders)
 	app.Use(cors.New(cors.Config{
+		Next:             isPublicOAuthPath,
 		AllowOrigins:     splitAndTrim(cfg.CORSOrigins),
 		AllowHeaders:     []string{"Content-Type", "X-CSRF-Token"},
 		AllowCredentials: true,
+	}))
+	// OAuth metadata, registration, token and revocation endpoints are called
+	// by MCP clients from any origin (some run in a browser). They never use
+	// cookies, so any origin is allowed without credentials.
+	app.Use(cors.New(cors.Config{
+		Next:         func(c fiber.Ctx) bool { return !isPublicOAuthPath(c) },
+		AllowOrigins: []string{"*"},
+		AllowHeaders: []string{"Content-Type", "Authorization", "MCP-Protocol-Version"},
 	}))
 
 	userIDExtractor := func(c fiber.Ctx) string {
@@ -141,6 +153,7 @@ func New(cfg config.Config, deps Dependencies) *Server {
 		PasskeyService:    deps.PasskeyService,
 		GameDayNotifier:   deps.GameDayNotifier,
 		AdminRepo:         deps.AdminRepo,
+		OAuthRepo:         deps.OAuthRepo,
 	})
 
 	server := &Server{
@@ -166,8 +179,10 @@ func (s *Server) registerRoutes() {
 	})
 
 	// MCP server (Streamable HTTP, stateless) for AI agents; authenticated with
-	// personal API tokens. See internal/mcpserver.
-	s.app.All("/mcp", adaptor.HTTPHandler(mcpserver.New(s.mcpAPI, s.cfg.Version)))
+	// personal API tokens or OAuth access tokens. See internal/mcpserver.
+	s.app.All("/mcp", adaptor.HTTPHandler(mcpserver.New(s.mcpAPI, s.cfg.Version, s.handlers.ProtectedResourceMetadataURL())))
+
+	s.registerOAuthRoutes()
 
 	api := s.app.Group("/api")
 	api.Get("/", func(c fiber.Ctx) error {
@@ -231,6 +246,16 @@ func (s *Server) registerRoutes() {
 		Max:        10,
 		Expiration: 5 * time.Minute,
 	}), s.handlers.HandleReauth)
+	// OAuth consent and connected applications (browser session only).
+	oauthAPI := api.Group("/oauth")
+	oauthAPI.Get("/authorize", s.handlers.HandleOAuthConsentInfo)
+	oauthAPI.Post("/authorize", limiter.New(limiter.Config{
+		Max:        30,
+		Expiration: 5 * time.Minute,
+	}), s.handlers.HandleOAuthConsent)
+	oauthAPI.Get("/grants", s.handlers.HandleListOAuthGrants)
+	oauthAPI.Delete("/grants/:id", s.handlers.HandleDeleteOAuthGrant)
+
 	authGroup.Get("/tokens", s.handlers.HandleListAPITokens)
 	authGroup.Post("/tokens", s.handlers.HandleCreateAPIToken)
 	authGroup.Delete("/tokens/:id", s.handlers.HandleDeleteAPIToken)
@@ -377,6 +402,48 @@ func (s *Server) registerRoutes() {
 	})
 	api.Get("/docs", serveSwaggerUI)
 	registerStatic(s)
+}
+
+// registerOAuthRoutes registers the OAuth 2.1 authorization server for MCP
+// clients (KEG-12). The endpoints live at the well-known locations outside
+// /api, as clients discover them from the issuer URL (PUBLIC_BASE_URL).
+func (s *Server) registerOAuthRoutes() {
+	h := s.handlers
+	// RFC 9728: clients query the root form and the path-suffixed form for /mcp.
+	s.app.Get("/.well-known/oauth-protected-resource", h.HandleOAuthProtectedResourceMetadata)
+	s.app.Get("/.well-known/oauth-protected-resource/mcp", h.HandleOAuthProtectedResourceMetadata)
+	// RFC 8414; some clients append the resource path to the well-known URL.
+	s.app.Get("/.well-known/oauth-authorization-server", h.HandleOAuthAuthorizationServerMetadata)
+	s.app.Get("/.well-known/oauth-authorization-server/mcp", h.HandleOAuthAuthorizationServerMetadata)
+	// Anything else below /.well-known is a 404 (not the SPA's index.html), so
+	// clients probing e.g. openid-configuration fall back cleanly.
+	s.app.Get("/.well-known/*", func(c fiber.Ctx) error { return fiber.ErrNotFound })
+
+	// Abuse protection per client IP (see PROXY_HEADER behind a reverse proxy).
+	s.app.Post("/oauth/register", limiter.New(limiter.Config{
+		Max:        20,
+		Expiration: time.Hour,
+	}), h.HandleOAuthRegister)
+	s.app.Get("/oauth/authorize", limiter.New(limiter.Config{
+		Max:        60,
+		Expiration: 5 * time.Minute,
+	}), h.HandleOAuthAuthorize)
+	s.app.Post("/oauth/token", limiter.New(limiter.Config{
+		Max:        60,
+		Expiration: 5 * time.Minute,
+	}), h.HandleOAuthToken)
+	s.app.Post("/oauth/revoke", limiter.New(limiter.Config{
+		Max:        60,
+		Expiration: 5 * time.Minute,
+	}), h.HandleOAuthRevoke)
+}
+
+// isPublicOAuthPath reports whether the request targets an OAuth endpoint
+// that MCP clients call cross-origin without cookies.
+func isPublicOAuthPath(c fiber.Ctx) bool {
+	p := c.Path()
+	return strings.HasPrefix(p, "/.well-known/") ||
+		p == "/oauth/register" || p == "/oauth/token" || p == "/oauth/revoke"
 }
 
 // Listen starts the HTTP server and blocks until it exits.

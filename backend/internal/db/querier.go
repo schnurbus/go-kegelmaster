@@ -15,6 +15,8 @@ type Querier interface {
 	CheckGameDayExistsByClubAndDate(ctx context.Context, arg CheckGameDayExistsByClubAndDateParams) (bool, error)
 	// Affects one row for the first caller only, so a game day triggers at most one notification.
 	ClaimGameDaySettledNotification(ctx context.Context, arg ClaimGameDaySettledNotificationParams) (int64, error)
+	// Marks a code as used. Only the first caller gets the row, which makes codes single use.
+	ConsumeOAuthAuthorizationCode(ctx context.Context, arg ConsumeOAuthAuthorizationCodeParams) (OauthAuthorizationCode, error)
 	ConsumePasswordResetToken(ctx context.Context, token string) (PasswordResetToken, error)
 	// Deleting and returning in one statement makes each challenge single-use.
 	ConsumeWebAuthnSession(ctx context.Context, arg ConsumeWebAuthnSessionParams) (WebauthnSession, error)
@@ -37,6 +39,10 @@ type Querier interface {
 	CreateGameDayFee(ctx context.Context, arg CreateGameDayFeeParams) (GameDayFee, error)
 	// ==================== PARTICIPANTS ====================
 	CreateGameDayParticipant(ctx context.Context, arg CreateGameDayParticipantParams) (GameDayParticipant, error)
+	CreateOAuthAuthorizationCode(ctx context.Context, arg CreateOAuthAuthorizationCodeParams) error
+	CreateOAuthClient(ctx context.Context, arg CreateOAuthClientParams) (OauthClient, error)
+	CreateOAuthGrant(ctx context.Context, arg CreateOAuthGrantParams) (OauthGrant, error)
+	CreateOAuthToken(ctx context.Context, arg CreateOAuthTokenParams) error
 	CreatePasswordResetToken(ctx context.Context, arg CreatePasswordResetTokenParams) (PasswordResetToken, error)
 	CreatePenaltyType(ctx context.Context, arg CreatePenaltyTypeParams) (PenaltyType, error)
 	CreatePlayer(ctx context.Context, arg CreatePlayerParams) (Player, error)
@@ -59,6 +65,9 @@ type Querier interface {
 	DeleteAllParticipantsByGameDay(ctx context.Context, gameDayID string) error
 	DeleteClub(ctx context.Context, id string) error
 	DeleteCompetition(ctx context.Context, id string) error
+	// Housekeeping: expired codes can no longer be exchanged.
+	DeleteExpiredOAuthAuthorizationCodes(ctx context.Context, before time.Time) error
+	DeleteExpiredOAuthTokensForGrant(ctx context.Context, arg DeleteExpiredOAuthTokensForGrantParams) error
 	DeleteExpiredWebAuthnSessions(ctx context.Context, expiresAt time.Time) error
 	DeleteGameDay(ctx context.Context, id string) error
 	DeleteGameDayCompetitionValue(ctx context.Context, id string) error
@@ -66,6 +75,8 @@ type Querier interface {
 	DeleteGameDayFee(ctx context.Context, id string) error
 	DeleteGameDayFeeByParticipantAndType(ctx context.Context, arg DeleteGameDayFeeByParticipantAndTypeParams) error
 	DeleteGameDayParticipant(ctx context.Context, arg DeleteGameDayParticipantParams) error
+	DeleteOAuthGrant(ctx context.Context, id string) (int64, error)
+	DeleteOAuthGrantForUser(ctx context.Context, arg DeleteOAuthGrantForUserParams) (int64, error)
 	DeletePasswordResetToken(ctx context.Context, token string) error
 	DeletePasswordResetTokensByUserID(ctx context.Context, userID string) error
 	DeletePenaltyType(ctx context.Context, arg DeletePenaltyTypeParams) error
@@ -113,6 +124,10 @@ type Querier interface {
 	GetGameDaysByClubID(ctx context.Context, clubID string) ([]GameDay, error)
 	GetMaxCompetitionDisplayOrderByClubID(ctx context.Context, clubID string) (int32, error)
 	GetMaxDisplayOrderByClubID(ctx context.Context, clubID string) (interface{}, error)
+	GetOAuthAuthorizationCodeByHash(ctx context.Context, codeHash string) (OauthAuthorizationCode, error)
+	GetOAuthClient(ctx context.Context, id string) (OauthClient, error)
+	GetOAuthGrant(ctx context.Context, id string) (OauthGrant, error)
+	GetOAuthTokenByHash(ctx context.Context, tokenHash string) (GetOAuthTokenByHashRow, error)
 	GetParticipantByGameDayAndPlayer(ctx context.Context, arg GetParticipantByGameDayAndPlayerParams) (GameDayParticipant, error)
 	GetPasswordResetTokenByToken(ctx context.Context, token string) (PasswordResetToken, error)
 	GetPenaltyTypeByID(ctx context.Context, id string) (PenaltyType, error)
@@ -162,6 +177,7 @@ type Querier interface {
 	// included when they were charged on that day.
 	ListGameDaySettledRecipients(ctx context.Context, arg ListGameDaySettledRecipientsParams) ([]ListGameDaySettledRecipientsRow, error)
 	ListInstanceAdmins(ctx context.Context) ([]ListInstanceAdminsRow, error)
+	ListOAuthGrantsByUserID(ctx context.Context, userID string) ([]ListOAuthGrantsByUserIDRow, error)
 	ListTransactionsByClub(ctx context.Context, arg ListTransactionsByClubParams) ([]ListTransactionsByClubRow, error)
 	ListTransactionsByGameDay(ctx context.Context, gameDayID *string) ([]ListTransactionsByGameDayRow, error)
 	ListTransactionsByPlayer(ctx context.Context, arg ListTransactionsByPlayerParams) ([]ListTransactionsByPlayerRow, error)
@@ -177,6 +193,7 @@ type Querier interface {
 	SetGameDayParticipantAttended(ctx context.Context, arg SetGameDayParticipantAttendedParams) (GameDayParticipant, error)
 	// Für CLI und INSTANCE_ADMIN_EMAILS. Liefert keine Zeile, wenn das Konto fehlt.
 	SetInstanceAdminByEmail(ctx context.Context, arg SetInstanceAdminByEmailParams) (SetInstanceAdminByEmailRow, error)
+	SetOAuthAuthorizationCodeGrant(ctx context.Context, arg SetOAuthAuthorizationCodeGrantParams) error
 	SetPenaltyTypeReplacedBy(ctx context.Context, arg SetPenaltyTypeReplacedByParams) error
 	StatsListCompetitionValues(ctx context.Context, arg StatsListCompetitionValuesParams) ([]StatsListCompetitionValuesRow, error)
 	StatsListFees(ctx context.Context, arg StatsListFeesParams) ([]StatsListFeesRow, error)
@@ -198,6 +215,8 @@ type Querier interface {
 	SumTransactionsByPlayer(ctx context.Context, playerID *string) (interface{}, error)
 	// Throttled to one write per minute per token so busy clients do not hammer the row.
 	TouchAPIToken(ctx context.Context, arg TouchAPITokenParams) error
+	// Throttled to one write per minute per grant so busy clients do not hammer the row.
+	TouchOAuthGrant(ctx context.Context, arg TouchOAuthGrantParams) error
 	UpdateClub(ctx context.Context, arg UpdateClubParams) (Club, error)
 	UpdateClubBalance(ctx context.Context, arg UpdateClubBalanceParams) error
 	UpdateClubOwner(ctx context.Context, arg UpdateClubOwnerParams) (Club, error)
@@ -217,6 +236,8 @@ type Querier interface {
 	UpdateWebAuthnCredentialAfterLogin(ctx context.Context, arg UpdateWebAuthnCredentialAfterLoginParams) error
 	UpsertGameDayCompetitionValue(ctx context.Context, arg UpsertGameDayCompetitionValueParams) (GameDayCompetitionValue, error)
 	UpsertGameDayFee(ctx context.Context, arg UpsertGameDayFeeParams) (GameDayFee, error)
+	// Marks a refresh token as exchanged (rotation). Only the first caller gets the row.
+	UseOAuthRefreshToken(ctx context.Context, arg UseOAuthRefreshTokenParams) (UseOAuthRefreshTokenRow, error)
 }
 
 var _ Querier = (*Queries)(nil)

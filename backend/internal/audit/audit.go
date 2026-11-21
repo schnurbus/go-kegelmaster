@@ -61,6 +61,17 @@ const (
 	ActionUserReauthFailed    = "user_reauth_failed"
 	ActionAdminReauthRequired = "admin_reauth_required"
 
+	// OAuth authorization server for MCP clients (KEG-12). Codes and tokens
+	// are never logged.
+	ActionOAuthClientRegistered = "oauth_client_registered"
+	ActionOAuthConsentGranted   = "oauth_consent_granted"
+	ActionOAuthConsentDenied    = "oauth_consent_denied"
+	ActionOAuthGrantCreated     = "oauth_grant_created"
+	ActionOAuthGrantRevoked     = "oauth_grant_revoked"
+	ActionOAuthTokenRevoked     = "oauth_token_revoked"
+	ActionOAuthCodeReused       = "oauth_code_reused"
+	ActionOAuthRefreshReused    = "oauth_refresh_token_reused"
+
 	// Instance admin (operator) actions; logged with LogAdminAudit.
 	ActionAdminStatsViewed = "admin_stats_viewed"
 	ActionAdminUsersListed = "admin_users_listed"

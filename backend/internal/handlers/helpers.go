@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/schnurbus/go-kegelmaster/backend/internal/apitoken"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/oauth"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/user"
 )
 
@@ -24,6 +25,9 @@ const (
 	LocalsUserID = "auth_user_id"
 	// LocalsAPITokenID is set when the request was authenticated with an API token.
 	LocalsAPITokenID = "auth_api_token_id"
+	// LocalsOAuthGrantID is set when the request was authenticated with an
+	// OAuth access token (only possible for in-process MCP requests).
+	LocalsOAuthGrantID = "auth_oauth_grant_id"
 )
 
 // bearerToken returns the token from an "Authorization: Bearer <token>" header.
@@ -70,10 +74,14 @@ var (
 	errAPITokenInvalid   = errors.New("api token invalid")
 )
 
-// UserFromCookie resolves the authenticated user: from the API token when an
+// UserFromCookie resolves the authenticated user: from the API token (or,
+// for in-process MCP requests, the OAuth access token) when an
 // "Authorization: Bearer" header is present, otherwise from the auth cookie.
 func (h *Handler) UserFromCookie(ctx context.Context, c fiber.Ctx) (user.User, error) {
 	if plain, ok := bearerToken(c); ok {
+		if strings.HasPrefix(plain, oauth.AccessTokenPrefix) {
+			return h.userFromOAuthToken(ctx, c, plain)
+		}
 		return h.userFromAPIToken(ctx, c, plain)
 	}
 
@@ -134,6 +142,51 @@ func (h *Handler) userFromAPIToken(ctx context.Context, c fiber.Ctx, plain strin
 	}
 	c.Locals(LocalsUserID, u.ID)
 	c.Locals(LocalsAPITokenID, t.ID)
+	return u, nil
+}
+
+var (
+	errOAuthDisabled      = errors.New("oauth not configured")
+	errOAuthTokenAudience = errors.New("oauth access token used outside the MCP server")
+	errOAuthTokenInvalid  = errors.New("oauth access token invalid")
+)
+
+// userFromOAuthToken resolves an OAuth access token. The tokens are issued for
+// the MCP resource (RFC 8707 audience), so they are only accepted on REST
+// requests the MCP server dispatches in-process; a client cannot use them
+// against the REST API directly. They carry exactly the rights of the user.
+func (h *Handler) userFromOAuthToken(ctx context.Context, c fiber.Ctx, plain string) (user.User, error) {
+	if inProcess, _ := c.Locals(oauth.InProcessKey{}).(bool); !inProcess {
+		return user.User{}, errOAuthTokenAudience
+	}
+	if h.OAuthRepo == nil {
+		return user.User{}, errOAuthDisabled
+	}
+	now := time.Now().UTC()
+	t, err := h.OAuthRepo.AuthenticateAccessToken(ctx, plain, now)
+	if err != nil {
+		if errors.Is(err, oauth.ErrNotFound) || errors.Is(err, oauth.ErrExpired) {
+			return user.User{}, errOAuthTokenInvalid
+		}
+		return user.User{}, err
+	}
+	u, err := h.UserRepo.GetByID(ctx, t.UserID)
+	if err != nil {
+		return user.User{}, err
+	}
+	if u.Disabled() {
+		return user.User{}, errAccountDisabled
+	}
+	// A password change or a session revocation by an instance admin also
+	// ends OAuth connections approved before.
+	if !u.SessionValid(t.GrantCreatedAt) {
+		return user.User{}, errSessionRevoked
+	}
+	if err := h.OAuthRepo.TouchGrant(ctx, t.GrantID, now); err != nil {
+		slog.Warn("record oauth grant use", "error", err, "grant_id", t.GrantID)
+	}
+	c.Locals(LocalsUserID, u.ID)
+	c.Locals(LocalsOAuthGrantID, t.GrantID)
 	return u, nil
 }
 

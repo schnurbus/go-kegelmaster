@@ -86,7 +86,8 @@ Weitere Features kommen mit der Zeit dazu
 - CORS + Double-Submit CSRF-Token inklusive Cookie-/Header-Validierung
 - Persönliche API-Tokens (`internal/apitoken`) für Skripte/Agenten: `Authorization: Bearer kgm_…`, nur SHA-256-Hash gespeichert, kein CSRF nötig
 - Passkeys (`internal/passkey`, WebAuthn via `go-webauthn`) als zusätzliche Anmeldemethode: discoverable Credentials, Challenge einmalig in `webauthn_sessions`
-- MCP-Server (`internal/mcpserver`) unter `/mcp` für KI-Agenten: Streamable HTTP (zustandslos), Auth per API-Token; Tools rufen die REST-API in-process mit dem Token des Aufrufers auf
+- MCP-Server (`internal/mcpserver`) unter `/mcp` für KI-Agenten: Streamable HTTP (zustandslos), Auth per API-Token oder OAuth-Access-Token; Tools rufen die REST-API in-process mit dem Token des Aufrufers auf
+- OAuth-2.1-Authorization-Server (`internal/oauth`) für MCP-Clients im Internet: dynamische Client-Registrierung, Authorization Code + PKCE (S256), rotierende Refresh Tokens, Zustimmungsseite `/oauth/consent`
 - Migration `0001_create_users` angelegt
 - **Club Entity & Repository** (`internal/club`) mit vollständigem CRUD
 - **Club API Endpunkte**: `GET /api/clubs`, `GET /api/clubs/:id`, `POST /api/clubs`, `PUT /api/clubs/:id`, `DELETE /api/clubs/:id`
@@ -224,6 +225,12 @@ Weitere Entitäten kommen mit der Zeit dazu
 - URL: /app/api-tokens (Benutzermenü unten links → „API-Tokens“)
 - Elemente: Tabelle der eigenen Tokens (Name, Präfix, erstellt, zuletzt genutzt, Ablauf), Dialog zum Erstellen (Name, Gültigkeit 30/90/365 Tage oder unbegrenzt)
 - Interaktionen: Token erstellen (Klartext wird einmalig angezeigt, kopierbar), Token widerrufen
+- Karte „Verbundene Anwendungen“: per OAuth verbundene MCP-Clients (Anwendung, Weiterleitungs-Host, verbunden, zuletzt genutzt) mit „Widerrufen“
+
+**Screen:** OAuth-Zustimmung
+- URL: /oauth/consent (Weiterleitung von `/oauth/authorize`; ohne Anmeldung zuerst Login mit Rücksprung)
+- Elemente: Name der Anwendung, angemeldetes Konto, Weiterleitungs-Host, Hinweis auf die Rechte; Buttons „Ablehnen“ und „Zulassen“
+- Interaktionen: Zulassen → Rücksprung zur Anwendung mit Code; Ablehnen → Rücksprung mit `access_denied`
 
 ### Navigationsstruktur
 - Public Routes: `/`, `/login`, `/register`
@@ -259,6 +266,10 @@ Weitere Entitäten kommen mit der Zeit dazu
 | GET | `/api/auth/tokens` | Eigene API-Tokens auflisten (nur Browser-Session) | – | Token-Liste ohne Geheimnis |
 | POST | `/api/auth/tokens` | API-Token erstellen (nur Browser-Session, max. 20) | `{ name, expires_in_days? }` | `201` + Token inkl. Klartext (einmalig) |
 | DELETE | `/api/auth/tokens/:id` | API-Token widerrufen (nur Browser-Session) | – | `204` |
+| GET | `/api/oauth/authorize` | Angaben für die OAuth-Zustimmungsseite (nur Browser-Session) | Query wie `/oauth/authorize` | `{ client_name, redirect_host, … }` |
+| POST | `/api/oauth/authorize` | OAuth-Zustimmung erteilen/ablehnen (nur Browser-Session, CSRF) | Parameter der Anfrage + `{ approve }` | `{ redirect_to }` |
+| GET | `/api/oauth/grants` | Verbundene Anwendungen auflisten (nur Browser-Session) | – | Liste |
+| DELETE | `/api/oauth/grants/:id` | Verbundene Anwendung widerrufen (nur Browser-Session, CSRF) | – | `204` |
 | POST | `/api/auth/passkeys/login/begin` | Passkey-Anmeldung starten (Rate-Limit, setzt Cookie `passkey_ceremony`) | – | WebAuthn-Optionen `{ publicKey }` |
 | POST | `/api/auth/passkeys/login/finish` | Passkey-Anmeldung abschließen (setzt Auth-Cookie) | `{ credential, remember_me }` | `200` + User JSON |
 | POST | `/api/auth/passkeys/register/begin` | Passkey hinzufügen starten (nur Browser-Session, max. 20) | `{ current_password }` | WebAuthn-Optionen `{ publicKey }` |
@@ -268,6 +279,8 @@ Weitere Entitäten kommen mit der Zeit dazu
 | DELETE | `/api/auth/passkeys/:id` | Passkey entfernen | – | `204` |
 
 **Authentifizierung per API-Token:** Alle geschützten Endpunkte akzeptieren alternativ zum Cookie den Header `Authorization: Bearer kgm_…`. Das Token hat die Rechte seines Users; ein CSRF-Header ist nicht nötig. Ist der Header gesetzt, wird nur das Token geprüft (kein Rückfall auf das Cookie). Tokens verfallen optional (1–365 Tage) und werden beim Zurücksetzen oder Ändern des Passworts widerrufen. Tokens können nicht mit einem Token verwaltet werden, damit ein geleaktes Token keine weiteren erzeugen kann.
+
+**OAuth für MCP-Clients:** Öffentliche Endpunkte außerhalb von `/api`: `/.well-known/oauth-protected-resource[/mcp]` (RFC 9728), `/.well-known/oauth-authorization-server[/mcp]` (RFC 8414), `POST /oauth/register` (RFC 7591), `GET /oauth/authorize`, `POST /oauth/token`, `POST /oauth/revoke` (RFC 7009). Issuer ist `PUBLIC_BASE_URL`. Die Access Tokens (`kgo_…`) gelten nur für `/mcp`, nicht für die REST-API.
 
 #### Clubs
 | Methode | Endpoint | Beschreibung | Request Body | Response | Berechtigung |
@@ -301,6 +314,7 @@ Weitere Entitäten kommen mit der Zeit dazu
 - Rate Limiting
 - CSRF-Schutz (Double-Submit Token) & CORS-Konfiguration
 - Persönliche API-Tokens: 256 Bit Zufall, nur Hash in der DB, optionaler Ablauf, Widerruf bei Passwort-Reset
+- OAuth für MCP-Clients: nur öffentliche Clients mit PKCE S256; Codes einmalig und 10 Minuten gültig, Access Tokens 1 Stunde (nur für `/mcp`), Refresh Tokens rotierend (Wiederverwendung widerruft die Verbindung); redirect_uris nur https oder Loopback, exakter Abgleich; Zustimmung nur mit Browser-Session und CSRF; Codes/Tokens nur als Hash; Rate-Limits auf Registrierung, Autorisierung, Token und Widerruf
 - Instanz-Admin-Bereich `/api/admin`: nur Browser-Session (kein API-Token, kein MCP); alle anderen erhalten 404; Vergabe der Rolle nur per CLI bzw. `INSTANCE_ADMIN_EMAILS`; jeder Zugriff wird mit `admin=true` und Client-IP über `slog` auditiert; Eingriffe zusätzlich mit CSRF-Schutz und Bestätigungsdialog
 - Gesperrte Konten (`users.disabled_at`): Login (Passwort/Passkey), Browser-Session und API-Tokens werden abgelehnt; Sessions lassen sich per `users.sessions_valid_after` widerrufen
 - Admin-Bereich nur mit frischer Anmeldung: Liegt der letzte Passwort- oder Passkey-Login länger als `ADMIN_REAUTH_MINUTES` (Default 15) zurück, muss der Instanz-Admin seine Anmeldung bestätigen (Claim `auth_time` im Session-Cookie)
@@ -356,6 +370,7 @@ Weitere Entitäten kommen mit der Zeit dazu
 - ✅ Instanz-Admin und read-only Admin-API `/api/admin` (Betreiber-Übersicht Phase 1, Backend)
 - ✅ Erneute Anmeldung für den Admin-Bereich (Re-Auth per Passwort oder Passkey nach `ADMIN_REAUTH_MINUTES`)
 - ✅ MCP-Server `/mcp` (Phase 1: 7 Lese-Tools, Spieltag als Entwurf erfassen, veröffentlichen, Buchung erfassen)
+- ✅ OAuth 2.1 für MCP-Clients (Connector in Claude, ChatGPT u. a. ohne API-Token)
 - ✅ Club Entity mit vollständigem CRUD
 - ✅ Owner-basierte Berechtigungen für Club-Updates/Deletes
 - ✅ Unit-Tests für Club-Funktionalität (hohe Coverage)
@@ -522,7 +537,7 @@ claude mcp add --transport http kegelmaster https://<host>/mcp --header "Authori
 - 📋 `spieltag_teilnehmer_aktualisieren`, `spieltag_entwurf_loeschen`, `buchung_stornieren`
 - 📋 Stammdaten: `spieler_speichern`, `strafentyp_speichern`
 - 📋 API-Tokens mit Scope (z. B. nur lesen)
-- 📋 OAuth für Custom Connectors auf claude.ai
+- ✅ OAuth für Custom Connectors auf claude.ai (KEG-12, siehe unten)
 
 ## Letzte Implementierung: E-Mail-Benachrichtigung „Spieltag abgerechnet“ (19. November 2026)
 
@@ -633,3 +648,25 @@ Phase 2 der Betreiber-Übersicht (KEG-9, Konzept `docs/konzept-betreiber-uebersi
 - **Audit:** `user_reauth` und `user_reauth_failed` (mit `method` = `password`/`passkey`), `admin_reauth_required` (mit `admin=true`).
 - **Frontend:** `useAdminFetch` meldet `reauth_required` an `lib/admin-reauth.ts`; der Dialog „Anmeldung bestätigen“ (`components/admin/admin-reauth-dialog.tsx`, in `AdminLayout`) fragt das Passwort ab bzw. bietet „Mit Passkey bestätigen“, wenn der Browser Passkeys unterstützt. Danach lädt die Admin-Seite ihre Daten neu; „Abbrechen“ führt zum Dashboard.
 - **Tests:** `internal/server/admin_reauth_handler_test.go` (frische, veraltete, fehlende und zukünftige `auth_time`, konfiguriertes Zeitfenster, Nicht-Admin/Bearer weiterhin 404, Re-Auth per Passwort: Erfolg, falsches Passwort, ohne Anmeldung/CSRF, Bearer; per Passkey mit Software-Authenticator: Erfolg, Passkey eines anderen Kontos, ohne Zeremonie), `internal/auth` (`auth_time` gesetzt bzw. beim Neuausstellen übernommen), `internal/config` (`ADMIN_REAUTH_MINUTES`), Playwright `frontend/e2e/admin-reauth.spec.ts` (veraltete Session → Dialog → falsches/richtiges Passwort bzw. virtueller Passkey → Admin-Bereich).
+
+## Letzte Implementierung: OAuth für MCP-Zugriff (20. November 2026)
+
+KEG-12: Den MCP-Server auch in KI-Agenten im Internet einbinden (z. B. Claude oder ChatGPT als „Connector“), die keinen eigenen Bearer-Header setzen können. Umsetzung nach der MCP-Authorization-Spezifikation (Stand 2025-06-18, OAuth 2.1). Persönliche API-Tokens funktionieren unverändert weiter.
+
+- **Discovery:** `/mcp` antwortet ohne oder mit ungültigem Token mit 401 und `WWW-Authenticate: Bearer resource_metadata="<PUBLIC_BASE_URL>/.well-known/oauth-protected-resource"`. Protected Resource Metadata (RFC 9728, `resource` = `<PUBLIC_BASE_URL>/mcp`) und Authorization Server Metadata (RFC 8414) jeweils auch unter dem Pfad-Suffix `/mcp`; andere `/.well-known/*`-Pfade liefern 404 statt der SPA. CORS für diese Endpunkte sowie Registrierung/Token/Widerruf: alle Origins, ohne Credentials.
+- **Authorization Server** (`internal/oauth`, `handlers/oauth.go`): Issuer = `PUBLIC_BASE_URL` (keine neue Env-Var; nicht aus Request-Headern abgeleitet, daher hinter Reverse Proxy korrekt). `POST /oauth/register` (nur öffentliche Clients, `token_endpoint_auth_method: none`, 1–5 redirect_uris mit https oder http auf localhost/127.0.0.1/[::1], kein Fragment). `GET /oauth/authorize` (nur `response_type=code`, PKCE S256 Pflicht, `state` wird durchgereicht, `resource` muss – falls gesetzt – `<PUBLIC_BASE_URL>/mcp` sein, Antwort mit `iss` nach RFC 9207). Unbekannter Client oder nicht registrierte redirect_uri → 400-Fehlerseite ohne Weiterleitung (kein Open Redirect). `POST /oauth/token` (authorization_code, refresh_token), `POST /oauth/revoke`.
+- **Lebensdauer:** Codes 10 Minuten und einmalig (atomar per `UPDATE … WHERE used_at IS NULL`; erneute Verwendung widerruft die damit ausgestellte Verbindung), Access Tokens 1 Stunde, Refresh Tokens 30 Tage und rotierend (ein bereits verwendetes Refresh Token widerruft die ganze Kette). Scope: immer `mcp`.
+- **Zustimmung:** `/oauth/authorize` leitet auf die Frontend-Seite `/oauth/consent` (unter `RequireAuth`, also ggf. erst Login mit Rücksprung). Sie zeigt Anwendungsname, angemeldetes Konto und Weiterleitungs-Host; „Zulassen“/„Ablehnen“ per `POST /api/oauth/authorize` (nur Browser-Session, CSRF, Rate-Limit, Audit). Der Server liefert die Weiterleitung an die registrierte redirect_uri.
+- **Rechte:** Ein OAuth-Access-Token wirkt mit genau den Rechten des Benutzers (Club-Rechte weiter über `PermissionChecker`). Es ist an die Ressource `/mcp` gebunden: `UserFromCookie` akzeptiert `kgo_…` nur bei Anfragen, die der MCP-Server in-process absetzt (fasthttp-User-Value `oauth.InProcessKey`, von außen nicht setzbar); direkt an die REST-API gesendet → 401. Admin-Bereich, Token-/Passkey-Verwaltung und Zustimmung bleiben für alle Bearer-Anfragen gesperrt. Passwortänderung, Sessions-Widerruf durch einen Instanz-Admin und Sperrung beenden auch OAuth-Verbindungen.
+- **Datenmodell:** Migration `000032_create_oauth`: `oauth_clients`, `oauth_grants` (= verbundene Anwendung, alle Tokens einer Kette), `oauth_authorization_codes`, `oauth_tokens`; Codes und Tokens nur als SHA-256-Hash (Präfixe `kgc_`, `kgo_`, `kgr_`).
+- **Verbundene Anwendungen:** Karte auf `/app/api-tokens`; `GET /api/oauth/grants`, `DELETE /api/oauth/grants/:id` (nur Browser-Session, CSRF, Audit).
+- **Audit:** `oauth_client_registered`, `oauth_consent_granted`, `oauth_consent_denied`, `oauth_grant_created`, `oauth_grant_revoked`, `oauth_token_revoked`, `oauth_code_reused`, `oauth_refresh_token_reused` (nie mit Codes oder Tokens).
+- **Rate-Limits (pro Client-IP):** Registrierung 20/Stunde, Autorisierung 60/5 min, Token 60/5 min, Widerruf 60/5 min, Zustimmung 30/5 min.
+- **Tests:** `internal/oauth/protocol_test.go` (PKCE, redirect_uri, resource, scope/state), `internal/server/oauth_handler_test.go` (Metadaten, Registrierung, Autorisierung inkl. Open-Redirect-Schutz und S256-Pflicht, Zustimmung inkl. CSRF/Bearer, Token-Tausch, falscher PKCE-Verifier, abgelaufener/fremder/wiederverwendeter Code, redirect_uri-Mismatch, Refresh-Rotation und Reuse-Erkennung, Passwortänderung, 401 mit `resource_metadata`, MCP mit OAuth-Token, OAuth-Token direkt an REST/Admin abgelehnt, Widerruf per `/oauth/revoke` und per UI).
+
+### Einrichtung (Beispiel)
+
+- **Claude (claude.ai / Desktop):** Einstellungen → Connectors → „Benutzerdefinierten Connector hinzufügen“ → URL `https://<host>/mcp`. Claude registriert sich selbst, öffnet Kegelmaster zur Anmeldung und Zustimmung.
+- **Claude Code:** `claude mcp add --transport http kegelmaster https://<host>/mcp`, danach in Claude Code `/mcp` → „Authenticate“.
+- **ChatGPT und andere OAuth-fähige Clients:** nur die Server-Adresse `https://<host>/mcp` eintragen; Authentifizierung „OAuth“.
+

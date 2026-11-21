@@ -86,7 +86,7 @@ func (b bearerTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 
 func connect(t *testing.T, api API) *mcp.ClientSession {
 	t.Helper()
-	srv := httptest.NewServer(New(api, "test"))
+	srv := httptest.NewServer(New(api, "test", ""))
 	t.Cleanup(srv.Close)
 	client := mcp.NewClient(&mcp.Implementation{Name: "test", Version: "1"}, nil)
 	session, err := client.Connect(context.Background(), &mcp.StreamableClientTransport{
@@ -117,7 +117,7 @@ func callTool(t *testing.T, s *mcp.ClientSession, name string, args any) (string
 }
 
 func TestAuth_RejectsMissingAndInvalidToken(t *testing.T) {
-	srv := httptest.NewServer(New(newFakeAPI(), "test"))
+	srv := httptest.NewServer(New(newFakeAPI(), "test", ""))
 	defer srv.Close()
 
 	body := `{"jsonrpc":"2.0","id":1,"method":"tools/list"}`

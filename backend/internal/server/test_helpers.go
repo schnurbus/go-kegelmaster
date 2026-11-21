@@ -14,6 +14,7 @@ import (
 	"github.com/schnurbus/go-kegelmaster/backend/internal/club"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/config"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/gameday"
+	"github.com/schnurbus/go-kegelmaster/backend/internal/oauth"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/passkey"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/passwordreset"
 	"github.com/schnurbus/go-kegelmaster/backend/internal/penaltytype"
@@ -85,6 +86,7 @@ func newTestServerWithConfig(t *testing.T, cfgOpt func(*config.Config), opts ...
 		StatisticsRepo:    statistics.NewRepository(db),
 		PasskeyService:    passkeySvc,
 		AdminRepo:         admin.NewRepository(db),
+		OAuthRepo:         oauth.NewRepository(db),
 	}
 	for _, opt := range opts {
 		opt(&deps)

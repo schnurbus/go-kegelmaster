@@ -16,6 +16,12 @@ info:
       optional nach 1–365 Tagen und werden beim Zurücksetzen des Passworts widerrufen.
       Die Token-Verwaltung (`/api/auth/tokens`) ist nur mit Browser-Session möglich.
 
+    **OAuth 2.1 für MCP-Clients** (Tag `OAuth`): Kegelmaster ist eigener Authorization Server
+    (Issuer = `PUBLIC_BASE_URL`) mit dynamischer Client-Registrierung, Authorization Code + PKCE (S256)
+    und rotierenden Refresh Tokens. Die so ausgestellten Access Tokens (`kgo_…`) gelten nur für den
+    MCP-Server `/mcp`, nicht für die REST-API. Verbundene Anwendungen lassen sich unter
+    `/api/oauth/grants` (Browser-Session) einsehen und widerrufen.
+
     **Instanz-Administration** (`/api/admin`, Tag `admin`): Betreiber-Übersicht und Eingriffe
     (Sperren, Sessions/API-Tokens widerrufen, Owner übertragen, Löschen). Nur
     Browser-Session eines Instanz-Admins; API-Tokens und MCP sind ausgeschlossen. Alle anderen
@@ -38,9 +44,17 @@ paths:
     post:
       summary: MCP-Server für KI-Agenten (Model Context Protocol)
       description: |
-        Streamable-HTTP-Endpunkt (zustandslos, JSON-Antworten) des Model Context Protocol. Nur mit
-        persönlichem API-Token (`Authorization: Bearer kgm_…`); ein Session-Cookie reicht nicht.
+        Streamable-HTTP-Endpunkt (zustandslos, JSON-Antworten) des Model Context Protocol. Mit
+        persönlichem API-Token (`Authorization: Bearer kgm_…`) oder einem per OAuth erhaltenen
+        Access Token (`Authorization: Bearer kgo_…`); ein Session-Cookie reicht nicht.
         Jedes Tool ruft intern die REST-API mit diesem Token auf – es gelten dieselben Rechte.
+        OAuth-Access-Tokens sind an diese Ressource gebunden und werden von der REST-API direkt
+        nicht akzeptiert.
+
+        Ohne oder mit ungültigem Token antwortet der Endpunkt mit 401 und
+        `WWW-Authenticate: Bearer resource_metadata="<PUBLIC_BASE_URL>/.well-known/oauth-protected-resource"`
+        (MCP Authorization, RFC 9728). OAuth-fähige Clients (z. B. Claude oder ChatGPT als Connector)
+        finden darüber den Authorization Server und brauchen nur die Server-Adresse.
 
         Tools: `klubs_auflisten`, `klub_ueberblick`, `spieltage_auflisten`, `spieltag_details`,
         `spieler_konto`, `transaktionen_suchen`, `mein_spieler` (nur lesend), `spieltag_erfassen`
@@ -50,7 +64,7 @@ paths:
         Einrichtung z. B. in Claude Code:
         `claude mcp add --transport http kegelmaster https://<host>/mcp --header "Authorization: Bearer kgm_…"`
       tags: [MCP]
-      security: [bearerAuth: []]
+      security: [bearerAuth: [], oauth2: [mcp]]
       requestBody:
         required: true
         content:
@@ -62,7 +76,313 @@ paths:
         "200":
           description: JSON-RPC-Antwort
         "401":
-          description: Kein oder ungültiges API-Token
+          description: Kein oder ungültiges Token (mit `WWW-Authenticate`-Challenge inkl. `resource_metadata`)
+  /.well-known/oauth-protected-resource:
+    get:
+      summary: Protected Resource Metadata des MCP-Servers (RFC 9728)
+      description: Auch unter `/.well-known/oauth-protected-resource/mcp` erreichbar. Öffentlich, CORS für alle Origins.
+      tags: [OAuth]
+      security: []
+      responses:
+        "200":
+          description: Metadaten
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resource: { type: string, example: "https://kegel.example.com/mcp" }
+                  authorization_servers: { type: array, items: { type: string }, example: ["https://kegel.example.com"] }
+                  bearer_methods_supported: { type: array, items: { type: string }, example: ["header"] }
+                  scopes_supported: { type: array, items: { type: string }, example: ["mcp"] }
+                  resource_name: { type: string, example: "Kegelmaster" }
+  /.well-known/oauth-authorization-server:
+    get:
+      summary: Authorization Server Metadata (RFC 8414)
+      description: |
+        Issuer ist `PUBLIC_BASE_URL`. Auch unter `/.well-known/oauth-authorization-server/mcp` erreichbar.
+        Andere Pfade unter `/.well-known/` (z. B. `openid-configuration`) liefern 404. Öffentlich, CORS für alle Origins.
+      tags: [OAuth]
+      security: []
+      responses:
+        "200":
+          description: Metadaten (issuer, authorization_endpoint, token_endpoint, registration_endpoint, revocation_endpoint, unterstützte Verfahren)
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /oauth/register:
+    post:
+      summary: Dynamische Client-Registrierung (RFC 7591)
+      description: |
+        Registriert einen öffentlichen Client (kein Client-Secret, `token_endpoint_auth_method: none`).
+        1–5 `redirect_uris`, jeweils `https://…` oder `http://` auf `localhost`, `127.0.0.1` bzw. `[::1]`,
+        ohne Fragment. `client_name` höchstens 100 Zeichen (wird auf der Zustimmungsseite angezeigt).
+        Rate-Limit: 20 Registrierungen pro Stunde und Client-IP.
+      tags: [OAuth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [redirect_uris]
+              properties:
+                redirect_uris: { type: array, items: { type: string }, minItems: 1, maxItems: 5 }
+                client_name: { type: string, maxLength: 100 }
+                token_endpoint_auth_method: { type: string, enum: [none] }
+                grant_types: { type: array, items: { type: string, enum: [authorization_code, refresh_token] } }
+                response_types: { type: array, items: { type: string, enum: [code] } }
+      responses:
+        "201":
+          description: Client registriert
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  client_id: { type: string, format: uuid }
+                  client_id_issued_at: { type: integer }
+                  client_name: { type: string }
+                  redirect_uris: { type: array, items: { type: string } }
+                  grant_types: { type: array, items: { type: string } }
+                  response_types: { type: array, items: { type: string } }
+                  token_endpoint_auth_method: { type: string, example: none }
+                  scope: { type: string, example: mcp }
+        "400":
+          description: Ungültige Metadaten (`invalid_redirect_uri`, `invalid_client_metadata`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OAuthError" }
+        "429":
+          description: Rate-Limit überschritten
+  /oauth/authorize:
+    get:
+      summary: Autorisierungs-Endpunkt (Authorization Code + PKCE)
+      description: |
+        Prüft die Anfrage und leitet den Browser auf die Zustimmungsseite `/oauth/consent` des
+        Frontends weiter (nicht angemeldete Benutzer werden dort zuerst zum Login geschickt).
+        Unbekannte `client_id` oder nicht registrierte `redirect_uri` ergeben **400** ohne
+        Weiterleitung (kein Open Redirect). Andere Fehler werden an die `redirect_uri` gemeldet
+        (`error`, `error_description`, `state`, `iss`). Parameter dürfen nicht mehrfach vorkommen.
+      tags: [OAuth]
+      security: []
+      parameters:
+        - { name: client_id, in: query, required: true, schema: { type: string, format: uuid } }
+        - { name: redirect_uri, in: query, required: true, schema: { type: string } }
+        - { name: response_type, in: query, required: true, schema: { type: string, enum: [code] } }
+        - { name: code_challenge, in: query, required: true, schema: { type: string } }
+        - { name: code_challenge_method, in: query, required: true, schema: { type: string, enum: [S256] } }
+        - { name: state, in: query, schema: { type: string } }
+        - { name: scope, in: query, schema: { type: string } }
+        - { name: resource, in: query, schema: { type: string } }
+      responses:
+        "302":
+          description: Weiterleitung zur Zustimmungsseite oder Fehler-Weiterleitung an die redirect_uri
+        "400":
+          description: Unbekannter Client oder nicht registrierte redirect_uri (Klartext-Fehlerseite)
+  /oauth/token:
+    post:
+      summary: Token-Endpunkt
+      description: |
+        `application/x-www-form-urlencoded`. Öffentliche Clients senden `client_id` im Body.
+
+        * `grant_type=authorization_code`: `code`, `redirect_uri` (exakt wie bei der Autorisierung),
+          `client_id`, `code_verifier`, optional `resource`. Codes sind 10 Minuten gültig und nur
+          einmal verwendbar; die erneute Verwendung widerruft die damit ausgestellten Tokens.
+        * `grant_type=refresh_token`: `refresh_token`, `client_id`, optional `scope`, `resource`.
+          Jeder Refresh liefert ein neues Refresh Token; das alte wird ungültig. Wird ein bereits
+          verwendetes Refresh Token erneut vorgelegt, wird die gesamte Verbindung widerrufen.
+
+        Access Tokens gelten 1 Stunde, Refresh Tokens 30 Tage ab Ausstellung. Nach Passwortänderung,
+        Sitzungs-Widerruf durch einen Instanz-Admin oder Sperrung des Kontos werden Refresh Tokens
+        abgelehnt. Rate-Limit: 60 Anfragen pro 5 Minuten und Client-IP.
+      tags: [OAuth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [grant_type, client_id]
+              properties:
+                grant_type: { type: string, enum: [authorization_code, refresh_token] }
+                client_id: { type: string, format: uuid }
+                code: { type: string }
+                redirect_uri: { type: string }
+                code_verifier: { type: string }
+                refresh_token: { type: string }
+                scope: { type: string }
+                resource: { type: string }
+      responses:
+        "200":
+          description: "Tokens (Antwort mit `Cache-Control: no-store`)"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token: { type: string, example: "kgo_…" }
+                  token_type: { type: string, example: Bearer }
+                  expires_in: { type: integer, example: 3600 }
+                  refresh_token: { type: string, example: "kgr_…" }
+                  scope: { type: string, example: mcp }
+        "400":
+          description: Ungültige Anfrage, ungültiger/abgelaufener/bereits verwendeter Code oder Refresh Token, PKCE-Fehler
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OAuthError" }
+        "401":
+          description: Unbekannte client_id (`invalid_client`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OAuthError" }
+        "429":
+          description: Rate-Limit überschritten
+  /oauth/revoke:
+    post:
+      summary: Token widerrufen (RFC 7009)
+      description: |
+        `application/x-www-form-urlencoded` mit `token` und `client_id`. Widerruft die gesamte Verbindung
+        (alle Access- und Refresh Tokens), wenn das Token zu diesem Client gehört. Unbekannte Tokens
+        werden ebenfalls mit 200 beantwortet. Rate-Limit: 60 Anfragen pro 5 Minuten und Client-IP.
+      tags: [OAuth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [token, client_id]
+              properties:
+                token: { type: string }
+                token_type_hint: { type: string, enum: [access_token, refresh_token] }
+                client_id: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Widerrufen (oder Token unbekannt)
+        "400":
+          description: Ungültige Anfrage
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OAuthError" }
+        "401":
+          description: Unbekannte client_id
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OAuthError" }
+  /api/oauth/authorize:
+    get:
+      summary: Angaben für die Zustimmungsseite
+      description: |
+        Prüft die Autorisierungsanfrage (Query-Parameter wie bei `/oauth/authorize`) und liefert, was die
+        Zustimmungsseite anzeigt. Nur mit Browser-Session (403 bei Bearer-Auth).
+      tags: [OAuth]
+      security: [cookieAuth: []]
+      parameters:
+        - { name: client_id, in: query, required: true, schema: { type: string, format: uuid } }
+        - { name: redirect_uri, in: query, required: true, schema: { type: string } }
+        - { name: response_type, in: query, required: true, schema: { type: string } }
+        - { name: code_challenge, in: query, required: true, schema: { type: string } }
+        - { name: code_challenge_method, in: query, required: true, schema: { type: string } }
+        - { name: state, in: query, schema: { type: string } }
+        - { name: scope, in: query, schema: { type: string } }
+        - { name: resource, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: Anfrage gültig
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  client_id: { type: string, format: uuid }
+                  client_name: { type: string }
+                  redirect_uri: { type: string }
+                  redirect_host: { type: string }
+                  scope: { type: string }
+        "400":
+          description: Ungültige Anfrage
+        "401":
+          description: Nicht angemeldet
+        "403":
+          description: Mit Bearer-Token aufgerufen
+    post:
+      summary: Zustimmung erteilen oder ablehnen
+      description: |
+        Speichert die Entscheidung des angemeldeten Benutzers und liefert die Weiterleitung an die
+        registrierte `redirect_uri`: bei Zustimmung mit `code`, `state` und `iss`, bei Ablehnung mit
+        `error=access_denied`. Nur mit Browser-Session; X-CSRF-Token erforderlich; auditiert.
+        Rate-Limit: 30 Anfragen pro 5 Minuten und Client-IP.
+      tags: [OAuth]
+      security: [cookieAuth: []]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/OAuthAuthorizeParams"
+                - type: object
+                  required: [approve]
+                  properties:
+                    approve: { type: boolean }
+      responses:
+        "200":
+          description: Weiterleitungsziel
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  redirect_to: { type: string }
+        "400":
+          description: Ungültige Anfrage (unbekannter Client oder nicht registrierte redirect_uri)
+        "401":
+          description: Nicht angemeldet
+        "403":
+          description: CSRF-Token ungültig oder mit Bearer-Token aufgerufen
+  /api/oauth/grants:
+    get:
+      summary: Verbundene Anwendungen auflisten
+      description: Per OAuth verbundene Anwendungen des angemeldeten Benutzers. Nur mit Browser-Session (403 bei Bearer-Auth).
+      tags: [OAuth]
+      security: [cookieAuth: []]
+      responses:
+        "200":
+          description: Liste (neueste zuerst)
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/OAuthGrant" }
+        "401":
+          description: Nicht angemeldet
+        "403":
+          description: Mit Bearer-Token aufgerufen
+  /api/oauth/grants/{id}:
+    delete:
+      summary: Verbundene Anwendung widerrufen
+      description: Widerruft die Verbindung samt aller Access- und Refresh Tokens sofort. Nur mit Browser-Session; X-CSRF-Token erforderlich; auditiert.
+      tags: [OAuth]
+      security: [cookieAuth: []]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Widerrufen
+        "400":
+          description: Ungültige ID
+        "401":
+          description: Nicht angemeldet
+        "403":
+          description: CSRF-Token ungültig oder mit Bearer-Token aufgerufen
+        "404":
+          description: Verbindung nicht gefunden (oder gehört einem anderen Benutzer)
   /healthz:
     get:
       summary: Health Check
@@ -2192,7 +2512,53 @@ components:
       type: http
       scheme: bearer
       description: Persönliches API-Token (`kgm_…`), erstellt unter „API-Tokens“. Kein CSRF-Header nötig.
+    oauth2:
+      type: oauth2
+      description: |
+        OAuth 2.1 für MCP-Clients (nur `/mcp`). Öffentliche Clients registrieren sich dynamisch
+        (`POST /oauth/register`); Authorization Code mit PKCE (S256) ist Pflicht. Access Tokens
+        (`kgo_…`) gelten 1 Stunde und nur für den MCP-Server, Refresh Tokens (`kgr_…`) 30 Tage
+        und rotieren bei jeder Verwendung.
+      flows:
+        authorizationCode:
+          authorizationUrl: /oauth/authorize
+          tokenUrl: /oauth/token
+          refreshUrl: /oauth/token
+          scopes:
+            mcp: Zugriff auf den MCP-Server mit den Rechten des Benutzers
   schemas:
+    OAuthError:
+      type: object
+      description: Fehlerantwort gemäß RFC 6749 bzw. RFC 7591.
+      properties:
+        error:
+          type: string
+          example: invalid_grant
+          description: z. B. invalid_request, invalid_client, invalid_grant, invalid_scope, invalid_target, unsupported_grant_type, invalid_redirect_uri, invalid_client_metadata
+        error_description: { type: string }
+    OAuthGrant:
+      type: object
+      description: Verbundene Anwendung (per OAuth erteilter Zugriff).
+      properties:
+        id: { type: string, format: uuid }
+        client_id: { type: string, format: uuid }
+        client_name: { type: string, example: "Claude" }
+        redirect_host: { type: string, example: "claude.ai" }
+        scope: { type: string, example: "mcp" }
+        created_at: { type: string, format: date-time }
+        last_used_at: { type: string, format: date-time, nullable: true }
+    OAuthAuthorizeParams:
+      type: object
+      required: [client_id, redirect_uri, response_type, code_challenge, code_challenge_method]
+      properties:
+        client_id: { type: string, format: uuid }
+        redirect_uri: { type: string, description: Muss exakt einer registrierten redirect_uri entsprechen. }
+        response_type: { type: string, enum: [code] }
+        code_challenge: { type: string, description: "BASE64URL(SHA256(code_verifier)), 43 Zeichen" }
+        code_challenge_method: { type: string, enum: [S256] }
+        state: { type: string, maxLength: 1024 }
+        scope: { type: string, description: Wird syntaktisch geprüft; erteilt wird immer `mcp`. }
+        resource: { type: string, description: "RFC 8707; falls gesetzt, muss es `<PUBLIC_BASE_URL>/mcp` sein." }
     User:
       type: object
       properties:

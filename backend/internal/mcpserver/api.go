@@ -10,6 +10,8 @@ import (
 	"net/url"
 
 	"github.com/valyala/fasthttp"
+
+	"github.com/schnurbus/go-kegelmaster/backend/internal/oauth"
 )
 
 // API performs a request against the Kegelmaster REST API on behalf of the
@@ -59,6 +61,10 @@ func (a *InProcessAPI) Do(_ context.Context, token, method, path string, query u
 
 	var rc fasthttp.RequestCtx
 	rc.Init(&req, loopbackAddr, nil)
+	// Marks the request as dispatched by the MCP server: OAuth access tokens
+	// (audience /mcp) are only accepted on such requests. External requests
+	// cannot set fasthttp user values.
+	rc.SetUserValue(oauth.InProcessKey{}, true)
 	a.handler(&rc)
 	return rc.Response.StatusCode(), bytes.Clone(rc.Response.Body()), nil
 }
