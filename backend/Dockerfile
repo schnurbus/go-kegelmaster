@@ -1,13 +1,13 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1.29
 
-FROM golang:1.26-alpine AS builder
+FROM golang:1.27-alpine AS builder
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -o /out/server ./cmd/api
 
-FROM alpine:3.20
+FROM alpine:3.24
 WORKDIR /app
 RUN adduser -D -g '' appuser
 USER appuser
