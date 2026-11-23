@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1.29
 # Multi-stage build: frontend -> backend (with embedded frontend) -> runtime.
 # Build with version: docker build --build-arg VERSION=v1.2.3 ...
 
@@ -10,7 +10,7 @@ RUN npm ci
 COPY frontend/ .
 RUN npm run build
 
-FROM golang:1.26-alpine AS backend
+FROM golang:1.27-alpine AS backend
 ARG VERSION
 WORKDIR /app/backend
 COPY backend/go.mod backend/go.sum ./
@@ -19,7 +19,7 @@ COPY backend/ .
 COPY --from=frontend /app/dist ./internal/server/web
 RUN CGO_ENABLED=0 GOOS=linux go build -tags embed -ldflags "-X main.Version=${VERSION}" -o /out/kegelmaster ./cmd/api
 
-FROM alpine:3.20
+FROM alpine:3.24
 RUN adduser -D -g '' appuser
 USER appuser
 COPY --from=backend /out/kegelmaster /usr/local/bin/kegelmaster
